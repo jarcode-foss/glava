@@ -353,6 +353,7 @@ struct gl_data {
     int fcounter;
     bool print_fps, avg_window;
     void** t_data;
+    float gravity_step;
 };
 
 #ifdef GLAD_DEBUG
@@ -385,6 +386,31 @@ static struct gl_bind_src bind_sources[] = {
 };
 
 #define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * (double) t  / (double)(sz - 1))))
+#define ALLOC_ONCE(u, udata, ...)                    \
+    if (*udata == NULL) {                       \
+        printf("alloc");                        \
+        u = malloc(sizeof(*u));                 \
+        *u = (typeof(*u)) __VA_ARGS__;          \
+        *udata = u;                             \
+    } else u = (typeof(u)) *udata;
+
+void transform_gravity(struct gl_data* d, void** udata, void* data) {
+    struct gl_sampler_data* s = (struct gl_sampler_data*) data;
+    float* b = s->buf;
+    size_t sz = s->sz, t;
+    
+    struct {
+        float* applied;
+    }* u;
+    ALLOC_ONCE(u, udata, { .applied = calloc(sz, sizeof(float)) });
+    
+    for (t = 0; t < sz; ++t) {
+        if (b[t] >= u->applied[t]) {
+            u->applied[t] = b[t] - d->gravity_step;
+        } else u->applied[t] -= d->gravity_step;
+        b[t] = u->applied[t];
+    }
+}
 
 void transform_average(struct gl_data* d, void** udata, void* data) {
     
@@ -398,12 +424,7 @@ void transform_average(struct gl_data* d, void** udata, void* data) {
     struct {
         float* bufs;
     }* u;
-    if (*udata == NULL) {
-        u = malloc(sizeof(*u));
-        *u = (typeof(*u)) {
-            .bufs = calloc(tsz, sizeof(float))
-        };
-    } else u = (typeof(u)) *udata;
+    ALLOC_ONCE(u, udata, { .bufs = calloc(tsz, sizeof(float)) });
     
     memmove(u->bufs, &u->bufs[sz], (tsz - sz) * sizeof(float));
     memcpy(&u->bufs[tsz - sz], b, sz * sizeof(float));
@@ -508,10 +529,11 @@ void transform_fft(struct gl_data* d, void** _, void* in) {
 }
 
 static struct gl_transform transform_functions[] = {
-    { .name = "window", .type = BIND_SAMPLER1D, .apply = transform_window  },
-    { .name = "fft",    .type = BIND_SAMPLER1D, .apply = transform_fft     },
-    { .name = "wrange", .type = BIND_SAMPLER1D, .apply = transform_wrange  },
-    { .name = "avg",    .type = BIND_SAMPLER1D, .apply = transform_average }
+    { .name = "window",  .type = BIND_SAMPLER1D, .apply = transform_window  },
+    { .name = "fft",     .type = BIND_SAMPLER1D, .apply = transform_fft     },
+    { .name = "wrange",  .type = BIND_SAMPLER1D, .apply = transform_wrange  },
+    { .name = "avg",     .type = BIND_SAMPLER1D, .apply = transform_average },
+    { .name = "gravity", .type = BIND_SAMPLER1D, .apply = transform_gravity }
 };
 
 static struct gl_bind_src* lookup_bind_src(const char* str) {
@@ -537,14 +559,15 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
     
     struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
-        .stages     = NULL,
-        .rate       = 0,
-        .tcounter   = 0.0D,
-        .fcounter   = 0,
-        .print_fps  = true,
-        .bufscale   = 1,
-        .avg_frames = 4,
-        .avg_window = true
+        .stages       = NULL,
+        .rate         = 0,
+        .tcounter     = 0.0D,
+        .fcounter     = 0,
+        .print_fps    = true,
+        .bufscale     = 1,
+        .avg_frames   = 4,
+        .avg_window   = true,
+        .gravity_step = 0.1
     };
     
     #ifdef GLAD_DEBUG
@@ -654,6 +677,8 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
             .handler = RHANDLER(name, args, { gl->avg_frames = *(int*) args[0]; })           },
         {   .name = "setavgwindow", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->avg_window = *(bool*) args[0]; })          },
+        {   .name = "setgravitystep", .fmt = "f",
+            .handler = RHANDLER(name, args, { gl->gravity_step = *(float*) args[0]; })       },
         {
             .name = "transform", .fmt = "ss",
             .handler = RHANDLER(name, args, {
@@ -983,7 +1008,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                     };
                 
                     for (t = 0; t < bind->t_sz; ++t) {
-                        bind->transformations[t](gl, &gl->t_data[t], &d);
+                        bind->transformations[t](gl, &gl->t_data[c], &d);
                         ++c; /* index for transformation data (note: change if new transform types are added) */
                     }
                 }
