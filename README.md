@@ -13,8 +13,7 @@ make
 
 There are currently no make rules (or configure script) for installing anywhere else on the system, and the shaders are hardcoded to be read from the current directory. When development is complete, I will finish the configure & build process.
 
-Note: GLFW's most recent stable version is 3.2, whereas this program needs 3.3 in order to support transparency. You can
-either find a more recent build or compile it yourself. Arch users can install `glfw-x11-git` from the AUR.
+Note: GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order to support transparency (older versions still work, just without transparency). You can either find a more recent build or compile it yourself. Arch users can install `glfw-x11-git` from the AUR.
 
 **Requirements:**
 
@@ -32,6 +31,7 @@ either find a more recent build or compile it yourself. Arch users can install `
 **What needs to be done:**
 
 - Fix breaks in audio spectrum read from the PulseAudio server (possibly a scheduling issue?)
+- Add more visualizer modules and clean up existing ones
 
 **What is complete:**
 
