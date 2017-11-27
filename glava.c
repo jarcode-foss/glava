@@ -53,6 +53,8 @@ int main(int argc, char** argv) {
     
     float lb[r->bufsize_request], rb[r->bufsize_request];
     while (r->alive) {
+
+        rd_time(r); /* update timer for this frame */
         
         bool modified; /* if the audio buffer has been updated by the streaming thread */
 

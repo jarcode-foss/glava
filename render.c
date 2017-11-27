@@ -889,11 +889,15 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
     return r;
 }
 
+void rd_time(struct renderer* r) {
+    struct gl_data* gl = r->gl;
+    
+    glfwSetTime(0.0D); /* reset time for measuring this frame */
+}
+
 void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
     struct gl_data* gl = r->gl;
     size_t t, a;
-    
-    glfwSetTime(0.0D); /* reset time for measuring this frame */
     
     r->alive = !glfwWindowShouldClose(gl->w);
     if (!r->alive)
@@ -954,9 +958,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         glUseProgram(current->shader);
             
         /* Bind framebuffer if this is not the final pass */
-        if (current->valid) {
+        if (current->valid)
             glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
-        }
         
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -1019,7 +1022,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         drawoverlay(&gl->overlay); /* Fullscreen quad (actually just two triangles) */
 
         /* Reset some state */
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        if (current->valid)
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glUseProgram(0);
 
         prev = current;
