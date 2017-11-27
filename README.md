@@ -46,12 +46,12 @@ Note: GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order t
 
 - Port to Windows (???)
 
-##Licensing
+## Licensing
 
 GLava is licensed under the terms of the GPLv3. GLava includes some (heavily modified) source code that originated from [cava](https://github.com/karlstav/cava), which was initially provided under the MIT license (but has been relicensed under the GPL). The source files that originated from cava are the following:
 
-- `[cava]/input/fifo.c  -> [glava]/fifo.c`
-- `[cava]/input/fifo.h  -> [glava]/fifo.h`
+- `[cava]/input/fifo.c -> [glava]/fifo.c`
+- `[cava]/input/fifo.h -> [glava]/fifo.h`
 - `[cava]/input/pulse.c -> [glava]/pulse_input.c`
 - `[cava]/input/pulse.h -> [glava]/pulse_input.h`
 
@@ -64,3 +64,5 @@ The modified files are relicensed under the terms of the GPLv3. The MIT license 
 The below copyright applies for the modifications to the files listed above, and the remaining sources in the repository:
 
 `Copyright (c) 2017 Levi Webb`
+
+**Why did you relicense this software?** Because my views align with the FSF's position on free software -- I see the MIT license as harmful to free software as it fails to preserve modifications of the source code as open source.
