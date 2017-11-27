@@ -32,7 +32,6 @@ either find a more recent build or compile it yourself. Arch users can install `
 **What needs to be done:**
 
 - Fix breaks in audio spectrum read from the PulseAudio server (possibly a scheduling issue?)
-- Fix OpenGL code from crashing the `nvidia` driver on Linux (???)
 
 **What is complete:**
 
@@ -41,6 +40,7 @@ either find a more recent build or compile it yourself. Arch users can install `
 - Programmable modules and configuration written in pure GLSL
 - Preprocessor directive parsing to handle requests and transformations on uniforms before they are passed to the shader.
 - Detecting if the window manager reports the currently focused window as fullscreen (and halting rendering for the duration)
+- Fixed a memory corruption bug that crashed the `nvidia` driver on Linux
 
 **What will never be done:**
 
