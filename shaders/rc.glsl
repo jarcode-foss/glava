@@ -33,7 +33,12 @@
    simple set to zero (or lower) to disable the frame limiter. */
 #request setframerate 0
 
-/* Enable/disable printing framerate every second */
+/* Enable/disable printing framerate every second. 'FPS' stands
+   for 'Frames Per Second', and 'UPS' stands for 'Updates Per
+   Second'. Updates are performed when new data is submitted
+   by pulseaudio, and require transformations to be re-applied
+   (thus being a good measure of how much work your CPU has to
+   perform over time) */
 #request setprintframes true
 
 /* Audio buffer size to be used for processing and shaders. 

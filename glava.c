@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
             audio.modified = false; /* set this flag to false until the next time we read */
         }
         pthread_mutex_unlock(&audio.mutex);
-
+        
         /* Only render if needed (ie. stop rendering when fullscreen windows are focused) */
         if (xwin_should_render()) {
             rd_update(r, lb, rb, r->bufsize_request, modified);

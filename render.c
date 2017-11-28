@@ -350,10 +350,10 @@ struct gl_data {
     int lww, lwh; /* last window height */
     int rate; /* framerate */
     double tcounter;
-    int fcounter;
+    int fcounter, ucounter;
     bool print_fps, avg_window;
     void** t_data;
-    float gravity_step;
+    float gravity_step, target_spu;
 };
 
 #ifdef GLAD_DEBUG
@@ -388,7 +388,6 @@ static struct gl_bind_src bind_sources[] = {
 #define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * (double) t  / (double)(sz - 1))))
 #define ALLOC_ONCE(u, udata, ...)                    \
     if (*udata == NULL) {                       \
-        printf("alloc");                        \
         u = malloc(sizeof(*u));                 \
         *u = (typeof(*u)) __VA_ARGS__;          \
         *udata = u;                             \
@@ -563,6 +562,7 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
         .rate         = 0,
         .tcounter     = 0.0D,
         .fcounter     = 0,
+        .ucounter     = 0,
         .print_fps    = true,
         .bufscale     = 1,
         .avg_frames   = 4,
@@ -805,7 +805,7 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
     loading_module = false;
 
     /* Iterate through shader passes in the shader directory and build textures, framebuffers, and
-     shader programs with each fragment shader. */
+       shader programs with each fragment shader. */
     
     struct gl_sfbo* stages;
     size_t count = 0;
@@ -870,7 +870,7 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
                         s->shader = id;
 
                         /* Only setup a framebuffer and texture if this isn't the final step,
-                         as it can rendered directly */
+                           as it can rendered directly */
                         if (idx != count)
                             setup_sfbo(&stages[idx - 1], w, h);
 
@@ -892,9 +892,14 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
             ++idx;
         } while (found);
     }
-
+    
     gl->stages = stages;
     gl->stages_sz = count;
+    
+    /* target seconds per update */
+    gl->target_spu = (float) (r->samplesize_request / 4) / (float) r->rate_request;
+    /* multiply gravity step by time occurred for each step */
+    gl->gravity_step *= gl->target_spu;
     
     gl->audio_tex_r = create_1d_tex();
     gl->audio_tex_l = create_1d_tex();
@@ -1000,16 +1005,18 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             /* Handle transformations and bindings for 1D samplers */
             void handle_1d_tex(GLuint tex, float* buf, size_t sz, int offset) {
 
-                /* Only apply transformations if the buffers we given are newly copied from PA */
+                /* Only apply transformations if the buffers we
+                   were given are newly copied from PA */
                 if (modified) {
                     size_t t;
                     struct gl_sampler_data d = {
                         .buf = buf, .sz = sz
                     };
-                
+                    
                     for (t = 0; t < bind->t_sz; ++t) {
                         bind->transformations[t](gl, &gl->t_data[c], &d);
-                        ++c; /* index for transformation data (note: change if new transform types are added) */
+                        ++c; /* Index for transformation data (note: change if new
+                                transform types are added) */
                     }
                 }
                 
@@ -1077,11 +1084,16 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     /* print FPS counter (if needed) */
     if (gl->print_fps) {
         ++gl->fcounter;
+        if (modified)
+            ++gl->ucounter;
         gl->tcounter += duration;
         if (gl->tcounter >= 1.0D) {
-            printf("FPS: %.2f\n", ((double) gl->fcounter / gl->tcounter));
+            printf("FPS: %.2f, UPS: %.2f\n",
+                   ((double) gl->fcounter / gl->tcounter),
+                   ((double) gl->ucounter / gl->tcounter));
             gl->tcounter = 0;
             gl->fcounter = 0;
+            gl->ucounter = 0;
         }
     }
 }
