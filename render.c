@@ -526,7 +526,7 @@ void transform_fft(struct gl_data* d, void** _, void* in) {
     /* abs and log scale */
     for (n = 0; n < s->sz; ++n) {
         if (data[n] < 0.0F) data[n] = -data[n];
-        data[n] = log(data[n]) / 3;
+        data[n] = log(data[n] + 1) / 3;
     }
 }
 
