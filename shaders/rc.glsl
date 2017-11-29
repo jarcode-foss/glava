@@ -58,10 +58,10 @@
    will also require all transformations to be applied much 
    more frequently (CPU intensive).
    
-   High (>2048, with 22050 kHz) values will decrease accuracy
+   High (>2048, with 22050 Hz) values will decrease accuracy
    (as some signals can be missed by transformations like FFT)
    
-   The following settings (@22050 kHz) produce the listed rates: 
+   The following settings (@22050 Hz) produce the listed rates: 
    
    Sample    UPS                  Description
    - 2048 -> 43.0  (low accuracy, cheap), use with ~60 FPS
