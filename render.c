@@ -350,10 +350,11 @@ struct gl_data {
     int lww, lwh; /* last window height */
     int rate; /* framerate */
     double tcounter;
-    int fcounter, ucounter;
-    bool print_fps, avg_window;
+    int fcounter, ucounter, kcounter;
+    bool print_fps, avg_window, interpolate;
     void** t_data;
-    float gravity_step, target_spu;
+    float gravity_step, target_spu, fr, ur;
+    float* interpolate_buf[4];
 };
 
 #ifdef GLAD_DEBUG
@@ -402,11 +403,13 @@ void transform_gravity(struct gl_data* d, void** udata, void* data) {
         float* applied;
     }* u;
     ALLOC_ONCE(u, udata, { .applied = calloc(sz, sizeof(float)) });
+
+    float g = d->gravity_step * (1.0F / d->ur);
     
     for (t = 0; t < sz; ++t) {
         if (b[t] >= u->applied[t]) {
-            u->applied[t] = b[t] - d->gravity_step;
-        } else u->applied[t] -= d->gravity_step;
+            u->applied[t] = b[t] - g;
+        } else u->applied[t] -= g;
         b[t] = u->applied[t];
     }
 }
@@ -563,11 +566,15 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
         .tcounter     = 0.0D,
         .fcounter     = 0,
         .ucounter     = 0,
+        .kcounter     = 0,
+        .fr           = 1.0F,
+        .ur           = 1.0F,
         .print_fps    = true,
         .bufscale     = 1,
         .avg_frames   = 4,
         .avg_window   = true,
-        .gravity_step = 0.1
+        .gravity_step = 0.1,
+        .interpolate  = true,
     };
     
     #ifdef GLAD_DEBUG
@@ -679,6 +686,8 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
             .handler = RHANDLER(name, args, { gl->avg_window = *(bool*) args[0]; })          },
         {   .name = "setgravitystep", .fmt = "f",
             .handler = RHANDLER(name, args, { gl->gravity_step = *(float*) args[0]; })       },
+        {   .name = "setinterpolate", .fmt = "b",
+            .handler = RHANDLER(name, args, { gl->interpolate = *(bool*) args[0]; })       },
         {
             .name = "transform", .fmt = "ss",
             .handler = RHANDLER(name, args, {
@@ -898,11 +907,19 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
     
     /* target seconds per update */
     gl->target_spu = (float) (r->samplesize_request / 4) / (float) r->rate_request;
-    /* multiply gravity step by time occurred for each step */
-    gl->gravity_step *= gl->target_spu;
     
     gl->audio_tex_r = create_1d_tex();
     gl->audio_tex_l = create_1d_tex();
+
+    if (gl->interpolate) {
+        size_t isz = (r->bufsize_request / gl->bufscale) * sizeof(float);
+        float* ibuf = malloc(isz * 4);
+        gl->interpolate_buf[0] = &ibuf[isz * 0];
+        gl->interpolate_buf[1] = &ibuf[isz * 1];
+        gl->interpolate_buf[2] = &ibuf[isz * 2];
+        gl->interpolate_buf[3] = &ibuf[isz * 3];
+    }
+    
 
     {
         gl->t_data = malloc(sizeof(void*) * t_count);
@@ -925,16 +942,20 @@ void rd_time(struct renderer* r) {
     glfwSetTime(0.0D); /* reset time for measuring this frame */
 }
 
+#define IB_START_LEFT 0
+#define IB_END_LEFT 1
+#define IB_START_RIGHT 2
+#define IB_END_RIGHT 3
+
 void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
     struct gl_data* gl = r->gl;
-    size_t t, a;
+    size_t t, a, fbsz = bsz * sizeof(float);
     
     r->alive = !glfwWindowShouldClose(gl->w);
     if (!r->alive)
         return;
 
     /* Perform buffer scaling */
-
     size_t nsz = gl->bufscale > 1 ? (bsz / gl->bufscale) : 0;
     float nlb[nsz], nrb[nsz];
     if (gl->bufscale > 1) {
@@ -958,6 +979,24 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         lb = nlb;
         rb = nrb;
         bsz = nsz;
+        fbsz = bsz * sizeof(float);
+    }
+
+    /* Linear interpolation */
+    float ilb[gl->interpolate ? bsz : 0], irb[gl->interpolate ? bsz : 0];
+    if (gl->interpolate) {
+        for (t = 0; t < bsz; ++t) {
+            /* Obtain start/end values at this index for left & right buffers */
+            float
+                ilbs = gl->interpolate_buf[IB_START_LEFT ][t],
+                ilbe = gl->interpolate_buf[IB_END_LEFT   ][t],
+                irbs = gl->interpolate_buf[IB_START_RIGHT][t],
+                irbe = gl->interpolate_buf[IB_END_RIGHT  ][t],
+                mod  = (gl->ur / gl->fr) * gl->kcounter; /* modifier for this frame */
+            if (mod > 1.0F) mod = 1.0F;
+            ilb[t] = ilbs + ((ilbe - ilbs) * mod);
+            irb[t] = irbs + ((irbe - irbs) * mod);
+        }
     }
     
     /* Resize screen textures if needed */
@@ -1003,7 +1042,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             struct gl_bind* bind = &current->binds[b];
 
             /* Handle transformations and bindings for 1D samplers */
-            void handle_1d_tex(GLuint tex, float* buf, size_t sz, int offset) {
+            void handle_1d_tex(GLuint tex, float* buf, float* ubuf, size_t sz, int offset) {
 
                 /* Only apply transformations if the buffers we
                    were given are newly copied from PA */
@@ -1022,7 +1061,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 
                 if (!needed[offset]) {
                     glActiveTexture(GL_TEXTURE0 + offset);
-                    update_1d_tex(tex, sz, buf);
+                    update_1d_tex(tex, sz, gl->interpolate ? (ubuf ? ubuf : buf) : buf);
                     glBindTexture(GL_TEXTURE_1D, tex);
                     needed[offset] = true;
                 }
@@ -1044,8 +1083,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 }
                 glUniform1i(bind->uniform, 0);
                 break;
-            case SRC_AUDIO_L:  handle_1d_tex(gl->audio_tex_l, lb, bsz, 1);         break;
-            case SRC_AUDIO_R:  handle_1d_tex(gl->audio_tex_r, rb, bsz, 2);         break;
+            case SRC_AUDIO_L:  handle_1d_tex(gl->audio_tex_l, lb, ilb, bsz, 1);         break;
+            case SRC_AUDIO_R:  handle_1d_tex(gl->audio_tex_r, rb, irb, bsz, 2);         break;
             case SRC_AUDIO_SZ: glUniform1i(bind->uniform, bsz);                    break;
             case SRC_SCREEN:   glUniform2i(bind->uniform, (GLint) ww, (GLint) wh); break;
             }
@@ -1059,6 +1098,14 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         glUseProgram(0);
 
         prev = current;
+    }
+
+    /* Push and copy buffer if we need to interpolate from it later */
+    if (gl->interpolate && modified) {
+        memcpy(gl->interpolate_buf[IB_START_LEFT ], gl->interpolate_buf[IB_END_LEFT ], fbsz);
+        memcpy(gl->interpolate_buf[IB_START_RIGHT], gl->interpolate_buf[IB_END_RIGHT], fbsz);
+        memcpy(gl->interpolate_buf[IB_END_LEFT   ], lb, fbsz);
+        memcpy(gl->interpolate_buf[IB_END_RIGHT  ], rb, fbsz);
     }
 
     /* Swap buffers, handle events, etc. (vsync is potentially included here, too) */
@@ -1081,20 +1128,23 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         }
     }
 
-    /* print FPS counter (if needed) */
-    if (gl->print_fps) {
-        ++gl->fcounter;
-        if (modified)
-            ++gl->ucounter;
-        gl->tcounter += duration;
-        if (gl->tcounter >= 1.0D) {
+    /* Handle counters and print FPS counter (if needed) */
+    
+    ++gl->fcounter;           /* increment frame counter                          */
+    if (modified) {           /* if this is an update/key frame                   */
+        ++gl->ucounter;       /*   increment update frame counter                 */
+        gl->kcounter = 0;     /*   reset keyframe counter (for interpolation)     */
+    } else ++gl->kcounter;    /* increment keyframe counter otherwise             */
+    gl->tcounter += duration; /* timer counter, measuring when a >1s has occurred */
+    if (gl->tcounter >= 1.0D) {
+        gl->fr = gl->fcounter / gl->tcounter; /* frame rate (FPS)     */
+        gl->ur = gl->ucounter / gl->tcounter; /* update rate (UPS)    */
+        if (gl->print_fps)                    /* print FPS            */
             printf("FPS: %.2f, UPS: %.2f\n",
-                   ((double) gl->fcounter / gl->tcounter),
-                   ((double) gl->ucounter / gl->tcounter));
-            gl->tcounter = 0;
-            gl->fcounter = 0;
-            gl->ucounter = 0;
-        }
+                   (double) gl->fr, (double) gl->ur);
+        gl->tcounter = 0;                     /* reset timer          */
+        gl->fcounter = 0;                     /* reset frame counter  */
+        gl->ucounter = 0;                     /* reset update counter */
     }
 }
 

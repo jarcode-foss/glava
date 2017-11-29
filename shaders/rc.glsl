@@ -29,6 +29,18 @@
    amount of frames. */
 #request setswap 1
 
+/* Linear interpolation for audio data frames. Drastically
+   improves smoothness with configurations that yield low UPS
+   (`setsamplerate` and `setsamplesize`), or monitors that have
+   high refresh rates.
+   
+   This feature itself, however, will effect performance as it
+   will have to interpolate data every frame on the CPU.
+   
+   This will delay data output by two update frames, so it can
+   desync audio with visual effects on low UPS configs. */
+#request setinterpolate true
+
 /* Frame limiter, set to the frames per second (FPS) desired or
    simple set to zero (or lower) to disable the frame limiter. */
 #request setframerate 0
@@ -41,6 +53,24 @@
    perform over time) */
 #request setprintframes true
 
+/* PulseAudio sample buffer size. Lower values result in more
+   frequent audio updates (also depends on sampling rate), but
+   will also require all transformations to be applied much 
+   more frequently (CPU intensive).
+   
+   High (>2048, with 22050 kHz) values will decrease accuracy
+   (as some signals can be missed by transformations like FFT)
+   
+   The following settings (@22050 kHz) produce the listed rates: 
+   
+   Sample    UPS                  Description
+   - 2048 -> 43.0  (low accuracy, cheap), use with ~60 FPS
+   - 1024 -> 86.1  (high accuracy, expensive), use with 120+ FPS
+   -  512 -> 172.3 (extreme accuracy, very expensive), use only
+                   for graphing accurate spectrum data with
+                   custom modules. */
+#request setsamplesize 1024
+
 /* Audio buffer size to be used for processing and shaders. 
    Increasing this value can have the effect of adding 'gravity'
    to FFT output, as the audio signal will remain in the buffer
@@ -50,7 +80,17 @@
    quality for some modules. */
 #request setbufsize 4096
 
-/* Scale down the audio buffer before any operations are 
+/* PulseAudio sample rate. Lower values can add 'gravity' to
+   FFT output, but can also reduce accuracy. Most hardware
+   samples at 44100Hz.
+   
+   Lower sample rates also can make output more choppy, when
+   not using interpolation. It's generally OK to leave this
+   value unless you have a strange PulseAudio configuration. */
+#request setsamplerate 22050
+
+/*                    ** DEPRECATED **
+   Scale down the audio buffer before any operations are 
    performed on the data. Higher values are faster.
    
    This value can affect the output of various transformations,
@@ -58,20 +98,6 @@
    the buffer. It is reccommended to use `setsamplerate` and
    `setsamplesize` to improve performance or accuracy instead. */
 #request setbufscale 1
-
-/* PulseAudio sample rate. Lower values can add 'gravity' to
-   FFT output, but can also reduce accuracy (especially for
-   higher frequencies). Most hardware samples at 44100Hz.
-   
-   Lower sample rates also can make output more choppy, when
-   not using smoothing algorithms. */
-#request setsamplerate 22000
-
-/* PulseAudio sample buffer size. Lower values result in more
-   frequent audio updates (also depends on sampling rate), but
-   will also require all transformations to be applied much 
-   more frequently (slower) */
-#request setsamplesize 1024
 
 /* OpenGL context and GLSL shader versions, do not change unless
    you _absolutely_ know what you are doing. */
