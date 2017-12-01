@@ -7,7 +7,8 @@ typedef struct renderer {
     struct gl_data* gl;
 } renderer;
 
-struct renderer* rd_new(int x, int y, int w, int h, const char* shader_path);
+struct renderer* rd_new(const char* shader_path);
 void             rd_update(struct renderer*, float* lb, float* rb, size_t bsz, bool modified);
 void             rd_destroy(struct renderer*);
 void             rd_time(struct renderer*);
+void*            rd_get_impl_window(struct renderer*);

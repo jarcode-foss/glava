@@ -17,12 +17,33 @@
 
 /* GLFW window hints */
 #request setfloating  true
-#request setdecorated true
+#request setdecorated false
 #request setfocused   true
 #request setmaximized false
 
 /* GLFW window title */
 #request settitle "GLava"
+
+/* GLFW window geometry (x, y, width, height) */
+#request setgeometry 0 0 400 600
+
+/* Force GLFW window geometry (locking the window in place), useful
+   for some pesky WMs that try to reposition the window when
+   embedding in the desktop. */
+#request setforcegeometry false
+
+/* (X11 only) EWMH Window type. Possible values are:
+   
+   "desktop", "dock",   "toolbar", "menu",
+   "utility", "splash", "dialog",  "normal"
+   
+   This will set _NET_WM_WINDOW_TYPE to _NET_WM_WINDOW_TYPE_(TYPE),
+   where (TYPE) is the one of the window types listed (after being
+   converted to uppercase). More information can be found at:
+   
+   https://standards.freedesktop.org/wm-spec/wm-spec-1.3.html#idm140130317606816
+*/
+#request setxwintype "normal"
 
 /* GLFW buffer swap interval (vsync), set to '0' to prevent
    waiting for refresh, '1' (or more) to wait for the specified

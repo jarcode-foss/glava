@@ -9,12 +9,12 @@
 #include "fifo.h"
 #include "pulse_input.h"
 #include "render.h"
-#include "xwincheck.h"
+#include "xwin.h"
 
 int main(int argc, char** argv) {
     const char* audio_source = argc >= 2 ? argv[1] : NULL; //TODO: change
 
-    renderer* r = rd_new(0, 0, 400, 500, "shaders");
+    renderer* r = rd_new("shaders");
 
     float b0[r->bufsize_request], b1[r->bufsize_request];
     size_t t;

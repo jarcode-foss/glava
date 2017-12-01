@@ -17,6 +17,7 @@
 #include <GLFW/glfw3.h>
 
 #include "render.h"
+#include "xwin.h"
 #include "glsl_ext.h"
 
 #define TWOPI 6.28318530718
@@ -358,10 +359,11 @@ struct gl_data {
     int rate; /* framerate */
     double tcounter;
     int fcounter, ucounter, kcounter;
-    bool print_fps, avg_window, interpolate;
+    bool print_fps, avg_window, interpolate, force_geometry;
     void** t_data;
     float gravity_step, target_spu, fr, ur;
     float* interpolate_buf[6];
+    int geometry[4];
 };
 
 #ifdef GLAD_DEBUG
@@ -588,7 +590,7 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
     return NULL;
 }
 
-struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
+struct renderer* rd_new(const char* data) {
     
     renderer* r = malloc(sizeof(struct renderer));
     *r = (struct renderer) {
@@ -601,20 +603,21 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
     
     struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
-        .stages       = NULL,
-        .rate         = 0,
-        .tcounter     = 0.0D,
-        .fcounter     = 0,
-        .ucounter     = 0,
-        .kcounter     = 0,
-        .fr           = 1.0F,
-        .ur           = 1.0F,
-        .print_fps    = true,
-        .bufscale     = 1,
-        .avg_frames   = 4,
-        .avg_window   = true,
-        .gravity_step = 0.1,
-        .interpolate  = true,
+        .stages         = NULL,
+        .rate           = 0,
+        .tcounter       = 0.0D,
+        .fcounter       = 0,
+        .ucounter       = 0,
+        .kcounter       = 0,
+        .fr             = 1.0F,
+        .ur             = 1.0F,
+        .print_fps      = true,
+        .bufscale       = 1,
+        .avg_frames     = 4,
+        .avg_window     = true,
+        .gravity_step   = 0.1,
+        .interpolate    = true,
+        .force_geometry = false
     };
     
     #ifdef GLAD_DEBUG
@@ -643,7 +646,7 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
            " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n");
     #endif
 
-    if (!(gl->w = glfwCreateWindow(w, h, "GLava", NULL, NULL))) {
+    if (!(gl->w = glfwCreateWindow(500, 400, "GLava", NULL, NULL))) {
         glfwTerminate();
         abort();
     }
@@ -665,7 +668,7 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
 
 
     int shader_version = 330;
-    char* module = NULL;
+    char* module = NULL, * xwintype = NULL;
     bool loading_module = true;
     struct gl_sfbo* current = NULL;
     size_t t_count = 0;
@@ -702,6 +705,21 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
                     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, *(int*) args[1]);
                 })
         },
+        {
+            .name = "setgeometry", .fmt = "iiii",
+            .handler = RHANDLER(name, args, {
+                    gl->geometry[0] = *(int*) args[0];
+                    gl->geometry[1] = *(int*) args[1];
+                    gl->geometry[2] = *(int*) args[2];
+                    gl->geometry[3] = *(int*) args[3];
+                    glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
+                    glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
+                })
+        },
+        {   .name = "setforcegeometry", .fmt = "b",
+            .handler = RHANDLER(name, args, { gl->force_geometry = *(bool*) args[0]; })      },
+        {   .name = "setxwintype", .fmt = "s",
+            .handler = RHANDLER(name, args, { xwintype = strdup((char*) args[0]); })         },
         {   .name = "setshaderversion", .fmt = "i",
             .handler = RHANDLER(name, args, { shader_version = *(int*) args[0]; })           },
         {   .name = "setswap", .fmt = "i",
@@ -727,7 +745,7 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
         {   .name = "setgravitystep", .fmt = "f",
             .handler = RHANDLER(name, args, { gl->gravity_step = *(float*) args[0]; })       },
         {   .name = "setinterpolate", .fmt = "b",
-            .handler = RHANDLER(name, args, { gl->interpolate = *(bool*) args[0]; })       },
+            .handler = RHANDLER(name, args, { gl->interpolate = *(bool*) args[0]; })         },
         {
             .name = "transform", .fmt = "ss",
             .handler = RHANDLER(name, args, {
@@ -829,9 +847,9 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
             .cd         = data,
             .handlers   = handlers
         };
-
+        
         ext_process(&ext, se_buf);
-
+        
         munmap((void*) map, st.st_size);
     }
     
@@ -920,8 +938,11 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
 
                         /* Only setup a framebuffer and texture if this isn't the final step,
                            as it can rendered directly */
-                        if (idx != count)
+                        if (idx != count) {
+                            int w, h;
+                            glfwGetFramebufferSize(gl->w, &w, &h);
                             setup_sfbo(&stages[idx - 1], w, h);
+                        }
 
                         glUseProgram(id);
                         
@@ -976,6 +997,11 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
 
     glfwShowWindow(gl->w);
     
+    if (xwintype) {
+        xwin_settype(r, xwintype);
+        free(xwintype);
+    }
+        
     return r;
 }
 
@@ -1190,13 +1216,22 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         gl->tcounter = 0;                     /* reset timer          */
         gl->fcounter = 0;                     /* reset frame counter  */
         gl->ucounter = 0;                     /* reset update counter */
+        
+        /* Refresh window position and size if we are forcing it */
+        if (gl->force_geometry) {
+            glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
+            glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
+        }
     }
 
     /* Restore interpolation settings */
     gl->interpolate = old_interpolate;
 }
 
+void* rd_get_impl_window(struct renderer* r) { return r->gl->w; }
+
 void rd_destroy(struct renderer* r) {
+    /* TODO: delete everything else, not really needed though (as the application exits after here) */
     glfwTerminate();
     free(r->gl);
     free(r);

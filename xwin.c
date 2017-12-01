@@ -1,13 +1,21 @@
+/* X11 specific code and features */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include <limits.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 
-#include "xwincheck.h"
+#define GLFW_EXPOSE_NATIVE_X11
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+
+#include "render.h"
+#include "xwin.h"
 
 bool xwin_should_render(void) {
     bool ret = true;
@@ -46,4 +54,26 @@ bool xwin_should_render(void) {
  close:
     XCloseDisplay(d);
     return ret;
+}
+
+/* Set window types defined by the EWMH standard, possible values:
+   -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
+void xwin_settype(struct renderer* rd, const char* type) {
+    Window w = glfwGetX11Window((GLFWwindow*) rd_get_impl_window(rd));
+    Display* d = XOpenDisplay(0);
+    Atom wtype = XInternAtom(d, "_NET_WM_WINDOW_TYPE", false);
+    size_t len = strlen(type), t;
+    char formatted[len + 1];
+    for (t = 0; t < len + 1; ++t) {
+        char c = type[t];
+        switch (c) {
+        case 'a' ... 'z': c -= 'a' - 'A';
+        default:          formatted[t] = c;
+        }
+    }
+    char buf[256];
+    snprintf(buf, sizeof(buf), "_NET_WM_WINDOW_TYPE_%s", formatted);
+    Atom desk = XInternAtom(d, buf, false);
+    XChangeProperty(d, w, wtype, XA_ATOM, 32, PropModeReplace, (unsigned char*) &desk, 1);
+    XCloseDisplay(d);
 }
