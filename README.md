@@ -4,11 +4,11 @@ GLava is an (in development) OpenGL audio spectrum visualizer. Its primary use c
 
 **Compiling** (after meeting the requirements)**:**
 
-```
-git clone --recursive https://github.com/wacossusca34/glava
-cd glava
-make
-./glava
+```bash
+$ git clone --recursive https://github.com/wacossusca34/glava
+$ cd glava
+$ make
+$ ./glava
 ```
 
 There are currently no make rules (or configure script) for installing anywhere else on the system, and the shaders are hardcoded to be read from the current directory. When development is complete, I will finish the configure & build process.
