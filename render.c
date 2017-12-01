@@ -23,6 +23,13 @@
 #define PI 3.14159265359
 #define swap(a, b) do { __auto_type tmp = a; a = b; b = tmp; } while (0)
 
+#define IB_START_LEFT 0
+#define IB_END_LEFT 1
+#define IB_START_RIGHT 2
+#define IB_END_RIGHT 3
+#define IB_WORK_LEFT 4
+#define IB_WORK_RIGHT 5
+
 /* Only a single vertex shader is needed for GLava, since all rendering is done in the fragment shader
    over a fullscreen quad */
 #define VERTEX_SHADER_SRC \
@@ -354,7 +361,7 @@ struct gl_data {
     bool print_fps, avg_window, interpolate;
     void** t_data;
     float gravity_step, target_spu, fr, ur;
-    float* interpolate_buf[4];
+    float* interpolate_buf[6];
 };
 
 #ifdef GLAD_DEBUG
@@ -945,13 +952,16 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
     gl->audio_tex_l = create_1d_tex();
     
     if (gl->interpolate) {
-        size_t isz = (r->bufsize_request / gl->bufscale) * sizeof(float);
-        float* ibuf = malloc(isz * 4);
-        memset(ibuf, 0, isz * 4);
-        gl->interpolate_buf[0] = &ibuf[isz * 0];
-        gl->interpolate_buf[1] = &ibuf[isz * 1];
-        gl->interpolate_buf[2] = &ibuf[isz * 2];
-        gl->interpolate_buf[3] = &ibuf[isz * 3];
+        /* Allocate six buffers at once */
+        size_t isz = (r->bufsize_request / gl->bufscale);
+        float* ibuf = malloc(isz * 6 * sizeof(float));
+        
+        gl->interpolate_buf[IB_START_LEFT ] = &ibuf[isz * IB_START_LEFT ]; /* left channel keyframe start  */
+        gl->interpolate_buf[IB_END_LEFT   ] = &ibuf[isz * IB_END_LEFT   ]; /* left channel keyframe end    */
+        gl->interpolate_buf[IB_START_RIGHT] = &ibuf[isz * IB_START_RIGHT]; /* right channel keyframe start */
+        gl->interpolate_buf[IB_END_RIGHT  ] = &ibuf[isz * IB_END_RIGHT  ]; /* right channel keyframe end   */
+        gl->interpolate_buf[IB_WORK_LEFT  ] = &ibuf[isz * IB_WORK_LEFT  ]; /* left interpolation results   */
+        gl->interpolate_buf[IB_WORK_RIGHT ] = &ibuf[isz * IB_WORK_RIGHT ]; /* right interpolation results  */
     }
 
     {
@@ -975,11 +985,6 @@ void rd_time(struct renderer* r) {
     glfwSetTime(0.0D); /* reset time for measuring this frame */
 }
 
-#define IB_START_LEFT 0
-#define IB_END_LEFT 1
-#define IB_START_RIGHT 2
-#define IB_END_RIGHT 3
-
 void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
     struct gl_data* gl = r->gl;
     size_t t, a, fbsz = bsz * sizeof(float);
@@ -991,7 +996,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     /* Force disable interpolation if the update rate is close to or higher than the frame rate */
     float uratio = (gl->ur / gl->fr); /* update : framerate ratio */
     bool old_interpolate = gl->interpolate;
-    // gl->interpolate = uratio <= 0.9F ? old_interpolate : false;
+    gl->interpolate = uratio <= 0.9F ? old_interpolate : false;
 
     /* Perform buffer scaling */
     size_t nsz = gl->bufscale > 1 ? (bsz / gl->bufscale) : 0;
@@ -1021,7 +1026,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     }
 
     /* Linear interpolation */
-    float ilb[gl->interpolate ? bsz : 0], irb[gl->interpolate ? bsz : 0];
+    float
+        * ilb = gl->interpolate_buf[IB_WORK_LEFT ],
+        * irb = gl->interpolate_buf[IB_WORK_RIGHT];
     if (gl->interpolate) {
         for (t = 0; t < bsz; ++t) {
             /* Obtain start/end values at this index for left & right buffers */
