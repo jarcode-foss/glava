@@ -35,9 +35,13 @@
    high refresh rates.
    
    This feature itself, however, will effect performance as it
-   will have to interpolate data every frame on the CPU.
+   will have to interpolate data every frame on the CPU. It will
+   automatically (and temporarily) disable itself if the update
+   rate is close to, or higher than the framerate:
    
-   This will delay data output by two update frames, so it can
+   if (update_rate / frame_rate > 0.9) disable_interpolation;
+   
+   This will delay data output by one update frame, so it can
    desync audio with visual effects on low UPS configs. */
 #request setinterpolate true
 
@@ -64,11 +68,22 @@
    The following settings (@22050 Hz) produce the listed rates: 
    
    Sample    UPS                  Description
-   - 2048 -> 43.0  (low accuracy, cheap), use with ~60 FPS
-   - 1024 -> 86.1  (high accuracy, expensive), use with 120+ FPS
+   - 2048 -> 43.0  (low accuracy, cheap), use with < 60 FPS
+   - 1024 -> 86.1  (high accuracy, expensive), use with >= 60 FPS
    -  512 -> 172.3 (extreme accuracy, very expensive), use only
                    for graphing accurate spectrum data with
-                   custom modules. */
+                   custom modules.
+   
+   If the framerate drops below the update rate, the update rate
+   will be locked to the framerate (to prevent wasting CPU time).
+   This behaviour means you can use a 1024 sample size on a 60Hz
+   monitor with vsync enabled to get 60FPS and 60UPS.
+   
+   For high refresh rate monitors (120+ Hz), it's recommended to
+   also stick with the 1024 sample size and use interpolation to
+   smooth the data, as accuracy beyond this setting is mostly
+   meaningless for visual purposes.
+*/
 #request setsamplesize 1024
 
 /* Audio buffer size to be used for processing and shaders. 

@@ -359,11 +359,44 @@ struct gl_data {
 
 #ifdef GLAD_DEBUG
 
+struct err_msg {
+    GLenum code;
+    const char* msg;
+    const char* cname;
+};
+
+#define CODE(c) .code = c, .cname = #c
+
+static const struct err_msg err_lookup[] = {
+    { CODE(GL_INVALID_ENUM), .msg = "Invalid enum parameter" },
+    { CODE(GL_INVALID_VALUE), .msg = "Invalid value parameter" },
+    { CODE(GL_INVALID_OPERATION), .msg = "Invalid operation" },
+    { CODE(GL_STACK_OVERFLOW), .msg = "Stack overflow" },
+    { CODE(GL_STACK_UNDERFLOW), .msg = "Stack underflow" },
+    { CODE(GL_OUT_OF_MEMORY), .msg = "Out of memory" },
+    { CODE(GL_INVALID_FRAMEBUFFER_OPERATION), .msg = "Out of memory" },
+    #ifdef GL_CONTEXT_LOSS
+    { CODE(GL_CONTEXT_LOSS), .msg = "Context loss (graphics device or driver reset?)" }
+    #endif
+};
+
+#undef CODE
+
 static void glad_debugcb(const char* name, void *funcptr, int len_args, ...) {
     GLenum err = glad_glGetError();
 
     if (err != GL_NO_ERROR) {
-        fprintf(stderr, "glGetError(): %d in %s\n", err, name);
+        const char* cname = "?", * msg = "Unknown error code";
+        size_t t;
+        for (t = 0; t < sizeof(err_lookup) / sizeof(struct err_msg); ++t) {
+            if (err_lookup[t].code == err) {
+                cname = err_lookup[t].cname;
+                msg   = err_lookup[t].msg;
+                break;
+            }
+        }
+        fprintf(stderr, "glGetError(): %d (%s) in %s: '%s'\n",
+                (int) err, cname, name, msg);
         abort();
     }
 }
@@ -910,16 +943,16 @@ struct renderer* rd_new(int x, int y, int w, int h, const char* data) {
     
     gl->audio_tex_r = create_1d_tex();
     gl->audio_tex_l = create_1d_tex();
-
+    
     if (gl->interpolate) {
         size_t isz = (r->bufsize_request / gl->bufscale) * sizeof(float);
         float* ibuf = malloc(isz * 4);
+        memset(ibuf, 0, isz * 4);
         gl->interpolate_buf[0] = &ibuf[isz * 0];
         gl->interpolate_buf[1] = &ibuf[isz * 1];
         gl->interpolate_buf[2] = &ibuf[isz * 2];
         gl->interpolate_buf[3] = &ibuf[isz * 3];
     }
-    
 
     {
         gl->t_data = malloc(sizeof(void*) * t_count);
@@ -954,6 +987,11 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     r->alive = !glfwWindowShouldClose(gl->w);
     if (!r->alive)
         return;
+
+    /* Force disable interpolation if the update rate is close to or higher than the frame rate */
+    float uratio = (gl->ur / gl->fr); /* update : framerate ratio */
+    bool old_interpolate = gl->interpolate;
+    // gl->interpolate = uratio <= 0.9F ? old_interpolate : false;
 
     /* Perform buffer scaling */
     size_t nsz = gl->bufscale > 1 ? (bsz / gl->bufscale) : 0;
@@ -992,7 +1030,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 ilbe = gl->interpolate_buf[IB_END_LEFT   ][t],
                 irbs = gl->interpolate_buf[IB_START_RIGHT][t],
                 irbe = gl->interpolate_buf[IB_END_RIGHT  ][t],
-                mod  = (gl->ur / gl->fr) * gl->kcounter; /* modifier for this frame */
+                mod  = uratio * gl->kcounter; /* modifier for this frame */
             if (mod > 1.0F) mod = 1.0F;
             ilb[t] = ilbs + ((ilbe - ilbs) * mod);
             irb[t] = irbs + ((irbe - irbs) * mod);
@@ -1146,6 +1184,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         gl->fcounter = 0;                     /* reset frame counter  */
         gl->ucounter = 0;                     /* reset update counter */
     }
+
+    /* Restore interpolation settings */
+    gl->interpolate = old_interpolate;
 }
 
 void rd_destroy(struct renderer* r) {
