@@ -26,7 +26,7 @@ void main() {
 
     vec4 avg = (a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7) / 8.0;
     if (avg.a > 0){
-        if (fragment.a <= 0) {
+        if (fragment.a <= 0 && gl_FragCoord.y != screen.y - 1) {
             /* outline */
             fragment = OUTLINE;
         } else if (avg.a < 1 && gl_FragCoord.y != 0) {
