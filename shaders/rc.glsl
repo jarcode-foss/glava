@@ -45,6 +45,11 @@
 */
 #request setxwintype "normal"
 
+/* PulseAudio source. Can be a number or a name of an audio
+   sink or device to record from. Set to "auto" to use the
+   default output device. */
+#request setsource "auto"
+
 /* GLFW buffer swap interval (vsync), set to '0' to prevent
    waiting for refresh, '1' (or more) to wait for the specified
    amount of frames. */
@@ -139,3 +144,5 @@
    you _absolutely_ know what you are doing. */
 #request setversion 3 3
 #request setshaderversion 330
+
+#include "custom.glsl"

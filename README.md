@@ -8,10 +8,10 @@ GLava is an (in development) OpenGL audio spectrum visualizer. Its primary use c
 $ git clone --recursive https://github.com/wacossusca34/glava
 $ cd glava
 $ make
-$ ./glava
+$ sudo make install
 ```
 
-There are currently no make rules (or configure script) for installing anywhere else on the system, and the shaders are hardcoded to be read from the current directory. When development is complete, I will finish the configure & build process.
+You can pass `BUILD=debug` (environment variable) to the makefile for debug builds of both glad and glava, and you can manually specify install targets with `INSTALL=...`, possible arguments are `unix` (FHS compliant Linux and BSD distros), `osx`, and `standalone` (used for running in the build directory).
 
 Note: GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order to support transparency (older versions still work, just without transparency). You can either find a more recent build or compile it yourself. Arch users can install `glfw-x11-git` from the AUR.
 

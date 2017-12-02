@@ -4,6 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <limits.h>
 #include <sys/types.h>
 
 #include "fifo.h"
@@ -11,10 +12,43 @@
 #include "render.h"
 #include "xwin.h"
 
-int main(int argc, char** argv) {
-    const char* audio_source = argc >= 2 ? argv[1] : NULL; //TODO: change
 
-    renderer* r = rd_new("shaders");
+#define FORMAT(...)                             \
+    ({                                          \
+        char* buf = malloc(PATH_MAX);           \
+        snprintf(buf, PATH_MAX, __VA_ARGS__);   \
+        buf;                                    \
+    })
+
+#define ENV(e, ...)                             \
+    ({                                          \
+        const char* _e = getenv(e);             \
+        if (!_e)                                \
+            _e = FORMAT(__VA_ARGS__);           \
+        _e;                                     \
+    })
+
+#ifdef GLAVA_STANDALONE
+#define SHADER_INSTALL_PATH "shaders"
+#define SHADER_USER_PATH "userconf"
+/* FHS compliant systems */
+#elif defined(__unix__) || defined(GLAVA_UNIX)
+#define SHADER_INSTALL_PATH FORMAT("%s/glava", ENV("XDG_CONFIG_DIRS", "/etc/xdg"))
+#define SHADER_USER_PATH FORMAT("%s/glava", ENV("XDG_CONFIG_HOME", "%s/.config", ENV("HOME", "/home")))
+/* OSX */
+#elif (defined(__APPLE__) && defined(__MACH__)) || defined(GLAVA_OSX)
+#define SHADER_INSTALL_PATH "/Library/glava"
+#define SHADER_USER_PATH FORMAT("%s/Library/Preferences/glava", ENV("HOME", "/"))
+#else
+#error "Unsupported target system"
+#endif
+
+int main(int argc, char** argv) {
+
+    const char* entry = "rc.glsl";
+    const char* system_shader_paths[] = { SHADER_INSTALL_PATH, SHADER_USER_PATH, NULL };
+
+    renderer* r = rd_new(system_shader_paths, entry);
 
     float b0[r->bufsize_request], b1[r->bufsize_request];
     size_t t;
@@ -26,9 +60,8 @@ int main(int argc, char** argv) {
     struct audio_data audio = {
         .source = ({
                 char* src = NULL;
-                if (audio_source && strcmp(audio_source, "auto") != 0) {
-                    src = malloc(1 + strlen(audio_source));
-                    strcpy(src, audio_source);
+                if (r->audio_source_request && strcmp(r->audio_source_request, "auto") != 0) {
+                    src = strdup(r->audio_source_request);
                 }
                 src;
             }),

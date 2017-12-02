@@ -95,8 +95,6 @@ static GLuint shaderload(const char*             rpath,
     }
     memcpy(buf + written, ext.processed, ext.p_len);
     if (!raw) munmap((void*) map, st.st_size);
-
-    printf("[DEBUG]\n%.*s\n", ext.p_len, ext.processed);
     
     GLuint s = glCreateShader(type);
     GLint sl = (GLint) (ext.p_len + written);
@@ -413,7 +411,6 @@ static void glad_debugcb(const char* name, void *funcptr, int len_args, ...) {
 
 #define SHADER_EXT_VERT "vert"
 #define SHADER_EXT_FRAG "frag"
-#define SHADER_ENTRY "rc.glsl"
     
 static struct gl_bind_src bind_sources[] = {
     #define SRC_PREV 0
@@ -590,15 +587,16 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
     return NULL;
 }
 
-struct renderer* rd_new(const char* data) {
+struct renderer* rd_new(const char** paths, const char* entry) {
     
     renderer* r = malloc(sizeof(struct renderer));
     *r = (struct renderer) {
-        .alive              = true,
-        .gl                 = malloc(sizeof(struct gl_data)),
-        .bufsize_request    = 8192,
-        .rate_request       = 22000,
-        .samplesize_request = 1024
+        .alive                = true,
+        .gl                   = malloc(sizeof(struct gl_data)),
+        .bufsize_request      = 8192,
+        .rate_request         = 22000,
+        .samplesize_request   = 1024,
+        .audio_source_request = NULL
     };
     
     struct gl_data* gl = r->gl;
@@ -645,7 +643,7 @@ struct renderer* rd_new(const char* data) {
     printf("WARNING: the linked version of GLFW3 does not have transparency support"
            " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n");
     #endif
-
+    
     if (!(gl->w = glfwCreateWindow(500, 400, "GLava", NULL, NULL))) {
         glfwTerminate();
         abort();
@@ -716,6 +714,9 @@ struct renderer* rd_new(const char* data) {
                     glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
                 })
         },
+        {   .name = "setsource", .fmt = "s",
+            .handler = RHANDLER(name, args, {
+                    r->audio_source_request = strdup((char*) args[0]); })                    },
         {   .name = "setforcegeometry", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->force_geometry = *(bool*) args[0]; })      },
         {   .name = "setxwintype", .fmt = "s",
@@ -749,8 +750,6 @@ struct renderer* rd_new(const char* data) {
         {
             .name = "transform", .fmt = "ss",
             .handler = RHANDLER(name, args, {
-                    printf("[DEBUG] setting transform '%s' to '%s'\n",
-                           (const char*) args[1], (const char*) args[0]);
                     size_t t;
                     struct gl_bind* bind = NULL;
                     for (t = 0; t < current->binds_sz; ++t) {
@@ -798,8 +797,6 @@ struct renderer* rd_new(const char* data) {
                                 " (load a module first!)\n", (const char*) args[0]);
                         exit(EXIT_FAILURE);
                     }
-                    printf("[DEBUG] binding '%s' -> '%s'\n",
-                           (const char*) args[0], (const char*) args[1]);
                     struct gl_bind_src* src = lookup_bind_src((const char*) args[0]);
                     if (!src) {
                         fprintf(stderr, "Cannot bind uniform '%s': bind type does not exist!\n",
@@ -819,23 +816,34 @@ struct renderer* rd_new(const char* data) {
         },
         { .name = NULL }
     };
-
+    
     #undef WINDOW_WINT
     
-    size_t d_len = strlen(data);
-        
-    {
-        size_t se_len = strlen(SHADER_ENTRY);
+    /* Find entry point in data directory list. The first entry point found will indicate
+       the path to use for future shader files and modules. Generally, user configuration
+       directories will be populated with symlinks to the installed modules. */
+    
+    const char* data;
+    size_t d_len;
+    
+    for (const char** i = paths; (data = *i) != NULL; ++i) {
+        d_len = strlen(data);
+        size_t se_len = strlen(entry);
         size_t bsz = se_len + d_len + 2;
         char se_buf[bsz];
-        snprintf(se_buf, bsz, "%s/%s", data, SHADER_ENTRY);
+        snprintf(se_buf, bsz, "%s/%s", data, entry);
 
         struct stat st;
         
         int fd = open(se_buf, O_RDONLY);
         if (fd == -1) {
-            fprintf(stderr, "failed to load entry '%s': %s\n", se_buf, strerror(errno));
-            exit(EXIT_FAILURE);
+            /* If the file exists but there was an error opening it, complain and exit */
+            if (errno != ENOENT  &&
+                errno != ENOTDIR &&
+                errno != ELOOP     ) {
+                fprintf(stderr, "failed to load entry '%s': %s\n", se_buf, strerror(errno));
+                exit(EXIT_FAILURE);
+            } else continue;
         }
         fstat(fd, &st);
 
@@ -851,13 +859,15 @@ struct renderer* rd_new(const char* data) {
         ext_process(&ext, se_buf);
         
         munmap((void*) map, st.st_size);
+        
+        break;
     }
     
     if (!module) {
         fprintf(stderr,
-                "No module was selected, edit %s/%s to load "
+                "No module was selected, edit %s to load "
                 "a module with `#request mod [name]`\n",
-                data, SHADER_ENTRY);
+                entry);
         exit(EXIT_FAILURE);
     }
     
@@ -882,85 +892,85 @@ struct renderer* rd_new(const char* data) {
         DIR* dir = opendir(shaders);
         if (dir == NULL) {
             fprintf(stderr, "shaders folder '%s' does not exist!", shaders);
-            abort();
-        }
-        closedir(dir);
-        struct dirent* d;
-        size_t idx = 1;
-        bool found;
-        do {
-            found = false;
+        } else {
+            closedir(dir);
+            struct dirent* d;
+            size_t idx = 1;
+            bool found;
+            do {
+                found = false;
         
-            dir = opendir(shaders);
-            while ((d = readdir(dir)) != NULL) {
-                if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
-                    snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, idx);
-                    if (!strcmp(buf, d->d_name)) {
-                        printf("found GLSL stage: '%s'\n", d->d_name);
-                        ++count;
-                        found = true;
+                dir = opendir(shaders);
+                while ((d = readdir(dir)) != NULL) {
+                    if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
+                        snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, idx);
+                        if (!strcmp(buf, d->d_name)) {
+                            printf("found GLSL stage: '%s'\n", d->d_name);
+                            ++count;
+                            found = true;
+                        }
                     }
                 }
-            }
-            closedir(dir);
-            ++idx;
-        } while (found);
+                closedir(dir);
+                ++idx;
+            } while (found);
         
-        stages = malloc(sizeof(struct gl_sfbo) * count);
+            stages = malloc(sizeof(struct gl_sfbo) * count);
         
-        idx = 1;
-        do {
-            found = false;
+            idx = 1;
+            do {
+                found = false;
             
-            dir = opendir(shaders);
-            while ((d = readdir(dir)) != NULL) {
-                if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
-                    snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, idx);
-                    if (!strcmp(buf, d->d_name)) {
-                        printf("compiling: '%s'\n", d->d_name);
+                dir = opendir(shaders);
+                while ((d = readdir(dir)) != NULL) {
+                    if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
+                        snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, idx);
+                        if (!strcmp(buf, d->d_name)) {
+                            printf("compiling: '%s'\n", d->d_name);
                         
-                        struct gl_sfbo* s = &stages[idx - 1];
-                        *s = (struct gl_sfbo) {
-                            .name     = strdup(d->d_name),
-                            .shader   = 0,
-                            .valid    = false,
-                            .binds    = malloc(1),
-                            .binds_sz = 0
-                        };
+                            struct gl_sfbo* s = &stages[idx - 1];
+                            *s = (struct gl_sfbo) {
+                                .name     = strdup(d->d_name),
+                                .shader   = 0,
+                                .valid    = false,
+                                .binds    = malloc(1),
+                                .binds_sz = 0
+                            };
 
-                        current = s;
-                        GLuint id = shaderbuild(shaders, handlers, shader_version, d->d_name);
-                        if (!id) {
-                            abort();
-                        }
+                            current = s;
+                            GLuint id = shaderbuild(shaders, handlers, shader_version, d->d_name);
+                            if (!id) {
+                                abort();
+                            }
 
-                        s->shader = id;
+                            s->shader = id;
 
-                        /* Only setup a framebuffer and texture if this isn't the final step,
-                           as it can rendered directly */
-                        if (idx != count) {
-                            int w, h;
-                            glfwGetFramebufferSize(gl->w, &w, &h);
-                            setup_sfbo(&stages[idx - 1], w, h);
-                        }
+                            /* Only setup a framebuffer and texture if this isn't the final step,
+                               as it can rendered directly */
+                            if (idx != count) {
+                                int w, h;
+                                glfwGetFramebufferSize(gl->w, &w, &h);
+                                setup_sfbo(&stages[idx - 1], w, h);
+                            }
 
-                        glUseProgram(id);
+                            glUseProgram(id);
                         
-                        /* Setup uniform bindings */
-                        size_t b;
-                        for (b = 0; b < s->binds_sz; ++b) {
-                            s->binds[b].uniform = glGetUniformLocation(id, s->binds[b].name);
-                        }
-                        glBindFragDataLocation(id, 1, "fragment");
-                        glUseProgram(0);
+                            /* Setup uniform bindings */
+                            size_t b;
+                            for (b = 0; b < s->binds_sz; ++b) {
+                                s->binds[b].uniform = glGetUniformLocation(id, s->binds[b].name);
+                            }
+                            glBindFragDataLocation(id, 1, "fragment");
+                            glUseProgram(0);
                         
-                        found = true;
+                            found = true;
+                        }
                     }
                 }
-            }
-            closedir(dir);
-            ++idx;
-        } while (found);
+                closedir(dir);
+                ++idx;
+            } while (found);
+        }
     }
     
     gl->stages = stages;
