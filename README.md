@@ -11,7 +11,7 @@ $ make
 $ sudo make install
 ```
 
-You can pass `BUILD=debug` (environment variable) to the makefile for debug builds of both glad and glava, and you can manually specify install targets with `INSTALL=...`, possible arguments are `unix` (FHS compliant Linux and BSD distros), `osx`, and `standalone` (used for running in the build directory).
+You can pass `BUILD=debug` to the makefile for debug builds of both glad and glava, and you can manually specify install targets with `INSTALL=...`, possible arguments are `unix` for FHS compliant Linux and BSD distros, `osx` for Mac OSX, and `standalone` which allows you to run glava in the build directory.
 
 Note: GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order to support transparency (older versions still work, just without transparency). You can either find a more recent build or compile it yourself. Arch users can install `glfw-x11-git` from the AUR.
 
@@ -48,7 +48,7 @@ Note: GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order t
 
 ## Licensing
 
-GLava is licensed under the terms of the GPLv3. GLava includes some (heavily modified) source code that originated from [cava](https://github.com/karlstav/cava), which was initially provided under the MIT license (but has been relicensed under the GPL). The source files that originated from cava are the following:
+GLava is licensed under the terms of the GPLv3. GLava includes some (heavily modified) source code that originated from [cava](https://github.com/karlstav/cava), which was initially provided under the MIT license. The source files that originated from cava are the following:
 
 - `[cava]/input/fifo.c -> [glava]/fifo.c`
 - `[cava]/input/fifo.h -> [glava]/fifo.h`
