@@ -9,11 +9,12 @@ $ git clone --recursive https://github.com/wacossusca34/glava
 $ cd glava
 $ make
 $ sudo make install
+$ glava
 ```
 
-You can pass `BUILD=debug` to the makefile for debug builds of both glad and glava, and you can manually specify install targets with `INSTALL=...`, possible arguments are `unix` for FHS compliant Linux and BSD distros, `osx` for Mac OSX, and `standalone` which allows you to run glava in the build directory.
+You can pass `BUILD=debug` to the makefile for debug builds of both glad and glava, and you can manually specify install targets with `INSTALL=...`, possible arguments are `unix` for FHS compliant Linux and BSD distros, `osx` for Mac OSX, and `standalone` which allows you to run GLava in the build directory.
 
-Note: GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order to support transparency (older versions still work, just without transparency). You can either find a more recent build or compile it yourself. Arch users can install `glfw-x11-git` from the AUR.
+**Note:** GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order to support transparency (older versions still work, just without transparency). You can either find a more recent build or compile it yourself. Arch users can install `glfw-x11-git` from the AUR.
 
 **Requirements:**
 
@@ -28,9 +29,20 @@ Note: GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order t
 - python (required to generate bindings with glad)
 - GCC (this program uses GNU C features)
 
+## Configuration
+
+GLava will start by looking for an entry point in the user configuration folder (`~/.config/glava/rc.glsl`*), and will fall back to loading from the shader installation folder (`/etc/xdg/glava`*). The entry point will specify a module to load and should set global configuration variables. Configuration for specific modules can be done in their respective `.glsl` files, which the module itself will include.
+
+You should start by running `glava --copy-config`. This will copy over default configuration files and create symlinks to modules in your user config folder. GLava will either load system configuration files or the user provided ones, so it's not advised to copy these files selectively.
+
+To embed GLava in your desktop (for EWMH compliant window managers), use `#request setxwintype "desktop"` and then position it accordingly with `#request setgeometry x y width height`. You may want to also use `#request setforcegeometry true` for some window managers.
+
+* On an XDG compliant Linux or BSD system. OSX will use `/Library/glava` and `~/Library/Preferences/glava` instead.
+
+## To-Do
+
 **What needs to be done:**
 
-- Fix breaks in audio spectrum read from the PulseAudio server (possibly a scheduling issue?)
 - Add more visualizer modules and clean up existing ones
 
 **What is complete:**
@@ -41,6 +53,7 @@ Note: GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order t
 - Preprocessor directive parsing to handle requests and transformations on uniforms before they are passed to the shader.
 - Detecting if the window manager reports the currently focused window as fullscreen (and halting rendering for the duration)
 - Fixed a memory corruption bug that crashed the `nvidia` driver on Linux
+- Fix breaks in audio spectrum read from the PulseAudio server
 
 **What will never be done:**
 
