@@ -11,7 +11,7 @@ uniform sampler1D audio_l;
 
 out vec4 fragment;
 
-#include "settings.glsl"
+#include "../wave.glsl"
 
 void main() {
     float os = ((texture(audio_l, gl_FragCoord.x / screen.x).r - 0.5) * AMPLIFY) + 0.5f;

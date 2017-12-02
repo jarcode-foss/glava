@@ -68,21 +68,7 @@ uniform sampler1D audio_r;
 
 out vec4 fragment;
 
-// #include "settings.glsl"
-
-#define CUT 0.5
-#define SAMPLE_RANGE 0.2
-#define SAMPLE_AMT 22
-
-#define WSCALE 11
-#define VSCALE 300
-
-#define DIRECTION -1
-
-#define RCOL_OFF (gl_FragCoord.x / 3000)
-#define LCOL_OFF ((screen.x - gl_FragCoord.x) / 3000)
-#define LSTEP (gl_FragCoord.y / 170)
-#define COLOR vec4((0.3 + RCOL_OFF) + LSTEP, 0.6 - LSTEP, (0.3 + LCOL_OFF) + LSTEP, 1)
+#include "../graph.glsl"
 
 /* distance from center */
 #define CDIST (abs((screen.x / 2) - gl_FragCoord.x) / screen.x)
