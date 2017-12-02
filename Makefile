@@ -69,10 +69,14 @@ glad:
 clean:
 	rm -f $(obj) glava glad.o
 
-ifneq ($(INSTALL),standalone)
 .PHONY: install
 install:
 	cp glava /usr/bin/glava
 	mkdir -p $(SHADER_DIR)
 	cp -Rv shaders/* $(SHADER_DIR)
-endif
+
+.PHONY: uninstall
+uninstall:
+	rm /usr/bin/glava
+	rm -rf $(SHADER_DIR)/glava
+
