@@ -865,7 +865,7 @@ struct renderer* rd_new(const char** paths, const char* entry) {
     
     if (!module) {
         fprintf(stderr,
-                "No module was selected, edit %s to load "
+                "No module was selected, edit '%s' to load "
                 "a module with `#request mod [name]`\n",
                 entry);
         exit(EXIT_FAILURE);

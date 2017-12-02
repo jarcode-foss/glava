@@ -1,10 +1,16 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 #include <pthread.h>
+#include <dirent.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <limits.h>
+#include <getopt.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "fifo.h"
@@ -12,6 +18,7 @@
 #include "render.h"
 #include "xwin.h"
 
+#define GLAVA_VERSION "1.0"
 
 #define FORMAT(...)                             \
     ({                                          \
@@ -43,10 +50,145 @@
 #error "Unsupported target system"
 #endif
 
+/* Copy installed shaders/configuration from the installed location
+   (usually /etx/xdg). Modules (folders) will be linked instead of
+   copied. */
+static void copy_cfg(const char* path, const char* dest, bool verbose) {
+    size_t
+        sl   = strlen(path),
+        tl   = strlen(dest),
+        pgsz = (size_t) getpagesize(); /* optimal buffer size */
+    DIR* dir = opendir(path);
+    if (!dir) {
+        fprintf(stderr, "'%s' does not exist\n", path);
+        exit(EXIT_FAILURE);
+    }
+
+    umask(~(S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH));
+    if (mkdir(dest, ACCESSPERMS) && errno != EEXIST) {
+        fprintf(stderr, "could not create directory '%s': %s\n", dest, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    
+    struct dirent* d;
+    while ((d = readdir(dir)) != NULL) {
+        if (!strcmp(d->d_name, ".") || !strcmp(d->d_name, ".."))
+            continue;
+        int type = 0;
+        size_t
+            dl = strlen(d->d_name),
+            pl = sl + dl + 2,
+            fl = tl + dl + 2;
+        char p[pl], f[fl];
+        snprintf(p, pl, "%s/%s", path, d->d_name);
+        snprintf(f, fl, "%s/%s", dest, d->d_name);
+        
+        if (d->d_type != DT_UNKNOWN) /* don't bother with stat if we already have the type */
+            type = d->d_type == DT_REG ? 1 : (d->d_type == DT_DIR ? 2 : 0);
+        else {
+            struct stat st;
+            if (lstat(p, &st)) {
+                fprintf(stderr, "failed to stat '%s': %s\n", p, strerror(errno));
+            } else
+                type = S_ISREG(st.st_mode) ? 1 : (S_ISDIR(st.st_mode) ? 2 : 0);
+        }
+        
+        switch (type) {
+        case 1:
+            {
+                int source = -1, dest = -1;
+                uint8_t buf[pgsz];
+                ssize_t r, t, w, a;
+                if ((source = open(p, O_RDONLY)) < 0) {
+                    fprintf(stderr, "failed to open (source) '%s': %s\n", p, strerror(errno));
+                    goto cleanup;
+                }
+                if ((dest = open(f, O_WRONLY | O_CREAT, ACCESSPERMS)) < 0) {
+                    fprintf(stderr, "failed to open (destination) '%s': %s\n", f, strerror(errno));
+                    goto cleanup;
+                }
+                for (t = 0; (r = read(source, buf, pgsz)) > 0; t += r) {
+                    for (a = 0; a < r && (w = write(dest, buf + a, r - a)) > 0; a += w);
+                    if (w < 0) {
+                        fprintf(stderr, "error while writing '%s': %s\n", f, strerror(errno));
+                        goto cleanup;
+                    }
+                }
+                if (r < 0) {
+                    fprintf(stderr, "error while reading '%s': %s\n", p, strerror(errno));
+                    goto cleanup;
+                }
+                if (verbose)
+                    printf("copy '%s' -> '%s'\n", p, f);
+            cleanup:
+                if (source > 0) close(source);
+                if (dest > 0) close(dest);
+            }
+            break;
+        case 2:
+            if (symlink(p, f))
+                fprintf(stderr, "failed to symlink '%s' -> '%s': %s\n", p, f, strerror(errno));
+            else if (verbose)
+                printf("symlink '%s' -> '%s'\n", p, f);
+            break;
+        }
+    }
+    closedir(dir);
+}
+
+static const char* help_str =
+    "Usage: %s [OPTIONS]...\n"
+    "Opens a window with an OpenGL context to draw an audio visualizer.\n"
+    "\n"
+    "Available arguments:\n"
+    "-h, --help           show this help and exit\n"
+    "-v, --verbose        enables printing of detailed information about execution\n"
+    "-e, --entry=NAME     specifies the name of the file to look for when loading shaders,\n"
+    "                       by default this is \"rc.glsl\".\n"
+    "-C, --copy-config    creates copies and symbolic links in the user configuration\n"
+    "                       directory for glava, copying any files in the root directory\n"
+    "                       of the installed shader directory, and linking any modules.\n"
+    "\n"
+    "GLava (glava) " GLAVA_VERSION "\n"
+    " -- Copyright (C) 2017 Levi Webb\n";
+
+static const char* opt_str = "hve:C";
+static struct option p_opts[] = {
+    {"help",        no_argument,       0, 'h'},
+    {"verbose",     no_argument,       0, 'v'},
+    {"entry",       required_argument, 0, 'e'},
+    {"copy-config", no_argument,       0, 'C'},
+    {0,             0,                 0,  0 }
+};
+
 int main(int argc, char** argv) {
 
-    const char* entry = "rc.glsl";
-    const char* system_shader_paths[] = { SHADER_INSTALL_PATH, SHADER_USER_PATH, NULL };
+    /* Evaluate these macros only once, since they allocate */
+    const char* install_path = SHADER_INSTALL_PATH;
+    const char* user_path    = SHADER_USER_PATH;
+    const char* entry        = "rc.glsl";
+    const char* system_shader_paths[] = { install_path, user_path, NULL };
+    bool verbose = false;
+    bool copy_mode = false;
+    
+    int c, idx, n = 0;
+    while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
+        switch (c) {
+        case 'v': verbose   = true;   break;
+        case 'C': copy_mode = true;   break;
+        case 'e': entry     = optarg; break;
+        case '?': exit(EXIT_FAILURE); break;
+        default:
+        case 'h':
+            printf(help_str, argc > 0 ? argv[0] : "glava");
+            exit(EXIT_SUCCESS);
+        }
+    }
+
+    if (copy_mode) {
+        copy_cfg(install_path, user_path, verbose);
+        exit(EXIT_SUCCESS);
+    }
 
     renderer* r = rd_new(system_shader_paths, entry);
 

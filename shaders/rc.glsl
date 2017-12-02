@@ -144,5 +144,3 @@
    you _absolutely_ know what you are doing. */
 #request setversion 3 3
 #request setshaderversion 330
-
-#include "custom.glsl"
