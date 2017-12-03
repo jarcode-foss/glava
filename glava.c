@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
     const char* install_path = SHADER_INSTALL_PATH;
     const char* user_path    = SHADER_USER_PATH;
     const char* entry        = "rc.glsl";
-    const char* system_shader_paths[] = { install_path, user_path, NULL };
+    const char* system_shader_paths[] = { user_path, install_path, NULL };
     bool verbose = false;
     bool copy_mode = false;
     

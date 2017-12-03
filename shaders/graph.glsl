@@ -9,12 +9,17 @@
 #define WSCALE 11
 
 /* Vertical scale, larger values will amplify output */
-#define VSCALE 300
+#define VSCALE 2800
+
+/* Whether to apply a window function to samples or not (0 or 1). Slightly
+   slower but removes some jagged results. Has a side effect of reducing the
+   graph magnitude, so you should increase the `VSCALE` macro to compensate. */
+#define WINDOW_SAMPLES 1
 
 /* Rendering direction, either -1 (inwards) or 1 (outwards). */
 #define DIRECTION -1
 
-/* Graph color logic. The shader will only use the `COLOR` macro definition for output. */
+/* Graph color logic. The shader uses the `COLOR` macro definition for output. */
 
 /* right color offset */
 #define RCOL_OFF (gl_FragCoord.x / 3000)
@@ -24,3 +29,6 @@
 #define LSTEP (gl_FragCoord.y / 170)
 /* actual color definition */
 #define COLOR vec4((0.3 + RCOL_OFF) + LSTEP, 0.6 - LSTEP, (0.3 + LCOL_OFF) + LSTEP, 1)
+
+/* outline color */
+#define OUTLINE vec4(0.15, 0.15, 0.15, 1)

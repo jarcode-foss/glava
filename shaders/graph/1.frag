@@ -89,6 +89,9 @@ out vec4 fragment;
 #define HDIST CDIST
 #endif
 
+#define TWOPI 6.28318530718
+#define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * t  / (sz - 1))))
+
 float half_w;
 
 void render_side(sampler1D tex, float idx) {
@@ -96,7 +99,13 @@ void render_side(sampler1D tex, float idx) {
     int t;
     /* perform samples */
     for (t = -SAMPLE_AMT; t <= SAMPLE_AMT; ++t) {
-        s += (texture(tex, log((idx + (t * SAMPLE_RANGE)) / half_w) / WSCALE).r);
+        #if WINDOW_SAMPLES != 0
+        #define WFACTOR window(t + SAMPLE_AMT, float((SAMPLE_AMT * 2) + 1))
+        #else
+        #define WFACTOR int(1)
+        #endif
+        s += (texture(tex, log((idx + (t * SAMPLE_RANGE)) / half_w) / WSCALE).r) * WFACTOR;
+        #undef WFACTOR
     }
     /* compute average on samples */
     s /= float(SAMPLE_AMT * 2) + 1;

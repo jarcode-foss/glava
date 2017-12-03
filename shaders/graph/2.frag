@@ -8,7 +8,7 @@ uniform ivec2     screen; /* screen dimensions */
 
 out vec4 fragment; /* output */
 
-#define OUTLINE vec4(0.15, 0.15, 0.15, 1)
+#include "../graph.glsl"
 
 void main() {
     fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, gl_FragCoord.y / screen.y));

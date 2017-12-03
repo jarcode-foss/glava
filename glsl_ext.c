@@ -316,14 +316,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                     if (at == '\n') {
                         /* end directive */
                         size_t a;
-                        printf("[DEBUG] handling request/include for %d args\n", args_sz);
-                        for (a = 0; a < args_sz; ++a) {
-                            printf("[DEBUG] [%d]: \"%s\"\n", a, args[a]);
-                        }
                         struct schar r = directive(ext, args, args_sz, state == INCLUDE, line, f);
-                        for (a = 0; a < args_sz; ++a) {
-                            printf("[DEBUG POST] [%d]: \"%s\"\n", a, args[a]);
-                        }
                         for (a = 0; a < args_sz; ++a) {
                             free(args[a]);
                         }

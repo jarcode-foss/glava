@@ -8,19 +8,25 @@ uniform ivec2     screen; /* screen dimensions */
 
 out vec4 fragment; /* output */
 
+#include "../wave.glsl"
+
 void main() {
     fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, gl_FragCoord.y / screen.y));
     
-    float a0 = texture(tex, vec2((gl_FragCoord.x + 1) / screen.x, (gl_FragCoord.y + 0) / screen.y)).a;
-    float a1 = texture(tex, vec2((gl_FragCoord.x + 1) / screen.x, (gl_FragCoord.y + 1) / screen.y)).a;
-    float a2 = texture(tex, vec2((gl_FragCoord.x + 0) / screen.x, (gl_FragCoord.y + 1) / screen.y)).a;
-    float a3 = texture(tex, vec2((gl_FragCoord.x + 1) / screen.x, (gl_FragCoord.y + 0) / screen.y)).a;
+    vec4
+        a0 = texture(tex, vec2((gl_FragCoord.x + 1) / screen.x, (gl_FragCoord.y + 0) / screen.y)),
+        a1 = texture(tex, vec2((gl_FragCoord.x + 1) / screen.x, (gl_FragCoord.y + 1) / screen.y)),
+        a2 = texture(tex, vec2((gl_FragCoord.x + 0) / screen.x, (gl_FragCoord.y + 1) / screen.y)),
+        a3 = texture(tex, vec2((gl_FragCoord.x + 1) / screen.x, (gl_FragCoord.y + 0) / screen.y)),
     
-    float a4 = texture(tex, vec2((gl_FragCoord.x - 1) / screen.x, (gl_FragCoord.y - 0) / screen.y)).a;
-    float a5 = texture(tex, vec2((gl_FragCoord.x - 1) / screen.x, (gl_FragCoord.y - 1) / screen.y)).a;
-    float a6 = texture(tex, vec2((gl_FragCoord.x - 0) / screen.x, (gl_FragCoord.y - 1) / screen.y)).a;
-    float a7 = texture(tex, vec2((gl_FragCoord.x - 1) / screen.x, (gl_FragCoord.y - 0) / screen.y)).a;
+        a4 = texture(tex, vec2((gl_FragCoord.x - 1) / screen.x, (gl_FragCoord.y - 0) / screen.y)),
+        a5 = texture(tex, vec2((gl_FragCoord.x - 1) / screen.x, (gl_FragCoord.y - 1) / screen.y)),
+        a6 = texture(tex, vec2((gl_FragCoord.x - 0) / screen.x, (gl_FragCoord.y - 1) / screen.y)),
+        a7 = texture(tex, vec2((gl_FragCoord.x - 1) / screen.x, (gl_FragCoord.y - 0) / screen.y));
 
-    float avg = (a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7) / 8.0;
-    fragment *= avg;
+    vec4 avg = (a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7) / 8.0;
+    if (avg.a > 0){
+        if (fragment.a <= 0 || gl_FragCoord.x == 0 || gl_FragCoord.x == screen.x - 1)
+            fragment = OUTLINE;
+    }
 }
