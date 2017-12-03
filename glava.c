@@ -141,22 +141,25 @@ static const char* help_str =
     "Opens a window with an OpenGL context to draw an audio visualizer.\n"
     "\n"
     "Available arguments:\n"
-    "-h, --help           show this help and exit\n"
-    "-v, --verbose        enables printing of detailed information about execution\n"
-    "-e, --entry=NAME     specifies the name of the file to look for when loading shaders,\n"
-    "                       by default this is \"rc.glsl\".\n"
-    "-C, --copy-config    creates copies and symbolic links in the user configuration\n"
-    "                       directory for glava, copying any files in the root directory\n"
-    "                       of the installed shader directory, and linking any modules.\n"
+    "-h, --help              show this help and exit\n"
+    "-v, --verbose           enables printing of detailed information about execution\n"
+    "-m, --force-mod=NAME    forces the specified module to load instead, ignoring any\n"
+    "                          `#request mod` instances in the entry point.\n"
+    "-e, --entry=NAME        specifies the name of the file to look for when loading shaders,\n"
+    "                          by default this is \"rc.glsl\".\n"
+    "-C, --copy-config       creates copies and symbolic links in the user configuration\n"
+    "                          directory for glava, copying any files in the root directory\n"
+    "                          of the installed shader directory, and linking any modules.\n"
     "\n"
     "GLava (glava) " GLAVA_VERSION "\n"
     " -- Copyright (C) 2017 Levi Webb\n";
 
-static const char* opt_str = "hve:C";
+static const char* opt_str = "hve:Cm:";
 static struct option p_opts[] = {
     {"help",        no_argument,       0, 'h'},
     {"verbose",     no_argument,       0, 'v'},
     {"entry",       required_argument, 0, 'e'},
+    {"force-mod",   required_argument, 0, 'm'},
     {"copy-config", no_argument,       0, 'C'},
     {0,             0,                 0,  0 }
 };
@@ -167,6 +170,7 @@ int main(int argc, char** argv) {
     const char* install_path = SHADER_INSTALL_PATH;
     const char* user_path    = SHADER_USER_PATH;
     const char* entry        = "rc.glsl";
+    const char* force        = NULL;
     const char* system_shader_paths[] = { user_path, install_path, NULL };
     bool verbose = false;
     bool copy_mode = false;
@@ -177,6 +181,7 @@ int main(int argc, char** argv) {
         case 'v': verbose   = true;   break;
         case 'C': copy_mode = true;   break;
         case 'e': entry     = optarg; break;
+        case 'm': force     = optarg; break;
         case '?': exit(EXIT_FAILURE); break;
         default:
         case 'h':
@@ -190,7 +195,7 @@ int main(int argc, char** argv) {
         exit(EXIT_SUCCESS);
     }
 
-    renderer* r = rd_new(system_shader_paths, entry);
+    renderer* r = rd_new(system_shader_paths, entry, force);
 
     float b0[r->bufsize_request], b1[r->bufsize_request];
     size_t t;

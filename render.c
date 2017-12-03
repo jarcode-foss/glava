@@ -587,7 +587,7 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
     return NULL;
 }
 
-struct renderer* rd_new(const char** paths, const char* entry) {
+struct renderer* rd_new(const char** paths, const char* entry, const char* force_mod) {
     
     renderer* r = malloc(sizeof(struct renderer));
     *r = (struct renderer) {
@@ -666,7 +666,8 @@ struct renderer* rd_new(const char** paths, const char* entry) {
 
 
     int shader_version = 330;
-    char* module = NULL, * xwintype = NULL;
+    const char* module = force_mod;
+    char* xwintype = NULL;
     bool loading_module = true;
     struct gl_sfbo* current = NULL;
     size_t t_count = 0;
@@ -685,10 +686,11 @@ struct renderer* rd_new(const char** paths, const char* entry) {
         {
             .name = "mod", .fmt = "s",
             .handler = RHANDLER(name, args, {
-                    if (loading_module) {
+                    if (loading_module && !force_mod) {
                         size_t len = strlen((char*) args[0]);
-                        module = malloc(sizeof(char) * (strlen((char*) args[0]) + 1));
-                        strncpy(module, (char*) args[0], len + 1);
+                        char* str = malloc(sizeof(char) * (strlen((char*) args[0]) + 1));
+                        strncpy(str, (char*) args[0], len + 1);
+                        module = str;
                     }
                 })
         },
@@ -878,7 +880,7 @@ struct renderer* rd_new(const char** paths, const char* entry) {
 
     printf("Loading module: '%s'\n", module);
 
-    free(module);
+    if (!force_mod) free((void*) module);
     loading_module = false;
 
     /* Iterate through shader passes in the shader directory and build textures, framebuffers, and
