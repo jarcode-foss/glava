@@ -7,19 +7,6 @@ uniform ivec2 screen; /* screen dimensions */
 #request uniform "audio_sz" audio_sz
 uniform int audio_sz;
 
-/* How many frames to queue and run through the average function */
-#request setavgframes 6
-
-/* Whether to window frames ran through the average function (new & old frames
-   are weighted less). This massively helps smoothing out spikes in the animation */
-#request setavgwindow true
-
-/* Gravity step, higher values means faster drops. The step is applied in a rate
-   independant method like so:
-   
-   val -= (gravitystep) * (seconds per update) */
-#request setgravitystep 5.2
-
 /* When we transform our audio, we need to go through the following steps: 
    
    transform -> "window"
@@ -52,6 +39,8 @@ uniform int audio_sz;
        with 'setavgwindow'.
 */
 
+#include "../graph.glsl"
+
 #request uniform "audio_l" audio_l
 #request transform audio_l "window"
 #request transform audio_l "fft"
@@ -68,7 +57,6 @@ uniform sampler1D audio_r;
 
 out vec4 fragment;
 
-#include "../graph.glsl"
 #include "../util/smooth.glsl"
 
 /* distance from center */

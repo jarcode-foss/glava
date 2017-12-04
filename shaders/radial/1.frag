@@ -6,19 +6,11 @@ uniform ivec2 screen;
 #request uniform "audio_sz" audio_sz
 uniform int audio_sz;
 
-#request setavgframes 6
-
-#request setavgwindow true
-
-#request setgravitystep 5.2
-
-#request setsmooth 0.0025
-#request setsmoothratio 1
+#include "../radial.glsl"
 
 #request uniform "audio_l" audio_l
 #request transform audio_l "window"
 #request transform audio_l "fft"
-// #request transform audio_l "smooth"
 #request transform audio_l "gravity"
 #request transform audio_l "avg"
 uniform sampler1D audio_l;
@@ -26,14 +18,11 @@ uniform sampler1D audio_l;
 #request uniform "audio_r" audio_r
 #request transform audio_r "window"
 #request transform audio_r "fft"
-// #request transform audio_r "smooth"
 #request transform audio_r "gravity"
 #request transform audio_r "avg"
 uniform sampler1D audio_r;
 
 out vec4 fragment;
-
-#include "../radial.glsl"
 #include "../util/smooth.glsl"
 
 #define TWOPI 6.28318530718
