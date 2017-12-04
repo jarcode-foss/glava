@@ -69,6 +69,7 @@ uniform sampler1D audio_r;
 out vec4 fragment;
 
 #include "../graph.glsl"
+#include "../util/smooth.glsl"
 
 /* distance from center */
 #define CDIST (abs((screen.x / 2) - gl_FragCoord.x) / screen.x)
@@ -79,36 +80,23 @@ out vec4 fragment;
 #define LEFT_IDX (gl_FragCoord.x)
 #define RIGHT_IDX (-gl_FragCoord.x + screen.x)
 /* distance from base frequencies */
-#define BDIST CDIST
+#define BDIST FDIST
 /* distance from high frequencies */
-#define HDIST FDIST
+#define HDIST CDIST
 #else
 #define LEFT_IDX (half_w - gl_FragCoord.x)
 #define RIGHT_IDX (gl_FragCoord.x - half_w)
-#define BDIST FDIST
-#define HDIST CDIST
+#define BDIST CDIST
+#define HDIST FDIST
 #endif
 
 #define TWOPI 6.28318530718
-#define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * t  / (sz - 1))))
 
 float half_w;
 
-void render_side(sampler1D tex, float idx) {
-    float s = 0;
-    int t;
-    /* perform samples */
-    for (t = -SAMPLE_AMT; t <= SAMPLE_AMT; ++t) {
-        #if WINDOW_SAMPLES != 0
-        #define WFACTOR window(t + SAMPLE_AMT, float((SAMPLE_AMT * 2) + 1))
-        #else
-        #define WFACTOR int(1)
-        #endif
-        s += (texture(tex, log((idx + (t * SAMPLE_RANGE)) / half_w) / WSCALE).r) * WFACTOR;
-        #undef WFACTOR
-    }
-    /* compute average on samples */
-    s /= float(SAMPLE_AMT * 2) + 1;
+void render_side(in sampler1D tex, float idx) {
+    highp float pixel = 1.0F / float(screen.x);
+    float s = smooth_audio_adj(tex, audio_sz, idx / half_w, SMOOTH, pixel);
     /* scale the data upwards so we can see it */
     s *= VSCALE;
     /* clamp far ends of the screen down to make the ends of the graph smoother */

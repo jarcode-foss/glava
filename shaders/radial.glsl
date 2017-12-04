@@ -13,9 +13,13 @@
 #define BAR_OUTLINE OUTLINE
 /* outline width (in pixels, set to 0 to disable outline drawing) */
 #define BAR_OUTLINE_WIDTH 0
-/* Inverse horizontal scale, larger means less higher frequencies displayed */
-#define WSCALE 11
 /* Amplify magnitude of the results each bar displays */
-#define AMPLIFY 200
+#define AMPLIFY 300
 /* Bar color */
 #define COLOR (vec4(0.8, 0.2, 0.2, 1) * ((d / 40) + 1))
+/* Angle (in radians) for how much to rotate the visualizer */
+#define ROTATE (PI / 2)
+/* Whether to switch left/right audio buffers */
+#define INVERT 0
+/* Smoothing factor, in normalized width */
+#define SMOOTH 0.025

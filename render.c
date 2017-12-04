@@ -359,7 +359,7 @@ struct gl_data {
     int fcounter, ucounter, kcounter;
     bool print_fps, avg_window, interpolate, force_geometry;
     void** t_data;
-    float gravity_step, target_spu, fr, ur;
+    float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio;
     float* interpolate_buf[6];
     int geometry[4];
 };
@@ -432,6 +432,59 @@ static struct gl_bind_src bind_sources[] = {
         *u = (typeof(*u)) __VA_ARGS__;          \
         *udata = u;                             \
     } else u = (typeof(u)) *udata;
+
+/* type generic clamp/min/max, like in GLSL */
+
+#define clamp(v, min, max)                      \
+    ({                                          \
+        __auto_type _v = v;                     \
+        if (_v < min) _v = min;                 \
+        else if (_v > max) _v = max;            \
+        _v;                                     \
+    })
+
+#define min(a0, b0)                             \
+    ({                                          \
+        __auto_type _a = a0;                    \
+        __auto_type _b = b0;                    \
+        _a < _b ? _a : _b;                      \
+    })
+
+#define max(a0, b0)                             \
+    ({                                          \
+        __auto_type _a = a0;                    \
+        __auto_type _b = b0;                    \
+        _a > _b ? _a : _b;                      \
+    })
+
+#define E 2.7182818284590452353
+
+void transform_smooth(struct gl_data* d, void** udaa, void* data) {
+    struct gl_sampler_data* s = (struct gl_sampler_data*) data;
+    float* b = s->buf;
+    size_t
+        sz  = s->sz,
+        asz = (size_t) ceil(s->sz / d->smooth_ratio);
+    for (int t = 0; t < asz; ++t) {
+        float
+            db  = log(t), /* buffer index on log scale */
+            v   = b[t],   /* value at this position */
+            avg = 0;      /* adj value averages (weighted) */
+        /* Calculate real indexes for sampling at this position, since the
+           distance is specified in scalar values */
+        int smin = (int) floor(powf(E, max(db - d->smooth_distance, 0)));
+        int smax = min((int) ceil(powf(E, db + d->smooth_distance)), sz - 1);
+        int count = 0;
+        for (int s = smin; s <= smax; ++s) {
+            if (b[s]) {
+                avg += b[s] /* / abs(powf(10, db + (t - s))) */;
+                count++;
+            }
+        }
+        avg /= count;
+        b[t] = avg;
+    }
+}
 
 void transform_gravity(struct gl_data* d, void** udata, void* data) {
     struct gl_sampler_data* s = (struct gl_sampler_data*) data;
@@ -574,7 +627,8 @@ static struct gl_transform transform_functions[] = {
     { .name = "fft",     .type = BIND_SAMPLER1D, .apply = transform_fft     },
     { .name = "wrange",  .type = BIND_SAMPLER1D, .apply = transform_wrange  },
     { .name = "avg",     .type = BIND_SAMPLER1D, .apply = transform_average },
-    { .name = "gravity", .type = BIND_SAMPLER1D, .apply = transform_gravity }
+    { .name = "gravity", .type = BIND_SAMPLER1D, .apply = transform_gravity },
+    { .name = "smooth",  .type = BIND_SAMPLER1D, .apply = transform_smooth  }
 };
 
 static struct gl_bind_src* lookup_bind_src(const char* str) {
@@ -601,21 +655,23 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     
     struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
-        .stages         = NULL,
-        .rate           = 0,
-        .tcounter       = 0.0D,
-        .fcounter       = 0,
-        .ucounter       = 0,
-        .kcounter       = 0,
-        .fr             = 1.0F,
-        .ur             = 1.0F,
-        .print_fps      = true,
-        .bufscale       = 1,
-        .avg_frames     = 4,
-        .avg_window     = true,
-        .gravity_step   = 0.1,
-        .interpolate    = true,
-        .force_geometry = false
+        .stages          = NULL,
+        .rate            = 0,
+        .tcounter        = 0.0D,
+        .fcounter        = 0,
+        .ucounter        = 0,
+        .kcounter        = 0,
+        .fr              = 1.0F,
+        .ur              = 1.0F,
+        .print_fps       = true,
+        .bufscale        = 1,
+        .avg_frames      = 4,
+        .avg_window      = true,
+        .gravity_step    = 0.1,
+        .interpolate     = true,
+        .force_geometry  = false,
+        .smooth_distance = 0.01,
+        .smooth_ratio    = 4
     };
     
     #ifdef GLAD_DEBUG
@@ -747,6 +803,10 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
             .handler = RHANDLER(name, args, { gl->avg_window = *(bool*) args[0]; })          },
         {   .name = "setgravitystep", .fmt = "f",
             .handler = RHANDLER(name, args, { gl->gravity_step = *(float*) args[0]; })       },
+        {   .name = "setsmooth", .fmt = "f",
+            .handler = RHANDLER(name, args, { gl->smooth_distance = *(float*) args[0]; })    },
+        {   .name = "setsmoothratio", .fmt = "f",
+            .handler = RHANDLER(name, args, { gl->smooth_ratio = *(float*) args[0]; })    },
         {   .name = "setinterpolate", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->interpolate = *(bool*) args[0]; })         },
         {

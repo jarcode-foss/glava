@@ -12,9 +12,13 @@ uniform int audio_sz;
 
 #request setgravitystep 5.2
 
+#request setsmooth 0.0025
+#request setsmoothratio 1
+
 #request uniform "audio_l" audio_l
 #request transform audio_l "window"
 #request transform audio_l "fft"
+// #request transform audio_l "smooth"
 #request transform audio_l "gravity"
 #request transform audio_l "avg"
 uniform sampler1D audio_l;
@@ -22,6 +26,7 @@ uniform sampler1D audio_l;
 #request uniform "audio_r" audio_r
 #request transform audio_r "window"
 #request transform audio_r "fft"
+// #request transform audio_r "smooth"
 #request transform audio_r "gravity"
 #request transform audio_r "avg"
 uniform sampler1D audio_r;
@@ -29,6 +34,7 @@ uniform sampler1D audio_r;
 out vec4 fragment;
 
 #include "../radial.glsl"
+#include "../util/smooth.glsl"
 
 #define TWOPI 6.28318530718
 #define PI 3.14159265359
@@ -36,21 +42,27 @@ out vec4 fragment;
 void main() {
     float /* translate (x, y) to use (0, 0) as the center of the screen */
         dx = gl_FragCoord.x - (screen.x / 2),
-        dy = (screen.y / 2) - gl_FragCoord.y;
+        dy = gl_FragCoord.y - (screen.y / 2);
     float theta = atan(dy, dx); /* fragment angle with the center of the screen as the origin */
     float d = sqrt((dx * dx) + (dy * dy)); /* distance */
     if (d > C_RADIUS - (float(C_LINE) / 2F) && d < C_RADIUS + (float(C_LINE) / 2F)) {
         fragment = OUTLINE;
         return;
     } else if (d > C_RADIUS) {
-        float section = (TWOPI / NBARS);       /* range (radians) for each bar */
-        float m = mod(theta, section);         /* position in section (radians) */
-        float center = ((TWOPI / NBARS) / 2F); /* center line angle */
-        float ym = d * sin(center - m);        /* distance from center line (cartesian coords) */
-        if (abs(ym) < BAR_WIDTH / 2) {         /* if within width, draw audio */
-            /* texture lookup */
-            float v = texture(theta > 0 ? audio_l : audio_r,
-                              log(int(abs(theta) / section) / float(NBARS / 2)) / WSCALE).r * AMPLIFY;
+        const float section = (TWOPI / NBARS);       /* range (radians) for each bar */
+        const float center = ((TWOPI / NBARS) / 2F); /* center line angle */
+        float m = mod(theta, section);               /* position in section (radians) */
+        float ym = d * sin(center - m);              /* distance from center line (cartesian coords) */
+        if (abs(ym) < BAR_WIDTH / 2) {               /* if within width, draw audio */
+            float idx = theta + ROTATE;              /* position (radians) in texture */
+            float dir = mod(abs(idx), TWOPI);        /* absolute position, [0, 2pi) */
+            if (dir > PI)
+                idx = -sign(idx) * (TWOPI - dir);    /* Re-correct position values to [-pi, pi) */
+            if (INVERT > 0)
+                idx = -idx;                          /* Invert if needed */
+            float pos = int(abs(idx) / section) / float(NBARS / 2);
+            float v = smooth_audio(idx > 0 ? audio_l : audio_r, audio_sz, pos, SMOOTH) * AMPLIFY * (1 + pos);
+            
             d -= C_RADIUS + (float(C_LINE) / 2F); /* offset to fragment distance from inner circle */
             if (d <= v - BAR_OUTLINE_WIDTH) {
                 #if BAR_OUTLINE_WIDTH > 0
