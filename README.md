@@ -1,5 +1,5 @@
 ## GLava
-<img align="left" width="240" height="240" src="https://thumbs.gfycat.com/VibrantInsistentFowl-size_restricted.gif">
+<img align="left" width="240" height="240" src="https://thumbs.gfycat.com/VibrantInsistentFowl-size_restricted.gif" \>
 GLava is an (in development) OpenGL audio spectrum visualizer. Its primary use case is for desktop widgets or backgrounds. Displayed to the left is the `radial` shader module running in GLava.
 
 **Compiling** (after meeting the requirements)**:**
