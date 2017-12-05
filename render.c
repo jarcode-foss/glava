@@ -34,7 +34,7 @@
 /* Only a single vertex shader is needed for GLava, since all rendering is done in the fragment shader
    over a fullscreen quad */
 #define VERTEX_SHADER_SRC \
-    "layout(location = 0) in vec3 pos; void main() { gl_Position = vec4(pos.x, pos.y, 0f, 1f); }"
+    "layout(location = 0) in vec3 pos; void main() { gl_Position = vec4(pos.x, pos.y, 0.0F, 1.0F); }"
 
 /* load shader file */
 static GLuint shaderload(const char*             rpath,
@@ -691,14 +691,16 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     glfwWindowHint(GLFW_FLOATING, GLFW_FALSE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
+    /*
     #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     #elif GLFW_TRANSPARENT
     glfwWindowHint(GLFW_TRANSPARENT, GLFW_TRUE);
     #else
-    printf("WARNING: the linked version of GLFW3 does not have transparency support"
-           " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n");
+    */ printf("WARNING: the linked version of GLFW3 does not have transparency support"
+           " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n"); /*
     #endif
+    */
     
     if (!(gl->w = glfwCreateWindow(500, 400, "GLava", NULL, NULL))) {
         glfwTerminate();
