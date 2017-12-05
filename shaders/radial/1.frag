@@ -34,25 +34,25 @@ void main() {
         dy = gl_FragCoord.y - (screen.y / 2);
     float theta = atan(dy, dx); /* fragment angle with the center of the screen as the origin */
     float d = sqrt((dx * dx) + (dy * dy)); /* distance */
-    if (d > C_RADIUS - (float(C_LINE) / 2F) && d < C_RADIUS + (float(C_LINE) / 2F)) {
+    if (d > C_RADIUS - (float(C_LINE) / 2.0F) && d < C_RADIUS + (float(C_LINE) / 2.0F)) {
         fragment = OUTLINE;
         return;
     } else if (d > C_RADIUS) {
-        const float section = (TWOPI / NBARS);       /* range (radians) for each bar */
-        const float center = ((TWOPI / NBARS) / 2F); /* center line angle */
-        float m = mod(theta, section);               /* position in section (radians) */
-        float ym = d * sin(center - m);              /* distance from center line (cartesian coords) */
-        if (abs(ym) < BAR_WIDTH / 2) {               /* if within width, draw audio */
-            float idx = theta + ROTATE;              /* position (radians) in texture */
-            float dir = mod(abs(idx), TWOPI);        /* absolute position, [0, 2pi) */
+        const float section = (TWOPI / NBARS);         /* range (radians) for each bar */
+        const float center = ((TWOPI / NBARS) / 2.0F); /* center line angle */
+        float m = mod(theta, section);                 /* position in section (radians) */
+        float ym = d * sin(center - m);                /* distance from center line (cartesian coords) */
+        if (abs(ym) < BAR_WIDTH / 2) {                 /* if within width, draw audio */
+            float idx = theta + ROTATE;                /* position (radians) in texture */
+            float dir = mod(abs(idx), TWOPI);          /* absolute position, [0, 2pi) */
             if (dir > PI)
-                idx = -sign(idx) * (TWOPI - dir);    /* Re-correct position values to [-pi, pi) */
+                idx = -sign(idx) * (TWOPI - dir);      /* Re-correct position values to [-pi, pi) */
             if (INVERT > 0)
-                idx = -idx;                          /* Invert if needed */
+                idx = -idx;                            /* Invert if needed */
             float pos = int(abs(idx) / section) / float(NBARS / 2);
             float v = smooth_audio(idx > 0 ? audio_l : audio_r, audio_sz, pos, SMOOTH) * AMPLIFY * (1 + pos);
             
-            d -= C_RADIUS + (float(C_LINE) / 2F); /* offset to fragment distance from inner circle */
+            d -= C_RADIUS + (float(C_LINE) / 2.0F); /* offset to fragment distance from inner circle */
             if (d <= v - BAR_OUTLINE_WIDTH) {
                 #if BAR_OUTLINE_WIDTH > 0
                 if (abs(ym) < (BAR_WIDTH / 2) - BAR_OUTLINE_WIDTH)
