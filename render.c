@@ -690,17 +690,15 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_FLOATING, GLFW_FALSE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-
-    /*
+    
     #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     #elif GLFW_TRANSPARENT
     glfwWindowHint(GLFW_TRANSPARENT, GLFW_TRUE);
     #else
-    */ printf("WARNING: the linked version of GLFW3 does not have transparency support"
-           " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n"); /*
+    printf("WARNING: the linked version of GLFW3 does not have transparency support"
+           " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n"); 
     #endif
-    */
     
     if (!(gl->w = glfwCreateWindow(500, 400, "GLava", NULL, NULL))) {
         glfwTerminate();
