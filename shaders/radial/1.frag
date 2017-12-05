@@ -49,28 +49,32 @@ void main() {
                 idx = -sign(idx) * (TWOPI - dir);      /* Re-correct position values to [-pi, pi) */
             if (INVERT > 0)
                 idx = -idx;                            /* Invert if needed */
-            float pos = int(abs(idx) / section) / float(NBARS / 2);
-            float v = smooth_audio(idx > 0 ? audio_l : audio_r, audio_sz, pos, SMOOTH) * AMPLIFY * (1 + pos);
-            
+            float pos = int(abs(idx) / section) / float(NBARS / 2);        /* bar position, [0, 1) */
+            #define smooth_f(tex) smooth_audio(tex, audio_sz, pos, SMOOTH) /* smooth function format */
+            float v;
+            if (idx > 0) v = smooth_f(audio_l);                            /* left buffer */
+            else         v = smooth_f(audio_r);                            /* right buffer */
+            v *= AMPLIFY * (1 + pos);                                      /* amplify and scale with frequency */
+            #undef smooth_f
             d -= C_RADIUS + (float(C_LINE) / 2.0F); /* offset to fragment distance from inner circle */
             if (d <= v - BAR_OUTLINE_WIDTH) {
-                #if BAR_OUTLINE_WIDTH > 0
-                if (abs(ym) < (BAR_WIDTH / 2) - BAR_OUTLINE_WIDTH)
-                    fragment = COLOR;
-                else
-                    fragment = BAR_OUTLINE;
-                #else
+            #if BAR_OUTLINE_WIDTH > 0
+            if (abs(ym) < (BAR_WIDTH / 2) - BAR_OUTLINE_WIDTH)
                 fragment = COLOR;
-                #endif
-                return;
-            }
+            else
+                fragment = BAR_OUTLINE;
+            #else
+            fragment = COLOR;
+            #endif
+            return;
+        }
             #if BAR_OUTLINE_WIDTH > 0
             if (d <= v) {
-                fragment = BAR_OUTLINE;
-                return;
-            }
+            fragment = BAR_OUTLINE;
+            return;
+        }
             #endif
         }
-    }
-    fragment = vec4(0, 0, 0, 0); /* default frag color */
-}
+        }
+            fragment = vec4(0, 0, 0, 0); /* default frag color */
+        }
