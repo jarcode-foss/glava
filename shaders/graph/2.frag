@@ -28,13 +28,15 @@ void main() {
     if (avg.a > 0){
         #if INVERT > 0
         #define EDGE_CHECK (gl_FragCoord.y != 0)
+        #define TEDGE_CHECK (gl_FragCoord.y != screen.y - 1)
         #else
         #define EDGE_CHECK (gl_FragCoord.y != screen.y - 1)
+        #define TEDGE_CHECK (gl_FragCoord.y != 0)
         #endif
         if (fragment.a <= 0 && EDGE_CHECK) {
             /* outline */
             fragment = OUTLINE;
-        } else if (avg.a < 1 && gl_FragCoord.y != 0) {
+        } else if (avg.a < 1 && TEDGE_CHECK) {
             /* creates a nice 'glint' along the edge of the spectrum */
             fragment.rgb *= avg.a * 2;
         }
