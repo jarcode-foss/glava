@@ -78,8 +78,15 @@ static struct schar directive(struct glsl_ext* ext, char** args,
             parse_error_s(line, f, "No arguments provided to #include directive!");
         }
         char* target = args[0];
+
+        /* Handle `:` config specifier */
+        size_t tsz = strlen(target);
+        if (tsz && target[0] == ':' && ext->cfd) {
+            target = &target[1];
+            ext->cd = ext->cfd;
+        }
         
-        char path[strlen(ext->cd) + strlen(target) + 2];
+        char path[strlen(ext->cd) + tsz + 2];
         snprintf(path, sizeof(path) / sizeof(char), "%s/%s", ext->cd, target);
         
         int fd = open(path, O_RDONLY);
@@ -101,6 +108,7 @@ static struct schar directive(struct glsl_ext* ext, char** args,
             .source     = map,
             .source_len = st.st_size,
             .cd         = ext->cd,
+            .cfd        = ext->cfd,
             .handlers   = ext->handlers
         };
 

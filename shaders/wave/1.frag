@@ -11,7 +11,7 @@ uniform sampler1D audio_l;
 
 out vec4 fragment;
 
-#include "../wave.glsl"
+#include ":wave.glsl"
 
 #define index(offset) ((texture(audio_l, (gl_FragCoord.x + offset) / screen.x).r - 0.5) * AMPLIFY) + 0.5F
 

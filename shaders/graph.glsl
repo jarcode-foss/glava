@@ -15,11 +15,13 @@
 /* left color offset */
 #define LCOL_OFF ((screen.x - gl_FragCoord.x) / 3000)
 /* vertical color step */
-#define LSTEP (gl_FragCoord.y / 170)
+#define LSTEP (pos / 170)
 /* actual color definition */
 #define COLOR vec4((0.3 + RCOL_OFF) + LSTEP, 0.6 - LSTEP, (0.3 + LCOL_OFF) + LSTEP, 1)
 /* outline color */
 #define OUTLINE vec4(0.15, 0.15, 0.15, 1)
+/* 1 to invert (vertically), 0 otherwise */
+#define INVERT 0
 /* How many frames to queue and run through the average function */
 #request setavgframes 6
 /* Whether to window frames ran through the average function (new & old frames

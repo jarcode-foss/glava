@@ -40,6 +40,7 @@
 static GLuint shaderload(const char*             rpath,
                          GLenum                  type,
                          const char*             shader,
+                         const char*             config,
                          struct request_handler* handlers,
                          int                     shader_version,
                          bool                    raw) {
@@ -78,6 +79,7 @@ static GLuint shaderload(const char*             rpath,
         .source     = raw ? NULL : map,
         .source_len = raw ? 0 : st.st_size,
         .cd         = shader,
+        .cfd        = config,
         .handlers   = handlers,
         .processed  = (char*) (raw ? shader : NULL),
         .p_len      = raw ? s_len : 0
@@ -171,8 +173,10 @@ static GLuint shaderlink_f(GLuint* arr) {
 }
 
 /* load shaders */
-#define shaderbuild(shader_path, r, v, ...) shaderbuild_f(shader_path, r, v, (const char*[]) {__VA_ARGS__, 0})
+#define shaderbuild(shader_path, c, r, v, ...) \
+    shaderbuild_f(shader_path, c, r, v, (const char*[]) {__VA_ARGS__, 0})
 static GLuint shaderbuild_f(const char* shader_path,
+                            const char* config,
                             struct request_handler* handlers,
                             int shader_version,
                             const char** arr) {
@@ -188,7 +192,8 @@ static GLuint shaderbuild_f(const char* shader_path,
             if (path[t] == '.') {
                 if (!strcmp(path + t + 1, "frag") || !strcmp(path + t + 1, "glsl")) {
                     if (!(shaders[i] = shaderload(path, GL_FRAGMENT_SHADER,
-                                                  shader_path, handlers, shader_version, false))) {
+                                                  shader_path, config, handlers,
+                                                  shader_version, false))) {
                         return 0;
                     }
                 } else if (!strcmp(path + t + 1, "vert")) {
@@ -208,7 +213,7 @@ static GLuint shaderbuild_f(const char* shader_path,
         }
     }
     /* load builtin vertex shader */
-    shaders[sz] = shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC, handlers, shader_version, true);
+    shaders[sz] = shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC, NULL, handlers, shader_version, true);
     fflush(stdout);
     return shaderlink_f(shaders);
 }
@@ -1000,7 +1005,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                             };
 
                             current = s;
-                            GLuint id = shaderbuild(shaders, handlers, shader_version, d->d_name);
+                            GLuint id = shaderbuild(shaders, data, handlers, shader_version, d->d_name);
                             if (!id) {
                                 abort();
                             }

@@ -39,7 +39,7 @@ uniform int audio_sz;
        with 'setavgwindow'.
 */
 
-#include "../graph.glsl"
+#include ":graph.glsl"
 
 #request uniform "audio_l" audio_l
 #request transform audio_l "window"
@@ -57,7 +57,7 @@ uniform sampler1D audio_r;
 
 out vec4 fragment;
 
-#include "../util/smooth.glsl"
+#include ":util/smooth.glsl"
 
 /* distance from center */
 #define CDIST (abs((screen.x / 2) - gl_FragCoord.x) / screen.x)
@@ -95,7 +95,12 @@ void render_side(in sampler1D tex, float idx) {
     s *= 1 + BDIST;
 
     /* and finally set fragment color if we are in range */
-    if (gl_FragCoord.y + 1.5 <= s) {
+    #if INVERT > 0
+    float pos = float(screen.y) - gl_FragCoord.y;
+    #else
+    float pos = gl_FragCoord.y;
+    #endif
+    if (pos + 1.5 <= s) {
         fragment = COLOR;
     } else {
         fragment = vec4(0, 0, 0, 0);

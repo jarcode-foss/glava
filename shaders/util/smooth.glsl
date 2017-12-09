@@ -10,7 +10,7 @@
 #define PI 3.14159265359
 #endif
 
-#include "../smooth_parameters.glsl"
+#include ":smooth_parameters.glsl"
 
 /* window value t that resides in range [0, sz)*/
 #define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * t / (sz - 1))))

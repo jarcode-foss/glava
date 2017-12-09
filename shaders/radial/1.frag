@@ -6,7 +6,7 @@ uniform ivec2 screen;
 #request uniform "audio_sz" audio_sz
 uniform int audio_sz;
 
-#include "../radial.glsl"
+#include ":radial.glsl"
 
 #request uniform "audio_l" audio_l
 #request transform audio_l "window"
@@ -23,7 +23,7 @@ uniform sampler1D audio_l;
 uniform sampler1D audio_r;
 
 out vec4 fragment;
-#include "../util/smooth.glsl"
+#include ":util/smooth.glsl"
 
 #define TWOPI 6.28318530718
 #define PI 3.14159265359

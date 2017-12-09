@@ -8,7 +8,7 @@ uniform ivec2     screen; /* screen dimensions */
 
 out vec4 fragment; /* output */
 
-#include "../wave.glsl"
+#include ":wave.glsl"
 
 void main() {
     fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, gl_FragCoord.y / screen.y));

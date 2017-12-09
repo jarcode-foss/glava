@@ -8,7 +8,7 @@ uniform ivec2     screen; /* screen dimensions */
 
 out vec4 fragment; /* output */
 
-#include "../graph.glsl"
+#include ":graph.glsl"
 
 void main() {
     fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, gl_FragCoord.y / screen.y));
@@ -26,7 +26,12 @@ void main() {
 
     vec4 avg = (a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7) / 8.0;
     if (avg.a > 0){
-        if (fragment.a <= 0 && gl_FragCoord.y != screen.y - 1) {
+        #if INVERT > 0
+        #define EDGE_CHECK (gl_FragCoord.y != 0)
+        #else
+        #define EDGE_CHECK (gl_FragCoord.y != screen.y - 1)
+        #endif
+        if (fragment.a <= 0 && EDGE_CHECK) {
             /* outline */
             fragment = OUTLINE;
         } else if (avg.a < 1 && gl_FragCoord.y != 0) {

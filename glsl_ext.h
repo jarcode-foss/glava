@@ -26,6 +26,7 @@ struct glsl_ext {
     const char*  source;     /* IN: raw data passed via ext_process                         */
     size_t source_len;       /* IN: raw source len */
     const char*  cd;         /* IN: current directory                                       */
+    const char*  cfd;        /* IN: config directory, if NULL it is assumed to cd           */
 
     /* IN: NULL (where the last element's 'name' member is NULL) terminated
        array of request handlers */
