@@ -986,7 +986,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                 dir = opendir(shaders);
                 while ((d = readdir(dir)) != NULL) {
                     if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
-                        snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, idx);
+                        snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, (int) idx);
                         if (!strcmp(buf, d->d_name)) {
                             printf("found GLSL stage: '%s'\n", d->d_name);
                             ++count;
@@ -1007,7 +1007,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                 dir = opendir(shaders);
                 while ((d = readdir(dir)) != NULL) {
                     if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
-                        snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, idx);
+                        snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, (int) idx);
                         if (!strcmp(buf, d->d_name)) {
                             printf("compiling: '%s'\n", d->d_name);
                         
@@ -1218,7 +1218,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 "    fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, "                             "\n"
                 "                       (screen.y - gl_FragCoord.y) / screen.y));"                         "\n"
                 "    fragment.a = 1.0F;"                                                                   "\n"
-                "}";                                                                                       "\n";
+                "}"                                                                                        "\n";
             if (!setup) {
                 bg_prog = shaderlink(shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC,
                                                 NULL, NULL, 330, true),

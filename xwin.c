@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -34,7 +35,7 @@ bool xwin_should_render(void) {
     unsigned long nitems, bytes_after;
     unsigned char* data;
 
-    int handler(Display* d, XErrorEvent* e) {}
+    int handler(Display* d, XErrorEvent* e) { return 0; }
     
     XSetErrorHandler(handler); /* dummy error handler */
           
@@ -130,7 +131,10 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     XVisualInfo* info = XGetVisualInfo(d, VisualIDMask, &match, &nret);
     XImage* image = XShmCreateImage(d, visual, info->depth, ZPixmap, NULL,
                                     &shminfo, (unsigned int) w, (unsigned int) h);
-    shminfo.shmid = shmget(IPC_PRIVATE, image->bytes_per_line * image->height, IPC_CREAT | 0777);
+    if ((shminfo.shmid = shmget(IPC_PRIVATE, image->bytes_per_line * image->height, IPC_CREAT | 0777)) == -1) {
+        fprintf(stderr, "shmget() failed: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
     shminfo.shmaddr = image->data = shmat(shminfo.shmid, 0, 0);
     shminfo.readOnly = false;
     XShmAttach(d, &shminfo);
@@ -200,18 +204,22 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     } else {
         /* Use image data directly. The alpha value is garbage/unassigned data, but
            we need to read it because X11 keeps pixel data aligned */
-        buf = image->data;
+        buf = (uint8_t*) image->data;
         /* Data could be 2, 4, or 8 byte aligned, the RGBA format and type (depth)
            already ensures reads will be properly aligned across scanlines */
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         GLenum format = image->bitmap_bit_order == LSBFirst ?
             (!aligned ? GL_BGRA : GL_BGR) :
             (!aligned ? GL_RGBA : GL_RGB);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, format, GL_UNSIGNED_BYTE, buf);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, format, type, buf);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4); /* restore default */
     }
 
-    XFree(image);
+    XShmDetach(d, &shminfo);
+    shmdt(shminfo.shmaddr);
+    shmctl(shminfo.shmid, IPC_RMID, NULL);
+
+    XDestroyImage(image);
     XCloseDisplay(d);
     
     return texture;

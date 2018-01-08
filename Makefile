@@ -4,7 +4,7 @@ obj = $(src:.c=.o)
 # Build type parameter
 
 ifeq ($(BUILD),debug)
-	CFLAGS_BUILD = -ggdb
+	CFLAGS_BUILD = -ggdb -Wall
 	GLAD_GEN = c-debug
 else
 	CFLAGS_BUILD = -O2 -march=native
