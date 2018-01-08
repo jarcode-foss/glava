@@ -59,22 +59,22 @@ void main() {
             d -= C_RADIUS + (float(C_LINE) / 2.0F); /* offset to fragment distance from inner circle */
             if (d <= v - BAR_OUTLINE_WIDTH) {
             #if BAR_OUTLINE_WIDTH > 0
-            if (abs(ym) < (BAR_WIDTH / 2) - BAR_OUTLINE_WIDTH)
+                if (abs(ym) < (BAR_WIDTH / 2) - BAR_OUTLINE_WIDTH)
+                    fragment = COLOR;
+                else
+                    fragment = BAR_OUTLINE;
+                #else
                 fragment = COLOR;
-            else
-                fragment = BAR_OUTLINE;
-            #else
-            fragment = COLOR;
-            #endif
-            return;
-        }
+                #endif
+                return;
+            }
             #if BAR_OUTLINE_WIDTH > 0
             if (d <= v) {
-            fragment = BAR_OUTLINE;
-            return;
-        }
+                fragment = BAR_OUTLINE;
+                return;
+            }
             #endif
         }
-        }
-            fragment = vec4(0, 0, 0, 0); /* default frag color */
-        }
+    }
+    fragment = vec4(0, 0, 0, 0); /* default frag color */
+}

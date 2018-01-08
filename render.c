@@ -355,14 +355,14 @@ static void drawoverlay(const struct overlay_data* d) {
 struct gl_data {
     struct gl_sfbo* stages;
     struct overlay_data overlay;
-    GLuint audio_tex_r, audio_tex_l;
+    GLuint audio_tex_r, audio_tex_l, bg_tex;
     size_t stages_sz, bufscale, avg_frames;
     GLFWwindow* w;
-    int lww, lwh; /* last window height */
+    int lww, lwh, lwx, lwy; /* last window dimensions */
     int rate; /* framerate */
     double tcounter;
     int fcounter, ucounter, kcounter;
-    bool print_fps, avg_window, interpolate, force_geometry;
+    bool print_fps, avg_window, interpolate, force_geometry, copy_desktop;
     void** t_data;
     float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio;
     float* interpolate_buf[6];
@@ -660,6 +660,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     
     struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
+        .w               = NULL,
         .stages          = NULL,
         .rate            = 0,
         .tcounter        = 0.0D,
@@ -676,7 +677,10 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         .interpolate     = true,
         .force_geometry  = false,
         .smooth_distance = 0.01,
-        .smooth_ratio    = 4
+        .smooth_ratio    = 4,
+        .bg_tex          = 0,
+        .copy_desktop    = true,
+        .geometry        = { 0, 0, 500, 400 }
     };
     
     #ifdef GLAD_DEBUG
@@ -695,40 +699,10 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_FLOATING, GLFW_FALSE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    
-    #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
-    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
-    #elif GLFW_TRANSPARENT
-    glfwWindowHint(GLFW_TRANSPARENT, GLFW_TRUE);
-    #else
-    printf("WARNING: the linked version of GLFW3 does not have transparency support"
-           " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n"); 
-    #endif
-    
-    if (!(gl->w = glfwCreateWindow(500, 400, "GLava", NULL, NULL))) {
-        glfwTerminate();
-        abort();
-    }
-
-    glfwMakeContextCurrent(gl->w);
-    gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
-
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_DEPTH_CLAMP);
-    glDisable(GL_CULL_FACE);
-    glDisable(GL_SCISSOR_TEST);
-    glDisable(GL_MULTISAMPLE);
-    glDisable(GL_LINE_SMOOTH);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-
 
     int shader_version = 330;
     const char* module = force_mod;
-    char* xwintype = NULL;
+    char* xwintype = NULL, * wintitle = "GLava";
     bool loading_module = true;
     struct gl_sfbo* current = NULL;
     size_t t_count = 0;
@@ -739,9 +713,30 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     
     struct request_handler handlers[] = {
         {
-            .name = "wavetype", .fmt = "s",
+            .name = "setopacity", .fmt = "s",
             .handler = RHANDLER(name, args, {
-                    printf("[STUB] wavetype = '%s'\n", (char*) args[0]);
+
+                    bool native_opacity = !strcmp("native", (char*) args[0]);
+                    
+                    #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
+                    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, native_opacity ? GLFW_TRUE : GLFW_FALSE);
+                    #elif GLFW_TRANSPARENT
+                    glfwWindowHint(GLFW_TRANSPARENT, native_opacity ? GLFW_TRUE : GLFW_FALSE);
+                    #else
+                    if (native_opacity)
+                        printf("WARNING: the linked version of GLFW3 does not have transparency support"
+                               " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n"); 
+                    #endif
+
+                    if (!strcmp("xroot", (char*) args[0]))
+                        gl->copy_desktop = true;
+                    else
+                        gl->copy_desktop = false;
+
+                    if (!gl->copy_desktop && !native_opacity && strcmp("none", (char*) args[0])) {
+                        fprintf(stderr, "Invalid opacity option: '%s'\n", (char*) args[0]);
+                        exit(EXIT_FAILURE);
+                    }
                 })
         },
         {
@@ -773,8 +768,6 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                     gl->geometry[1] = *(int*) args[1];
                     gl->geometry[2] = *(int*) args[2];
                     gl->geometry[3] = *(int*) args[3];
-                    glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
-                    glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
                 })
         },
         {   .name = "setsource", .fmt = "s",
@@ -793,7 +786,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         {   .name = "setprintframes", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->print_fps = *(bool*) args[0]; })           },
         {   .name = "settitle", .fmt = "s",
-            .handler = RHANDLER(name, args, { glfwSetWindowTitle(gl->w, (char*) args[0]); }) },
+            .handler = RHANDLER(name, args, { wintitle = strdup((char*) args[0]); })         },
         {   .name = "setbufsize", .fmt = "i",
             .handler = RHANDLER(name, args, { r->bufsize_request = *(int*) args[0]; })       },
         {   .name = "setbufscale", .fmt = "i",
@@ -937,6 +930,29 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                 entry);
         exit(EXIT_FAILURE);
     }
+    
+    if (!(gl->w = glfwCreateWindow(500, 400, wintitle, NULL, NULL))) {
+        glfwTerminate();
+        abort();
+    }
+    
+    glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
+    glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
+
+    glfwMakeContextCurrent(gl->w);
+    gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_CLAMP);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_MULTISAMPLE);
+    glDisable(GL_LINE_SMOOTH);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     
     size_t m_len = strlen(module);
     size_t bsz = d_len + m_len + 2;
@@ -1146,20 +1162,29 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             irb[t] = irbs + ((irbe - irbs) * mod);
         }
     }
+    int ww, wh, wx, wy;
+    glfwGetFramebufferSize(gl->w, &ww, &wh);
+    glfwGetWindowPos(gl->w, &wx, &wy);
     
     /* Resize screen textures if needed */
-    int ww, wh;
-    glfwGetFramebufferSize(gl->w, &ww, &wh);
     if (ww != gl->lww || wh != gl->lwh) {
         for (t = 0; t < gl->stages_sz; ++t) {
             if (gl->stages[t].valid) {
                 setup_sfbo(&gl->stages[t], ww, wh);
             }
         }
-        gl->lww = ww;
-        gl->lwh = wh;
     }
-        
+
+    /* Resize and grab new background data if needed */
+    if (gl->copy_desktop && (ww != gl->lww || wh != gl->lwh || wx != gl->lwx || wy != gl->lwy)) {
+        gl->bg_tex = xwin_copyglbg(r, gl->bg_tex);
+    }
+
+    gl->lwx = wx;
+    gl->lwy = wy;
+    gl->lww = ww;
+    gl->lwh = wh;
+    
     glViewport(0, 0, ww, wh);
         
     struct gl_sfbo* prev;
@@ -1170,15 +1195,56 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
         bool needed[64] = { [ 0 ... 63 ] = false }; /* Load flags for each texture position */
         
-        /* Select the program associated with this pass */
+        /* Current shader program */
         struct gl_sfbo* current = &gl->stages[t];
-        glUseProgram(current->shader);
-            
+        
         /* Bind framebuffer if this is not the final pass */
         if (current->valid)
             glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
         
         glClear(GL_COLOR_BUFFER_BIT);
+        
+        if (!current->valid && gl->copy_desktop) {
+            /* Self-contained code for drawing background image */
+            static GLuint bg_prog, bg_utex, bg_screen;
+            static bool setup = false;
+            /* Shader to flip texture and override alpha channel */
+            static const char* frag_shader =
+                "uniform sampler2D tex;"                                                                   "\n"
+                "uniform ivec2 screen;"                                                                    "\n"
+                "out vec4 fragment;"                                                                       "\n"
+                "in vec4 gl_FragCoord;"                                                                    "\n"
+                "void main() {"                                                                            "\n"
+                "    fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, "                             "\n"
+                "                       (screen.y - gl_FragCoord.y) / screen.y));"                         "\n"
+                "    fragment.a = 1.0F;"                                                                   "\n"
+                "}";                                                                                       "\n";
+            if (!setup) {
+                bg_prog = shaderlink(shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC,
+                                                NULL, NULL, 330, true),
+                                     shaderload(NULL, GL_FRAGMENT_SHADER, frag_shader,
+                                                NULL, NULL, 330, true));
+                bg_utex   = glGetUniformLocation(bg_prog, "tex");
+                bg_screen = glGetUniformLocation(bg_prog, "screen");
+                glBindFragDataLocation(bg_prog, 1, "fragment");
+                setup = true;
+            }
+            glUseProgram(bg_prog);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gl->bg_tex);
+            glUniform2i(bg_screen, (GLint) ww, (GLint) wh);
+            glUniform1i(bg_utex, 0);
+            /* We need to disable blending, we might read in bogus alpha values due
+               to how we obtain the background texture (format is four byte `rgb_`, 
+               where the last value is skipped) */
+            glDisable(GL_BLEND);
+            drawoverlay(&gl->overlay);
+            glEnable(GL_BLEND);
+            glUseProgram(0);
+        }
+        
+        /* Select the program associated with this pass */
+        glUseProgram(current->shader);
 
         bool prev_bound = false;
         

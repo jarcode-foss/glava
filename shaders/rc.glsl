@@ -21,16 +21,37 @@
 #request setfocused   true
 #request setmaximized false
 
+/* Force GLFW window geometry (locking the window in place),
+   useful for some pesky WMs that try to reposition the window
+   when embedding in the desktop. */
+#request setforcegeometry false
+
+/* Set window background opacity mode. Possible values are:
+   
+   "native" - True transparency provided by the compositor.
+              Requires GLFW 3.3+ and an active compositor. Can
+              reduce performance on some systems, and will not
+              blend with the visualizer's alpha layer.
+   
+   "xroot"  - Maintain a copy of the root window's pixmap
+              (usually the desktop background) to provide a
+              pseudo-transparent effect. Useful when no compositor
+              is available or native transparency isn't nessecary.
+              Has very little performance impact.
+    
+   "none"   - Disable window opacity completely. */
+#request setopacity "xroot"
+
+/* OpenGL context and GLSL shader versions, do not change unless
+   you *absolutely* know what you are doing. */
+#request setversion 3 3
+#request setshaderversion 330
+
 /* GLFW window title */
 #request settitle "GLava"
 
 /* GLFW window geometry (x, y, width, height) */
 #request setgeometry 0 0 400 600
-
-/* Force GLFW window geometry (locking the window in place), useful
-   for some pesky WMs that try to reposition the window when
-   embedding in the desktop. */
-#request setforcegeometry false
 
 /* (X11 only) EWMH Window type. Possible values are:
    
@@ -139,8 +160,3 @@
    the buffer. It is reccommended to use `setsamplerate` and
    `setsamplesize` to improve performance or accuracy instead. */
 #request setbufscale 1
-
-/* OpenGL context and GLSL shader versions, do not change unless
-   you _absolutely_ know what you are doing. */
-#request setversion 3 3
-#request setshaderversion 330

@@ -15,13 +15,11 @@ $ glava
 
 You can pass `BUILD=debug` to the makefile for debug builds of both glad and glava, and you can manually specify install targets with `INSTALL=...`, possible arguments are `unix` for FHS compliant Linux and BSD distros, `osx` for Mac OSX, and `standalone` which allows you to run GLava in the build directory.
 
-**Note:** GLFW's most recent stable version is 3.2, whereas 3.3 is needed in order to support transparency (older versions still work, just without transparency). You can either find a more recent build or compile it yourself. Arch users can install `glfw-x11-git` from the AUR.
-
 **Requirements:**
 
 - X11
 - PulseAudio
-- GLFW (version 3.3+ needed for transparency support)
+- GLFW
 - Linux or BSD
 
 **Additional compile time requirements:**
@@ -40,6 +38,8 @@ To embed GLava in your desktop (for EWMH compliant window managers), use `#reque
 
 \* On an XDG compliant Linux or BSD system. OSX will use `/Library/glava` and `~/Library/Preferences/glava` instead.
 
+**Note for `#request setopacity`:** While most users will prefer the faster `xroot` transparency, GLFW 3.3 (unreleased) is needed in order to support the `native` transparency option (older versions still work). Arch users can install `glfw-x11-git` from the AUR and recompile GLava for this feature.
+
 ## To-Do
 
 **What needs to be done:**
@@ -55,10 +55,7 @@ To embed GLava in your desktop (for EWMH compliant window managers), use `#reque
 - Detecting if the window manager reports the currently focused window as fullscreen (and halting rendering for the duration)
 - Fixed a memory corruption bug that crashed the `nvidia` driver on Linux
 - Fix breaks in audio spectrum read from the PulseAudio server
-
-**What will never be done:**
-
-- Port to Windows (???)
+- Transparency support using either the compositor or the root X window's pixmap
 
 ## Licensing
 
@@ -80,3 +77,7 @@ The below copyright applies for the modifications to the files listed above, and
 `Copyright (c) 2017 Levi Webb`
 
 **Why did you relicense this software?** Because my views align with the FSF's position on free software -- I see the MIT license as harmful to free software as it fails to preserve modifications of the source code as open source.
+
+## Porting
+
+GLava was built with GLFW, making the graphics frontend mostly compatible if it were to be ported to Windows, and I have taken all the Xlib-specific code and placed it into `xwin.c` if anyone decides they wish to attempt at a port.
