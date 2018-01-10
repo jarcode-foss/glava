@@ -58,7 +58,7 @@ void main() {
             #undef smooth_f
             d -= C_RADIUS + (float(C_LINE) / 2.0F); /* offset to fragment distance from inner circle */
             if (d <= v - BAR_OUTLINE_WIDTH) {
-            #if BAR_OUTLINE_WIDTH > 0
+                #if BAR_OUTLINE_WIDTH > 0
                 if (abs(ym) < (BAR_WIDTH / 2) - BAR_OUTLINE_WIDTH)
                     fragment = COLOR;
                 else

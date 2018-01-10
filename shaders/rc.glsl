@@ -18,7 +18,7 @@
 /* GLFW window hints */
 #request setfloating  true
 #request setdecorated false
-#request setfocused   true
+#request setfocused   false
 #request setmaximized false
 
 /* Force GLFW window geometry (locking the window in place),
