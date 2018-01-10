@@ -40,7 +40,7 @@
 #define SHADER_USER_PATH "userconf"
 /* FHS compliant systems */
 #elif defined(__unix__) || defined(GLAVA_UNIX)
-#define SHADER_INSTALL_PATH FORMAT("%s/glava", ENV("XDG_CONFIG_DIRS", "/etc/xdg"))
+#define SHADER_INSTALL_PATH "/etc/xdg/glava"
 #define SHADER_USER_PATH FORMAT("%s/glava", ENV("XDG_CONFIG_HOME", "%s/.config", ENV("HOME", "/home")))
 /* OSX */
 #elif (defined(__APPLE__) && defined(__MACH__)) || defined(GLAVA_OSX)
