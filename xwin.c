@@ -64,10 +64,10 @@ bool xwin_should_render(void) {
 
 /* Set window types defined by the EWMH standard, possible values:
    -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
-void xwin_settype(struct renderer* rd, const char* type) {
+static void xwin_changeatom(struct renderer* rd, const char* type, const char* atom, const char* fmt, int mode) {
     Window w = glfwGetX11Window((GLFWwindow*) rd_get_impl_window(rd));
     Display* d = XOpenDisplay(0);
-    Atom wtype = XInternAtom(d, "_NET_WM_WINDOW_TYPE", false);
+    Atom wtype = XInternAtom(d, atom, false);
     size_t len = strlen(type), t;
     char formatted[len + 1];
     for (t = 0; t < len + 1; ++t) {
@@ -78,10 +78,18 @@ void xwin_settype(struct renderer* rd, const char* type) {
         }
     }
     char buf[256];
-    snprintf(buf, sizeof(buf), "_NET_WM_WINDOW_TYPE_%s", formatted);
+    snprintf(buf, sizeof(buf), fmt, formatted);
     Atom desk = XInternAtom(d, buf, false);
-    XChangeProperty(d, w, wtype, XA_ATOM, 32, PropModeReplace, (unsigned char*) &desk, 1);
+    XChangeProperty(d, w, wtype, XA_ATOM, 32, mode, (unsigned char*) &desk, 1);
     XCloseDisplay(d);
+}
+
+void xwin_settype(struct renderer* rd, const char* type) {
+    xwin_changeatom(rd, type, "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_%s", PropModeReplace); 
+}
+
+void xwin_addstate(struct renderer* rd, const char* state) {
+    xwin_changeatom(rd, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend); 
 }
 
 static Pixmap get_pixmap(Display* d, Window w) {

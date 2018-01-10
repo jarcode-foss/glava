@@ -703,6 +703,8 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     int shader_version = 330;
     const char* module = force_mod;
     char* xwintype = NULL, * wintitle = "GLava";
+    char** xwinstates = malloc(1);
+    size_t xwinstates_sz = 0;
     bool loading_module = true;
     struct gl_sfbo* current = NULL;
     size_t t_count = 0;
@@ -768,6 +770,14 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                     gl->geometry[1] = *(int*) args[1];
                     gl->geometry[2] = *(int*) args[2];
                     gl->geometry[3] = *(int*) args[3];
+                })
+        },
+        {
+            .name = "addxwinstate", .fmt = "s",
+            .handler = RHANDLER(name, args, {
+                    ++xwinstates_sz;
+                    xwinstates = realloc(xwinstates, sizeof(*xwinstates) * xwinstates_sz);
+                    xwinstates[xwinstates_sz - 1] = strdup((char*) args[0]);
                 })
         },
         {   .name = "setsource", .fmt = "s",
@@ -1094,7 +1104,12 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         xwin_settype(r, xwintype);
         free(xwintype);
     }
-        
+
+    for (size_t t = 0; t < xwinstates_sz; ++t) {
+        xwin_addstate(r, xwinstates[t]);
+        free(xwinstates);
+    }
+    
     return r;
 }
 

@@ -66,6 +66,27 @@
 */
 #request setxwintype "normal"
 
+/* (X11 only) EWMH Window state atoms (multiple can be specified).
+   Possible values are:
+   
+   "modal", "sticky", "maximized_vert", "maximized_horz",
+   "shaded", "skip_taskbar", "skip_pager", "hidden", "fullscreen",
+   "above", "below", "demands_attention", "focused"
+   
+   This will add _NET_WM_STATE_(TYPE) atoms to _NET_WM_STATE,
+   where (TYPE) is one of the window states listed (after being
+   converted to uppercase).
+   
+   The lines below (commented out by default) are of relevance
+   if you are trying to get GLava to behave as a desktop widget
+   and your WM is not correctly responding to the "desktop" value
+   for `setxwintype`.
+*/
+// #request addxwinstate "sticky"
+// #request addxwinstate "skip_taskbar"
+// #request addxwinstate "skip_pager"
+// #request addxwinstate "above"
+
 /* PulseAudio source. Can be a number or a name of an audio
    sink or device to record from. Set to "auto" to use the
    default output device. */
