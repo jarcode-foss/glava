@@ -13,7 +13,7 @@
    as a 2D sampler.
    
    See documentation for more details. */
-#request mod graph
+#request mod bars
 
 /* GLFW window hints */
 #request setfloating  false
