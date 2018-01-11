@@ -51,7 +51,7 @@
 #endif
 
 /* Copy installed shaders/configuration from the installed location
-   (usually /etx/xdg). Modules (folders) will be linked instead of
+   (usually /etc/xdg). Modules (folders) will be linked instead of
    copied. */
 static void copy_cfg(const char* path, const char* dest, bool verbose) {
     size_t

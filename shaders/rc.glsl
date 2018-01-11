@@ -16,7 +16,7 @@
 #request mod graph
 
 /* GLFW window hints */
-#request setfloating  true
+#request setfloating  false
 #request setdecorated false
 #request setfocused   false
 #request setmaximized false
