@@ -1,5 +1,6 @@
 
-/* Settings for smoothing functions commonly used to display FFT output */
+/* Settings for smoothing functions and transformations commonly
+   used to display FFT output */
 
 /* The type of formula to use for weighting values when smoothing.
    Possible values:
@@ -28,3 +29,19 @@
    Higher values cause more of the bass frequencies to be skipped when
    scaling. */
 #request setfftcutoff 0.3
+
+/* How many frames to queue and run through the average function.
+   Increasing this value will create latency between the audio and the
+   animation, but will make for much smoother results. */
+#request setavgframes 6
+
+/* Whether to window frames ran through the average function (new & old
+   frames are weighted less). This massively helps smoothing out
+   spontaneous values in the animation. */
+#request setavgwindow true
+
+/* Gravity step, higher values means faster drops. The step is applied
+   in a rate independant method like so:
+   
+   val -= (gravitystep) * (seconds per update) */
+#request setgravitystep 4.2
