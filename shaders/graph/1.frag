@@ -91,9 +91,6 @@ void render_side(in sampler1D tex, float idx) {
     s *= clamp((abs((screen.x / 2) - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
     s *= clamp((min(gl_FragCoord.x, screen.x - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
 
-    /* amplify higher frequencies */
-    s *= 1 + BDIST;
-
     /* and finally set fragment color if we are in range */
     #if INVERT > 0
     float pos = float(screen.y) - gl_FragCoord.y;

@@ -364,7 +364,7 @@ struct gl_data {
     int fcounter, ucounter, kcounter;
     bool print_fps, avg_window, interpolate, force_geometry, copy_desktop;
     void** t_data;
-    float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio;
+    float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio, fft_scale, fft_cutoff;
     float* interpolate_buf[6];
     int geometry[4];
 };
@@ -624,6 +624,7 @@ void transform_fft(struct gl_data* d, void** _, void* in) {
     for (n = 0; n < s->sz; ++n) {
         if (data[n] < 0.0F) data[n] = -data[n];
         data[n] = log(data[n] + 1) / 3;
+        data[n] *= max((((float) n / (float) s->sz) * d->fft_scale) + (1.0F - d->fft_cutoff), 1.0F);
     }
 }
 
@@ -680,6 +681,8 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         .smooth_ratio    = 4,
         .bg_tex          = 0,
         .copy_desktop    = true,
+        .fft_scale       = 10.2F,
+        .fft_cutoff      = 0.3F,
         .geometry        = { 0, 0, 500, 400 }
     };
     
@@ -814,9 +817,13 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         {   .name = "setsmooth", .fmt = "f",
             .handler = RHANDLER(name, args, { gl->smooth_distance = *(float*) args[0]; })    },
         {   .name = "setsmoothratio", .fmt = "f",
-            .handler = RHANDLER(name, args, { gl->smooth_ratio = *(float*) args[0]; })    },
+            .handler = RHANDLER(name, args, { gl->smooth_ratio = *(float*) args[0]; })       },
         {   .name = "setinterpolate", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->interpolate = *(bool*) args[0]; })         },
+        {   .name = "setfftscale", .fmt = "f",
+            .handler = RHANDLER(name, args, { gl->fft_scale = *(float*) args[0];})           },
+        {   .name = "setfftcutoff", .fmt = "f",
+            .handler = RHANDLER(name, args, { gl->fft_cutoff = *(float*) args[0];})          },
         {
             .name = "transform", .fmt = "ss",
             .handler = RHANDLER(name, args, {

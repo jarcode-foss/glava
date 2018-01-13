@@ -54,7 +54,7 @@ void main() {
             float v;
             if (idx > 0) v = smooth_f(audio_l);                            /* left buffer */
             else         v = smooth_f(audio_r);                            /* right buffer */
-            v *= AMPLIFY * (1 + pos);                                      /* amplify and scale with frequency */
+            v *= AMPLIFY;                                                  /* amplify */
             #undef smooth_f
             d -= C_RADIUS + (float(C_LINE) / 2.0F); /* offset to fragment distance from inner circle */
             if (d <= v - BAR_OUTLINE_WIDTH) {

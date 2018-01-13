@@ -19,3 +19,12 @@
    and lower values reduce the displayed frequencies in a log-like
    scale. */
 #define SAMPLE_RANGE 0.9
+
+/* Factor for how to scale higher frequencies. Used in a linear equation
+   which is multiplied by the result of the fft transformation. */
+#request setfftscale 10.2
+
+/* Cutoff for the bass end of the audio data when scaling frequencies.
+   Higher values cause more of the bass frequencies to be skipped when
+   scaling. */
+#request setfftcutoff 0.3

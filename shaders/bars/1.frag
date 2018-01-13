@@ -71,7 +71,7 @@ void main() {
         }
         #undef smooth_f
 
-        v *= AMPLIFY * (1 + p);          /* amplify result                                  */
+        v *= AMPLIFY;                    /* amplify result                                  */
         if (d < v - BAR_OUTLINE_WIDTH) { /* if within range of the reported frequency, draw */
             #if BAR_OUTLINE_WIDTH > 0
             if (md < (BAR_WIDTH / 2) - BAR_OUTLINE_WIDTH)

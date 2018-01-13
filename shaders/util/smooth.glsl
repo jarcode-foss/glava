@@ -42,7 +42,6 @@ float smooth_audio(in sampler1D tex, int tex_sz, highp float idx, float r) {
         avg += texture(tex, float(s) / float(tex_sz)).r * w;
     }
     avg /= weight;
-    avg *= max(idx + 0.7, 1);
     return avg;
 }
 
