@@ -20,3 +20,4 @@
 #define INVERT 0
 /* Smoothing factor, in normalized width */
 #define SMOOTH 0.025
+
