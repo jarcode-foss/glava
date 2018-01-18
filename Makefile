@@ -4,8 +4,9 @@ obj = $(src:.c=.o)
 # Build type parameter
 
 ifeq ($(BUILD),debug)
-    CFLAGS_BUILD = -ggdb -Wall
+    CFLAGS_BUILD = -O1 -ggdb -Wall -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls
     GLAD_GEN = c-debug
+    ASAN = -lasan
 else
     CFLAGS_BUILD = -O2 -march=native
     GLAD_GEN = c
@@ -42,7 +43,7 @@ ifeq ($(INSTALL),osx)
     SHADER_DIR = Library/glava
 endif
 
-LDFLAGS = -lpulse -lpulse-simple -pthread -lglfw -ldl -lm -lX11 -lXext
+LDFLAGS = $(ASAN) -lpulse -lpulse-simple -pthread -lglfw -ldl -lm -lX11 -lXext
 
 PYTHON = python
 
