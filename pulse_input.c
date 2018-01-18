@@ -35,32 +35,26 @@ static void cb(__attribute__((unused)) pa_context *pulseaudio_context,
 static void pulseaudio_context_state_callback(pa_context *pulseaudio_context,
                                        void *userdata) {
 
-	//make sure loop is ready	
+	// make sure loop is ready	
 	switch (pa_context_get_state(pulseaudio_context))
         {
         case PA_CONTEXT_UNCONNECTED:
-            //printf("UNCONNECTED\n");
             break;
         case PA_CONTEXT_CONNECTING:
-            //printf("CONNECTING\n");
             break;
         case PA_CONTEXT_AUTHORIZING:
-            //printf("AUTHORIZING\n");
             break;
         case PA_CONTEXT_SETTING_NAME:
-            //printf("SETTING_NAME\n");
             break;
-        case PA_CONTEXT_READY://extract default sink name
-            //printf("READY\n");
-            pa_operation_unref(pa_context_get_server_info(
-                                                          pulseaudio_context, cb, userdata));
+        case PA_CONTEXT_READY: /* extract default sink name */
+            pa_operation_unref(pa_context_get_server_info(pulseaudio_context, cb, userdata));
             break;
         case PA_CONTEXT_FAILED:
             printf("failed to connect to pulseaudio server\n");
             exit(EXIT_FAILURE);
             break;
         case PA_CONTEXT_TERMINATED:
-            //printf("PulseAudio context terminated!\n");
+            // printf("PulseAudio context terminated!\n");
             pa_mainloop_quit(m_pulseaudio_mainloop, 0);
             break;	  
         }
@@ -77,22 +71,17 @@ void get_pulse_default_sink(struct audio_data* audio) {
 	m_pulseaudio_mainloop = pa_mainloop_new();
 
 	mainloop_api = pa_mainloop_get_api(m_pulseaudio_mainloop);
-	pulseaudio_context = pa_context_new(mainloop_api, "cava device list");
+	pulseaudio_context = pa_context_new(mainloop_api, "glava device list");
 
 
 	// This function connects to the pulse server
 	pa_context_connect(pulseaudio_context, NULL, PA_CONTEXT_NOFLAGS,
                        NULL);
 
-
-    //        printf("connecting to server\n");
-
-	//This function defines a callback so the server will tell us its state.
+	// This function defines a callback so the server will tell us its state.
 	pa_context_set_state_callback(pulseaudio_context,
                                   pulseaudio_context_state_callback,
                                   (void*)audio);
-
-
 
 	// starting a mainloop to get default sink
 
