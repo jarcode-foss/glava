@@ -1114,8 +1114,8 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
 
     for (size_t t = 0; t < xwinstates_sz; ++t) {
         xwin_addstate(r, xwinstates[t]);
-        free(xwinstates);
     }
+    free(xwinstates);
     
     return r;
 }
