@@ -54,10 +54,10 @@ CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
 
 all: glava
 
-%.o: %.c
-	$(CC) $(CFLAGS_USE) -o $@ -c $<
+%.o: %.c glad.o
+	$(CC) $(CFLAGS_USE) -o $@ -c $(firstword $<)
 
-glava: glad.o $(obj)
+glava: $(obj)
 	$(CC) -o glava $(obj) glad.o $(LDFLAGS)
 
 glad.o:
@@ -70,8 +70,8 @@ clean:
 
 .PHONY: install
 install:
-	cp glava $(DESTDIR)/usr/bin/glava
-	mkdir -p $(DESTDIR)/$(SHADER_DIR)
+	install -Dm755 glava $(DESTDIR)/usr/bin/glava
+	install -d $(DESTDIR)/$(SHADER_DIR)
 	cp -Rv shaders/* $(DESTDIR)/$(SHADER_DIR)
 
 .PHONY: uninstall
