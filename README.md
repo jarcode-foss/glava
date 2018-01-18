@@ -3,7 +3,7 @@
 
 GLava is an (in development) OpenGL audio spectrum visualizer. Its primary use case is for desktop widgets or backgrounds. Displayed to the left is the `radial` shader module running in GLava.
 
-**Compiling** (after meeting the requirements)**:**
+**Compiling** (Or use the [`glava-git` AUR package](https://aur.archlinux.org/packages/glava-git/))**:**
 
 ```bash
 $ git clone --recursive https://github.com/wacossusca34/glava

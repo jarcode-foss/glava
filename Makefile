@@ -70,9 +70,9 @@ clean:
 
 .PHONY: install
 install:
-	install -Dm755 glava $(DESTDIR)/usr/bin/glava
-	install -d $(DESTDIR)/$(SHADER_DIR)
-	cp -Rv shaders/* $(DESTDIR)/$(SHADER_DIR)
+	install -Dm755 glava "$(DESTDIR)/usr/bin/glava"
+	install -d "$(DESTDIR)/$(SHADER_DIR)"
+	cp -Rv shaders/* "$(DESTDIR)/$(SHADER_DIR)"
 
 .PHONY: uninstall
 uninstall:
