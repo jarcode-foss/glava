@@ -52,19 +52,15 @@ GLAD_ARGS = --generator=$(GLAD_GEN) --extensions=GL_EXT_framebuffer_multisample,
 CFLAGS_COMMON = -I glad/include
 CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
 
-all: glava-dep
-glava-dep: glad $(obj)
-	$(CC) -o glava $(obj) glad.o $(LDFLAGS)
+all: glava
 
 %.o: %.c
 	$(CC) $(CFLAGS_USE) -o $@ -c $<
 
-# GLava target without glad dependency
-glava: $(obj)
-	$(CC) -o glava $^ glad.o $(LDFLAGS)
+glava: glad.o $(obj)
+	$(CC) -o glava $(obj) glad.o $(LDFLAGS)
 
-.PHONY: glad
-glad:
+glad.o:
 	cd $(GLAD_INSTALL_DIR) && $(PYTHON) -m glad $(GLAD_ARGS) --out-path=.
 	$(CC) $(CFLAGS_USE) -o glad.o $(GLAD_SRCFILE) -c
 
