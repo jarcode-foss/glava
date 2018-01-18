@@ -4,11 +4,11 @@ obj = $(src:.c=.o)
 # Build type parameter
 
 ifeq ($(BUILD),debug)
-	CFLAGS_BUILD = -ggdb -Wall
-	GLAD_GEN = c-debug
+    CFLAGS_BUILD = -ggdb -Wall
+    GLAD_GEN = c-debug
 else
-	CFLAGS_BUILD = -O2 -march=native
-	GLAD_GEN = c
+    CFLAGS_BUILD = -O2 -march=native
+    GLAD_GEN = c
 endif
 
 # Detect OS if not specified (OSX, Linux, BSD are supported)
@@ -33,13 +33,13 @@ ifeq ($(INSTALL),unix)
     ifdef XDG_CONFIG_DIRS
         SHADER_DIR = $(firstword $(subst :, ,$XDG_CONFIG_DIR))/glava
     else
-        SHADER_DIR = /etc/xdg/glava
+        SHADER_DIR = etc/xdg/glava
     endif
 endif
 
 ifeq ($(INSTALL),osx)
     CFLAGS_INSTALL = -DGLAVA_OSX
-    SHADER_DIR = /Library/glava
+    SHADER_DIR = Library/glava
 endif
 
 LDFLAGS = -lpulse -lpulse-simple -pthread -lglfw -ldl -lm -lX11 -lXext
@@ -52,13 +52,16 @@ GLAD_ARGS = --generator=$(GLAD_GEN) --extensions=GL_EXT_framebuffer_multisample,
 CFLAGS_COMMON = -I glad/include
 CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
 
-all: glad glava
+all: glava-dep
+glava-dep: glad $(obj)
+	$(CC) -o glava $(obj) glad.o $(LDFLAGS)
 
 %.o: %.c
 	$(CC) $(CFLAGS_USE) -o $@ -c $<
 
+# GLava target without glad dependency
 glava: $(obj)
-	$(CC) -o $@ $^ glad.o $(LDFLAGS)
+	$(CC) -o glava $^ glad.o $(LDFLAGS)
 
 .PHONY: glad
 glad:
@@ -71,9 +74,9 @@ clean:
 
 .PHONY: install
 install:
-	cp glava /usr/bin/glava
-	mkdir -p $(SHADER_DIR)
-	cp -Rv shaders/* $(SHADER_DIR)
+	cp glava $(DESTDIR)/usr/bin/glava
+	mkdir -p $(DESTDIR)/$(SHADER_DIR)
+	cp -Rv shaders/* $(DESTDIR)/$(SHADER_DIR)
 
 .PHONY: uninstall
 uninstall:
