@@ -84,7 +84,7 @@ float half_w;
 
 void render_side(in sampler1D tex, float idx) {
     highp float pixel = 1.0F / float(screen.x);
-    float s = smooth_audio_adj(tex, audio_sz, idx / half_w, SMOOTH, pixel);
+    float s = smooth_audio_adj(tex, audio_sz, idx / half_w, pixel);
     /* scale the data upwards so we can see it */
     s *= VSCALE;
     /* clamp far ends of the screen down to make the ends of the graph smoother */

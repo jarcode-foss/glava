@@ -29,28 +29,34 @@ float iscale_audio(float idx) {
     return -log((SAMPLE_RANGE) * idx) / (SAMPLE_SCALE);
 }
 
-float smooth_audio(in sampler1D tex, int tex_sz, highp float idx, float r) {
+/* Note: the SMOOTH_FACTOR macro is defined by GLava itself, from `#request setsmoothfactor`*/
+
+float smooth_audio(in sampler1D tex, int tex_sz, highp float idx) {
+    #if PRE_SMOOTHED_AUDIO < 1
     float
-        smin  = scale_audio(clamp(idx - r, 0, 1)) * tex_sz,
-        smax  = scale_audio(clamp(idx + r, 0, 1)) * tex_sz,
+        smin  = scale_audio(clamp(idx - SMOOTH_FACTOR, 0, 1)) * tex_sz,
+        smax  = scale_audio(clamp(idx + SMOOTH_FACTOR, 0, 1)) * tex_sz,
         avg = 0, s, weight = 0;
     float m = ((smax - smin) / 2.0F);
     float rm = smin + m; /* middle */
     for (s = smin; s <= smax; s += 1.0F) {
         float w = ROUND_FORMULA(clamp((m - abs(rm - s)) / m, 0, 1));
         weight += w;
-        avg += texture(tex, float(s) / float(tex_sz)).r * w;
+        avg += texelFetch(tex, int(round(s)), 0).r * w;
     }
     avg /= weight;
     return avg;
+    #else
+    return texelFetch(tex, int(round(idx * tex_sz)), 0).r;
+    #endif
 }
 
 /* Applies the audio smooth sampling function three times to the adjacent values */
-float smooth_audio_adj(in sampler1D tex, int tex_sz, highp float idx, float r, highp float pixel) {
+float smooth_audio_adj(in sampler1D tex, int tex_sz, highp float idx, highp float pixel) {
     float
-        al = smooth_audio(tex, tex_sz, max(idx - pixel, 0.0F), r),
-        am = smooth_audio(tex, tex_sz, idx, r),
-        ar = smooth_audio(tex, tex_sz, min(idx + pixel, 1.0F), r);
+        al = smooth_audio(tex, tex_sz, max(idx - pixel, 0.0F)),
+        am = smooth_audio(tex, tex_sz, idx),
+        ar = smooth_audio(tex, tex_sz, min(idx + pixel, 1.0F));
     return (al + am + ar) / 3.0F;
 }
 

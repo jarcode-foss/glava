@@ -50,7 +50,7 @@ void main() {
             if (INVERT > 0)
                 idx = -idx;                            /* Invert if needed */
             float pos = int(abs(idx) / section) / float(NBARS / 2);        /* bar position, [0, 1) */
-            #define smooth_f(tex) smooth_audio(tex, audio_sz, pos, SMOOTH) /* smooth function format */
+            #define smooth_f(tex) smooth_audio(tex, audio_sz, pos)         /* smooth function format */
             float v;
             if (idx > 0) v = smooth_f(audio_l);                            /* left buffer */
             else         v = smooth_f(audio_r);                            /* right buffer */

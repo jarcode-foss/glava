@@ -41,7 +41,7 @@ void main() {
         float p = int(dx / section) / float(nbars / 2); /* position, (-1.0F, 1.0F))     */
         p += sign(p) * ((0.5F + center) / screen.x);    /* index center of bar position */
         /* Apply smooth function and index texture */
-        #define smooth_f(tex, p) smooth_audio(tex, audio_sz, p, SMOOTH)
+        #define smooth_f(tex, p) smooth_audio(tex, audio_sz, p)
         float v;
         /* ignore out of bounds values */
         if (p > 1.0F || p < -1.0F) {

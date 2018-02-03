@@ -45,3 +45,14 @@
    
    val -= (gravitystep) * (seconds per update) */
 #request setgravitystep 4.2
+
+/* Smoothing factor. Larger values mean more smoothing in the output,
+   however high values can be expensive to compute. Values are in
+   normalized width: [0.0, 1.0) */
+#request setsmoothfactor 0.025
+
+/* Whether to use a separate pass for audio data while smoothing. On
+   most hardware, this will improve performance, but involves doing a
+   separate render step for each audio texture and will add some driver
+   (CPU) overhead. */
+#request setsmoothpass true

@@ -3,8 +3,6 @@
 #define VSCALE 450
 /* Rendering direction, either -1 (outwards) or 1 (inwards). */
 #define DIRECTION 1
-/* Smoothing factor, in normalized width */
-#define SMOOTH 0.008
 
 /* The `RCOL_OFF`, `LCOL_OFF` AND `LSTEP` definitions are used to calculate
    the `COLOR` macro definition for output. You can remove all these values

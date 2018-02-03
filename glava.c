@@ -103,7 +103,7 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
                     fprintf(stderr, "failed to open (source) '%s': %s\n", p, strerror(errno));
                     goto cleanup;
                 }
-                if ((dest = open(f, O_WRONLY | O_CREAT, ACCESSPERMS)) < 0) {
+                if ((dest = open(f, O_TRUNC | O_WRONLY | O_CREAT, ACCESSPERMS)) < 0) {
                     fprintf(stderr, "failed to open (destination) '%s': %s\n", f, strerror(errno));
                     goto cleanup;
                 }
@@ -126,7 +126,7 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
             }
             break;
         case 2:
-            if (symlink(p, f))
+            if (symlink(p, f) && errno != EEXIST)
                 fprintf(stderr, "failed to symlink '%s' -> '%s': %s\n", p, f, strerror(errno));
             else if (verbose)
                 printf("symlink '%s' -> '%s'\n", p, f);
