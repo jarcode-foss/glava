@@ -29,6 +29,17 @@ out vec4 fragment;
 #define PI 3.14159265359
 
 void main() {
+
+    #if XROOT > 0
+    #define APPLY_FRAG(f, c) f = vec4(f.rgb * f.a + c.rgb * (1 - f.a), max(c.a, f.a))
+    fragment.a = 0;
+    #else
+    #define APPLY_FRAG(f, c) f = c
+    #endif
+    
+    /* To handle jagged edges, we alias in the shader by using alpha layer blending.
+       Alpha layer blending is only applied when `xroot` transparency is enabled. */
+    
     float /* translate (x, y) to use (0, 0) as the center of the screen */
         dx = gl_FragCoord.x - (screen.x / 2),
         dy = gl_FragCoord.y - (screen.y / 2);
@@ -36,8 +47,13 @@ void main() {
     float d = sqrt((dx * dx) + (dy * dy)); /* distance */
     if (d > C_RADIUS - (float(C_LINE) / 2.0F) && d < C_RADIUS + (float(C_LINE) / 2.0F)) {
         fragment = OUTLINE;
-        return;
-    } else if (d > C_RADIUS) {
+        #if XROOT > 0
+        fragment.a *= ((float(C_LINE) / 2.0F) - abs(d - C_RADIUS)) * C_ALIAS_FACTOR;
+        #else
+        return; /* return immediately if there is no alpha blending available */
+        #endif
+    }
+    if (d > C_RADIUS) {
         const float section = (TWOPI / NBARS);         /* range (radians) for each bar */
         const float center = ((TWOPI / NBARS) / 2.0F); /* center line angle */
         float m = mod(theta, section);                 /* position in section (radians) */
@@ -56,25 +72,43 @@ void main() {
             else         v = smooth_f(audio_r);                            /* right buffer */
             v *= AMPLIFY;                                                  /* amplify */
             #undef smooth_f
-            d -= C_RADIUS + (float(C_LINE) / 2.0F); /* offset to fragment distance from inner circle */
+            /* offset to fragment distance from inner circle */
+            #if XROOT > 0
+            #define ALIAS_FACTOR (((BAR_WIDTH / 2) - abs(ym)) * BAR_ALIAS_FACTOR)
+            d -= C_RADIUS; /* start bar overlapping the inner circle for blending */
+            #else
+            #define ALIAS_FACTOR 1
+            d -= C_RADIUS + (float(C_LINE) / 2.0F); /* start bar after circle */
+            #endif
             if (d <= v - BAR_OUTLINE_WIDTH) {
+                vec4 r;
                 #if BAR_OUTLINE_WIDTH > 0
                 if (abs(ym) < (BAR_WIDTH / 2) - BAR_OUTLINE_WIDTH)
-                    fragment = COLOR;
+                    r = COLOR;
                 else
-                    fragment = BAR_OUTLINE;
+                    r = BAR_OUTLINE;
                 #else
-                fragment = COLOR;
+                r = COLOR;
                 #endif
+                #if XROOT > 0
+                r.a *= ALIAS_FACTOR;
+                #endif
+                APPLY_FRAG(fragment, r);
                 return;
             }
             #if BAR_OUTLINE_WIDTH > 0
             if (d <= v) {
-                fragment = BAR_OUTLINE;
+                #if XROOT > 0
+                vec4 r = BAR_OUTLINE;
+                r.a *= ALIAS_FACTOR;
+                APPLY_FRAG(fragment, r);
+                #else
+                APPLY_FRAG(fragment, BAR_OUTLINE);
+                #endif
                 return;
             }
             #endif
         }
     }
-    fragment = vec4(0, 0, 0, 0); /* default frag color */
+    fragment = APPLY_FRAG(fragment, vec4(0, 0, 0, 0)); /* default frag color */
 }

@@ -1,12 +1,12 @@
 
 /* center radius (pixels) */
-#define C_RADIUS 64
+#define C_RADIUS 128
 /* center line thickness (pixels) */
-#define C_LINE 1.5
+#define C_LINE 2
 /* outline color */
 #define OUTLINE vec4(0.20, 0.20, 0.20, 1)
 /* number of bars (use even values for best results) */
-#define NBARS 92
+#define NBARS 180
 /* width (in pixels) of each bar*/
 #define BAR_WIDTH 3.5
 /* outline color */
@@ -21,3 +21,9 @@
 #define ROTATE (PI / 2)
 /* Whether to switch left/right audio buffers */
 #define INVERT 0
+/* Aliasing factors. Higher values mean more defined and jagged lines.
+   Note: aliasing does not have a notable impact on performance, but requires
+   `xroot` transparency to be enabled since it relies on alpha blending with
+   the background. */
+#define BAR_ALIAS_FACTOR 1.2
+#define C_ALIAS_FACTOR 1.8

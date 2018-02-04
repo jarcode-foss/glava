@@ -146,7 +146,8 @@ static GLuint shaderload(const char*             rpath,
         "#version %d\n"
         "#define UNIFORM_LIMIT %d\n"
         "#define PRE_SMOOTHED_AUDIO %d\n"
-        "#define SMOOTH_FACTOR %.6f\n";
+        "#define SMOOTH_FACTOR %.6f\n"
+        "#define XROOT %d\n";
     
     struct glsl_ext ext = {
         .source     = raw ? NULL : map,
@@ -164,7 +165,8 @@ static GLuint shaderload(const char*             rpath,
     size_t blen = strlen(header_fmt) + 42;
     GLchar* buf = malloc((blen * sizeof(GLchar*)) + ext.p_len);
     int written = snprintf(buf, blen, header_fmt, (int) shader_version, (int) max_uniforms,
-                           gl->smooth_pass ? 1 : 0, (double) gl->smooth_factor);
+                           gl->smooth_pass ? 1 : 0, (double) gl->smooth_factor,
+                           gl->copy_desktop ? 1 : 0);
     if (written < 0) {
         fprintf(stderr, "snprintf() encoding error while prepending header to shader '%s'\n", path);
         return 0;
