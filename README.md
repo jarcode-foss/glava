@@ -40,19 +40,19 @@ To embed GLava in your desktop (for EWMH compliant window managers), use `#reque
 
 **Note for `#request setopacity`:** While most users will prefer the faster `xroot` transparency, GLFW 3.3 (unreleased) is needed in order to support the `native` transparency option (older versions still work). Arch users can install `glfw-x11-git` from the AUR and recompile GLava for this feature.
 
-### Compatibility with `#request setxwintype "desktop"`:
+## Desktop window compatibility
 
 GLava aims to be compatible with _most_ EWMH compliant window managers. Below is a list of common window managers and issues specific to them for trying to get GLava to behave as a desktop window or widget:
 
-| WM | Status | Details
+| WM | ! | Details
 | --- | --- | --- |
 | GNOME (on X11) | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
 | Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | iceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
-| kwin (KDE) | ![-](https://placehold.it/15/f03c15/000000?text=+) | Issues with workspaces and stacking, needs further testing
-| i3 (and i3-gaps) | ![-](https://placehold.it/15/f03c15/000000?text=+) | i3 does not respect the `"desktop"` window type
+| kwin (KDE) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [Issues with workspaces and stacking](https://github.com/wacossusca34/glava/issues/4), needs further testing
+| i3 (and i3-gaps) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [i3 does not respect the `"desktop"` window type](https://github.com/wacossusca34/glava/issues/6)
 | EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
 | AwesomeWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, may require other changes to config depending on layout
 | Unity | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
