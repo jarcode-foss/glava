@@ -45,7 +45,7 @@ To embed GLava in your desktop (for EWMH compliant window managers), use `#reque
 GLava aims to be compatible with _most_ EWMH compliant window managers. Below is a list of common window managers and issues specific to them for trying to get GLava to behave as a desktop window or widget:
 
 | WM | ! | Details
-| --- | --- | --- |
+| :---: | --- | --- |
 | GNOME (on X11) | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
 | Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
