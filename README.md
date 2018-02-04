@@ -19,7 +19,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 - X11
 - PulseAudio
-- GLFW
+- GLFW 3.2+
 - Linux or BSD
 
 **Additional compile time requirements:**
@@ -40,22 +40,28 @@ To embed GLava in your desktop (for EWMH compliant window managers), use `#reque
 
 **Note for `#request setopacity`:** While most users will prefer the faster `xroot` transparency, GLFW 3.3 (unreleased) is needed in order to support the `native` transparency option (older versions still work). Arch users can install `glfw-x11-git` from the AUR and recompile GLava for this feature.
 
-## To-Do
+### Compatibility with `#request setxwintype "desktop"`:
 
-**What needs to be done:**
+GLava aims to be compatible with _most_ EWMH compliant window managers. Below is a list of common window managers and issues specific to them for trying to get GLava to behave as a desktop window or widget:
 
-- Add more visualizer modules and clean up existing ones
+| WM | Status | Details
+| --- | --- | --- |
+| GNOME (on X11) | Works | No notable issues
+| Openbox (LXDE or standalone) | Works* | Untested, but should work without issues
+| Xfwm (XFCE) | Works* | Untested, but should work without issues
+| Fluxbox | Works* | Untested, but should work without issues
+| iceWM | Works | No notable issues
+| kwin (KDE) | Problems | Issues with workspaces and stacking, needs further testing
+| i3 (and i3-gaps) | Problems | i3 does not respect the `"desktop"` window type
+| EXWM | Problems | EXWM does not have a desktop, and forces window decorations
+| AwesomeWM | Problems | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, may require other changes to config depending on layout
+| Unity | Unknown | Needs testing
+| Enlightenment | Unknown | Needs testing
+| Bspwm | Unknown | Needs testing
+| Herbstluftwm | Unknown | Needs testing
+| xmonad | Unknown | Needs testing
+| Any non EWMH-compliant WM | Problems | Window types and hints will not work if the window manager does not support the EWMH standards.
 
-**What is complete:**
-
-- Core renderer
-- FFT algorithm
-- Programmable modules and configuration written in pure GLSL
-- Preprocessor directive parsing to handle requests and transformations on uniforms before they are passed to the shader.
-- Detecting if the window manager reports the currently focused window as fullscreen (and halting rendering for the duration)
-- Fixed a memory corruption bug that crashed the `nvidia` driver on Linux
-- Fix breaks in audio spectrum read from the PulseAudio server
-- Transparency support using either the compositor or the root X window's pixmap
 
 ## Licensing
 
@@ -75,8 +81,6 @@ The modified files are relicensed under the terms of the GPLv3. The MIT license 
 The below copyright applies for the modifications to the files listed above, and the remaining sources in the repository:
 
 `Copyright (c) 2017 Levi Webb`
-
-**Why did you relicense this software?** Because my views align with the FSF's position on free software -- I see the MIT license as harmful to free software as it fails to preserve modifications of the source code as open source.
 
 ## Porting
 
