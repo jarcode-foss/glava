@@ -46,21 +46,21 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 
 | WM | Status | Details
 | --- | --- | --- |
-| GNOME (on X11) | Works | No notable issues
-| Openbox (LXDE or standalone) | Works* | Untested, but should work without issues
-| Xfwm (XFCE) | Works* | Untested, but should work without issues
-| Fluxbox | Works* | Untested, but should work without issues
-| iceWM | Works | No notable issues
-| kwin (KDE) | Problems | Issues with workspaces and stacking, needs further testing
-| i3 (and i3-gaps) | Problems | i3 does not respect the `"desktop"` window type
-| EXWM | Problems | EXWM does not have a desktop, and forces window decorations
-| AwesomeWM | Problems | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, may require other changes to config depending on layout
-| Unity | Unknown | Needs testing
-| Enlightenment | Unknown | Needs testing
-| Bspwm | Unknown | Needs testing
-| Herbstluftwm | Unknown | Needs testing
-| xmonad | Unknown | Needs testing
-| Any non EWMH-compliant WM | Problems | Window types and hints will not work if the window manager does not support the EWMH standards.
+| GNOME (on X11) | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
+| Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
+| Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
+| Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
+| iceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
+| kwin (KDE) | ![-](https://placehold.it/15/f03c15/000000?text=+) | Issues with workspaces and stacking, needs further testing
+| i3 (and i3-gaps) | ![-](https://placehold.it/15/f03c15/000000?text=+) | i3 does not respect the `"desktop"` window type
+| EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
+| AwesomeWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, may require other changes to config depending on layout
+| Unity | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
+| Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
+| Bspwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
+| Herbstluftwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
+| xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
+| Any non EWMH-compliant WM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Window types and hints will not work if the window manager does not support the EWMH standards.
 
 
 ## Licensing
