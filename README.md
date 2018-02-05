@@ -65,7 +65,9 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 
 ### [Demo](https://streamable.com/dgpj8)
 
+Above is the `graph` module, below is the `bars` module, `circle` to the left, and `radial` is to the right:
 
+<img src="https://thumbs.gfycat.com/LittleUniformGermanpinscher-size_restricted.gif">
 
 ## Licensing
 
