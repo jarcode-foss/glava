@@ -1,6 +1,11 @@
 
 /* Settings for smoothing functions and transformations commonly
-   used to display FFT output */
+   used to display FFT output.
+
+   IMPORTANT: THESE VALUES CAN BE OVERRIDDEN IN MODULE CONFIG
+              FILES, IF CHANGING VALUES HERE DOES NOT WORK, CHECK
+              TO MAKE SURE THEY ARE NOT BEING SET ELSEWHERE.
+*/
 
 /* The type of formula to use for weighting values when smoothing.
    Possible values:
@@ -10,7 +15,7 @@
                     like a sine wave
    - linear       not rounded at all, just use linear distance
    */
-#define ROUND_FORMULA circular
+#define ROUND_FORMULA sinusoidal
 
 /* Factor used to scale frequencies. Lower values allows lower
    frequencies to occupy more space. */

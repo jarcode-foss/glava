@@ -63,6 +63,10 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | Any non EWMH-compliant WM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Window types and hints will not work if the window manager does not support the EWMH standards.
 
 
+### [Demo](https://streamable.com/dgpj8)
+
+
+
 ## Licensing
 
 GLava is licensed under the terms of the GPLv3. GLava includes some (heavily modified) source code that originated from [cava](https://github.com/karlstav/cava), which was initially provided under the MIT license. The source files that originated from cava are the following:

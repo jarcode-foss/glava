@@ -727,7 +727,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     char* xwintype = NULL, * wintitle = "GLava";
     char** xwinstates = malloc(1);
     size_t xwinstates_sz = 0;
-    bool loading_module = true;
+    bool loading_module = true, loading_smooth_pass = false;
     struct gl_sfbo* current = NULL;
     size_t t_count = 0;
 
@@ -828,25 +828,35 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         {   .name = "setsamplesize", .fmt = "i",
             .handler = RHANDLER(name, args, { r->samplesize_request = *(int*) args[0]; })    },
         {   .name = "setavgframes", .fmt = "i",
-            .handler = RHANDLER(name, args, { gl->avg_frames = *(int*) args[0]; })           },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->avg_frames = *(int*) args[0]; })           },
         {   .name = "setavgwindow", .fmt = "b",
-            .handler = RHANDLER(name, args, { gl->avg_window = *(bool*) args[0]; })          },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->avg_window = *(bool*) args[0]; })          },
         {   .name = "setgravitystep", .fmt = "f",
-            .handler = RHANDLER(name, args, { gl->gravity_step = *(float*) args[0]; })       },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->gravity_step = *(float*) args[0]; })       },
         {   .name = "setsmoothpass", .fmt = "b",
-            .handler = RHANDLER(name, args, { gl->smooth_pass = *(bool*) args[0]; })         },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->smooth_pass = *(bool*) args[0]; })         },
         {   .name = "setsmoothfactor", .fmt = "f",
-            .handler = RHANDLER(name, args, { gl->smooth_factor = *(float*) args[0]; })      },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->smooth_factor = *(float*) args[0]; })      },
         {   .name = "setsmooth", .fmt = "f",
-            .handler = RHANDLER(name, args, { gl->smooth_distance = *(float*) args[0]; })    },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->smooth_distance = *(float*) args[0]; })    },
         {   .name = "setsmoothratio", .fmt = "f",
-            .handler = RHANDLER(name, args, { gl->smooth_ratio = *(float*) args[0]; })       },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->smooth_ratio = *(float*) args[0]; })       },
         {   .name = "setinterpolate", .fmt = "b",
-            .handler = RHANDLER(name, args, { gl->interpolate = *(bool*) args[0]; })         },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->interpolate = *(bool*) args[0]; })         },
         {   .name = "setfftscale", .fmt = "f",
-            .handler = RHANDLER(name, args, { gl->fft_scale = *(float*) args[0];})           },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->fft_scale = *(float*) args[0];})           },
         {   .name = "setfftcutoff", .fmt = "f",
-            .handler = RHANDLER(name, args, { gl->fft_cutoff = *(float*) args[0];})          },
+            .handler = RHANDLER(name, args, {
+                    if (!loading_smooth_pass) gl->fft_cutoff = *(float*) args[0];})          },
         {
             .name = "transform", .fmt = "ss",
             .handler = RHANDLER(name, args, {
@@ -1096,6 +1106,8 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
             } while (found);
         }
     }
+
+    /* Compile smooth pass shader */
     
     {
         const char* util_folder = "util";
@@ -1103,10 +1115,11 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         size_t usz = d_len + u_len + 2;
         char util[usz]; /* module pack path to use */
         snprintf(util, usz, "%s/%s", data, util_folder);
-    
+        loading_smooth_pass = true;
         if (!(gl->sm_prog = shaderbuild(gl, util, data, handlers, shader_version, "smooth_pass.frag"))) {
             abort();
         }
+        loading_smooth_pass = false;
     }
     
     gl->stages = stages;

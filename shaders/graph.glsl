@@ -1,6 +1,6 @@
 
 /* Vertical scale, larger values will amplify output */
-#define VSCALE 450
+#define VSCALE 300
 /* Rendering direction, either -1 (outwards) or 1 (inwards). */
 #define DIRECTION 1
 
@@ -20,3 +20,9 @@
 #define OUTLINE vec4(0.15, 0.15, 0.15, 1)
 /* 1 to invert (vertically), 0 otherwise */
 #define INVERT 0
+
+/* Gravity step, overrude frin `smooth_parameters.glsl` */
+#request setgravitystep 2.4
+
+/* Smoothing factor, override from `smooth_parameters.glsl` */
+#request setsmoothfactor 0.015

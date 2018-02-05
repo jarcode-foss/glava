@@ -39,6 +39,7 @@ uniform int audio_sz;
        with 'setavgwindow'.
 */
 
+#include ":util/smooth.glsl"
 #include ":graph.glsl"
 
 #request uniform "audio_l" audio_l
@@ -56,8 +57,6 @@ uniform sampler1D audio_l;
 uniform sampler1D audio_r;
 
 out vec4 fragment;
-
-#include ":util/smooth.glsl"
 
 /* distance from center */
 #define CDIST (abs((screen.x / 2) - gl_FragCoord.x) / screen.x)

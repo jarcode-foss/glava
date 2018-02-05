@@ -27,3 +27,9 @@
    the background. */
 #define BAR_ALIAS_FACTOR 1.2
 #define C_ALIAS_FACTOR 1.8
+
+/* Gravity step, overrude frin `smooth_parameters.glsl` */
+#request setgravitystep 5.0
+
+/* Smoothing factor, override from `smooth_parameters.glsl` */
+#request setsmoothfactor 0.02
