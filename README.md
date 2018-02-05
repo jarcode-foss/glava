@@ -54,7 +54,7 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | kwin (KDE) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [Issues with workspaces and stacking](https://github.com/wacossusca34/glava/issues/4), needs further testing
 | i3 (and i3-gaps) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [i3 does not respect the `"desktop"` window type](https://github.com/wacossusca34/glava/issues/6)
 | EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
-| AwesomeWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, may require other changes to config depending on layout
+| AwesomeWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, can still be focused, may require other changes to config depending on layout
 | Unity | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Bspwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
