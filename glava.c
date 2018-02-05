@@ -18,7 +18,22 @@
 #include "render.h"
 #include "xwin.h"
 
-#define GLAVA_VERSION "1.0"
+#define GLAVA_VERSION "1.1"
+#ifdef GLAD_DEBUG
+#define GLAVA_RELEASE_TYPE_PREFIX "debug, "
+#else
+#define GLAVA_RELEASE_TYPE_PREFIX "stable, "
+#endif
+#ifdef GLAVA_STANDALONE
+#define GLAVA_RELEASE_TYPE_BUILD "standalone"
+#elif GLAVA_UNIX
+#define GLAVA_RELEASE_TYPE_BUILD "unix/fhs"
+#elif GLAVA_OSX
+#define GLAVA_RELEASE_TYPE_BUILD "osx"
+#else
+#define GLAVA_RELEASE_TYPE_BUILD "?"
+#endif
+#define GLAVA_RELEASE_TYPE GLAVA_RELEASE_TYPE_PREFIX GLAVA_RELEASE_TYPE_BUILD
 
 #define FORMAT(...)                             \
     ({                                          \
@@ -151,7 +166,7 @@ static const char* help_str =
     "                          directory for glava, copying any files in the root directory\n"
     "                          of the installed shader directory, and linking any modules.\n"
     "\n"
-    "GLava (glava) " GLAVA_VERSION "\n"
+    "GLava (glava) " GLAVA_VERSION " (" GLAVA_RELEASE_TYPE ")\n"
     " -- Copyright (C) 2017 Levi Webb\n";
 
 static const char* opt_str = "hve:Cm:";
