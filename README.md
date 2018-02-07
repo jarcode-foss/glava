@@ -19,7 +19,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 - X11
 - PulseAudio
-- GLFW 3.2+
+- GLFW 3.1+
 - Linux or BSD
 
 **Additional compile time requirements:**
