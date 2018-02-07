@@ -1,7 +1,7 @@
 ## GLava
 <img align="left" width="200" height="200" src="https://thumbs.gfycat.com/DefiantInformalIndianspinyloach-size_restricted.gif" />
 
-GLava is an OpenGL audio spectrum visualizer. Its primary use case is for desktop widgets or backgrounds. Displayed to the left is the `radial` shader module running in GLava.
+GLava is an OpenGL audio spectrum visualizer. Its primary use case is for desktop windows or backgrounds. Displayed to the left is the `radial` shader module, and [here is a demonstration video](https://streamable.com/dgpj8). Development is active, and reporting issues is encouranged.
 
 **Compiling** (Or use the [`glava-git` AUR package](https://aur.archlinux.org/packages/glava-git/))**:**
 
@@ -47,27 +47,21 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | WM | ! | Details
 | :---: | --- | --- |
 | GNOME (on X11) | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
-| Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
+| Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | [Some tweaks may be required](https://www.reddit.com/r/unixporn/comments/7vcgi4/oc_after_receiving_positive_feedback_here_i/dtrkvja/)
 | Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | iceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
-| kwin (KDE) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [Issues with workspaces and stacking](https://github.com/wacossusca34/glava/issues/4), needs further testing
+| AwesomeWM | ![-](https://placehold.it/15/f09c00/000000?text=+) | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, can still be focused, may require other changes to config depending on layout
+| Budgie Desktop | ![-](https://placehold.it/15/f09c00/000000?text=+) | `"xroot"` transparency breaks with Budgie's wallpaper window
+| kwin (KDE) | ![-](https://placehold.it/15/f09c00/000000?text=+) | [Issues with workspaces and stacking](https://github.com/wacossusca34/glava/issues/4), needs further testing
 | i3 (and i3-gaps) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [i3 does not respect the `"desktop"` window type](https://github.com/wacossusca34/glava/issues/6)
 | EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
-| AwesomeWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, can still be focused, may require other changes to config depending on layout
 | Unity | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Bspwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Herbstluftwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Any non EWMH-compliant WM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Window types and hints will not work if the window manager does not support the EWMH standards.
-
-
-### [Demo](https://streamable.com/dgpj8)
-
-Above is the `graph` module, below is the `bars` module, `circle` to the left, and `radial` is to the right:
-
-<img src="https://thumbs.gfycat.com/LittleUniformGermanpinscher-size_restricted.gif">
 
 ## Licensing
 
