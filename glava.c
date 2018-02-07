@@ -18,7 +18,7 @@
 #include "render.h"
 #include "xwin.h"
 
-#define GLAVA_VERSION "1.1"
+#define GLAVA_VERSION "1.2"
 #ifdef GLAD_DEBUG
 #define GLAVA_RELEASE_TYPE_PREFIX "debug, "
 #else
