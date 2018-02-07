@@ -53,6 +53,10 @@
 /* GLFW window geometry (x, y, width, height) */
 #request setgeometry 0 0 400 600
 
+/* Window background color (RGB format).
+   Only works with `setopacity "none"` */
+#request setbg 3C3C3C
+
 /* (X11 only) EWMH Window type. Possible values are:
    
    "desktop", "dock",   "toolbar", "menu",

@@ -11,6 +11,7 @@ out vec4 fragment; /* output */
 void main() {
     fragment = texelFetch(tex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);
     #if C_SMOOTH > 0
+    #if USE_ALPHA
     vec4
         a0 = texelFetch(tex, ivec2((gl_FragCoord.x + 1), (gl_FragCoord.y + 0)), 0),
         a1 = texelFetch(tex, ivec2((gl_FragCoord.x + 1), (gl_FragCoord.y + 1)), 0),
@@ -26,5 +27,6 @@ void main() {
     if (fragment.a == 0) {
         fragment = avg;
     }
+    #endif
     #endif
 }

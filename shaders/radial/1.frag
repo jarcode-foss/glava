@@ -30,7 +30,7 @@ out vec4 fragment;
 
 void main() {
 
-    #if XROOT > 0
+    #if USE_ALPHA > 0
     #define APPLY_FRAG(f, c) f = vec4(f.rgb * f.a + c.rgb * (1 - f.a), max(c.a, f.a))
     fragment.a = 0;
     #else
@@ -47,7 +47,7 @@ void main() {
     float d = sqrt((dx * dx) + (dy * dy)); /* distance */
     if (d > C_RADIUS - (float(C_LINE) / 2.0F) && d < C_RADIUS + (float(C_LINE) / 2.0F)) {
         fragment = OUTLINE;
-        #if XROOT > 0
+        #if USE_ALPHA > 0
         fragment.a *= ((float(C_LINE) / 2.0F) - abs(d - C_RADIUS)) * C_ALIAS_FACTOR;
         #else
         return; /* return immediately if there is no alpha blending available */
@@ -73,7 +73,7 @@ void main() {
             v *= AMPLIFY;                                                  /* amplify */
             #undef smooth_f
             /* offset to fragment distance from inner circle */
-            #if XROOT > 0
+            #if USE_ALPHA > 0
             #define ALIAS_FACTOR (((BAR_WIDTH / 2) - abs(ym)) * BAR_ALIAS_FACTOR)
             d -= C_RADIUS; /* start bar overlapping the inner circle for blending */
             #else
@@ -90,7 +90,7 @@ void main() {
                 #else
                 r = COLOR;
                 #endif
-                #if XROOT > 0
+                #if USE_ALPHA > 0
                 r.a *= ALIAS_FACTOR;
                 #endif
                 APPLY_FRAG(fragment, r);
@@ -98,7 +98,7 @@ void main() {
             }
             #if BAR_OUTLINE_WIDTH > 0
             if (d <= v) {
-                #if XROOT > 0
+                #if USE_ALPHA > 0
                 vec4 r = BAR_OUTLINE;
                 r.a *= ALIAS_FACTOR;
                 APPLY_FRAG(fragment, r);

@@ -97,9 +97,14 @@ struct gl_data {
     int rate; /* framerate */
     double tcounter;
     int fcounter, ucounter, kcounter;
-    bool print_fps, avg_window, interpolate, force_geometry, copy_desktop, smooth_pass;
+    bool print_fps, avg_window, interpolate, force_geometry, copy_desktop,
+        smooth_pass, use_alpha;
     void** t_data;
-    float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio, smooth_factor, fft_scale, fft_cutoff;
+    float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio,
+        smooth_factor, fft_scale, fft_cutoff;
+    struct {
+        float r, g, b, a;
+    } clear_color;
     float* interpolate_buf[6];
     int geometry[4];
 };
@@ -147,7 +152,7 @@ static GLuint shaderload(const char*             rpath,
         "#define UNIFORM_LIMIT %d\n"
         "#define PRE_SMOOTHED_AUDIO %d\n"
         "#define SMOOTH_FACTOR %.6f\n"
-        "#define XROOT %d\n";
+        "#define USE_ALPHA %d\n";
     
     struct glsl_ext ext = {
         .source     = raw ? NULL : map,
@@ -166,7 +171,7 @@ static GLuint shaderload(const char*             rpath,
     GLchar* buf = malloc((blen * sizeof(GLchar*)) + ext.p_len);
     int written = snprintf(buf, blen, header_fmt, (int) shader_version, (int) max_uniforms,
                            gl->smooth_pass ? 1 : 0, (double) gl->smooth_factor,
-                           gl->copy_desktop ? 1 : 0);
+                           gl->use_alpha ? 1 : 0);
     if (written < 0) {
         fprintf(stderr, "snprintf() encoding error while prepending header to shader '%s'\n", path);
         return 0;
@@ -699,10 +704,12 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         .bg_tex          = 0,
         .sm_prog         = 0,
         .copy_desktop    = true,
+        .use_alpha       = true,
         .smooth_pass     = true,
         .fft_scale       = 10.2F,
         .fft_cutoff      = 0.3F,
-        .geometry        = { 0, 0, 500, 400 }
+        .geometry        = { 0, 0, 500, 400 },
+        .clear_color     = { 0.0F, 0.0F, 0.0F, 0.0F }
     };
     
     #ifdef GLAD_DEBUG
@@ -742,10 +749,14 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
 
                     bool native_opacity = !strcmp("native", (char*) args[0]);
                     
+                    gl->use_alpha = true;
+                    
                     #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
                     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, native_opacity ? GLFW_TRUE : GLFW_FALSE);
+                    gl->use_alpha = false;
                     #elif GLFW_TRANSPARENT
                     glfwWindowHint(GLFW_TRANSPARENT, native_opacity ? GLFW_TRUE : GLFW_FALSE);
+                    gl->use_alpha = false;
                     #else
                     if (native_opacity)
                         printf("WARNING: the linked version of GLFW3 does not have transparency support"
@@ -761,6 +772,63 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                         fprintf(stderr, "Invalid opacity option: '%s'\n", (char*) args[0]);
                         exit(EXIT_FAILURE);
                     }
+                })
+        },
+        {
+            .name = "setbg", .fmt = "s",
+            .handler = RHANDLER(name, args, {
+                    float* results[] = {
+                        &gl->clear_color.r,
+                        &gl->clear_color.g,
+                        &gl->clear_color.b,
+                        &gl->clear_color.a
+                    };
+                    const size_t elem_sz = 2;
+                    char* str = (char*) args[0];
+                    size_t t, len = strlen(str), i = 0, s = 0;
+                    uint8_t elem_bytes[elem_sz];
+                    /* Ignore '0x' prefix, if present */
+                    if (len >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
+                        len -= 2;
+                        str += 2;
+                    }
+                    for (t = 0; t < len && t < 8; ++t) {
+                        char c = str[t];
+                        uint8_t b;
+                        /* obtain value from character */
+                        switch (c) {
+                        case 'a' ... 'f': b = (c - 'a') + 10; break;
+                        case 'A' ... 'F': b = (c - 'A') + 10; break;
+                        case '0' ... '9': b =  c - '0';       break;
+                        default:
+                            fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
+                            exit(EXIT_FAILURE);
+                        }
+                        elem_bytes[s] = b;
+                        if (s >= elem_sz - 1) { /* advance to next element */
+                            uint32_t e = 0; /* component storage */
+                            /* mask storage with input data */
+                            for (size_t v = 0; v < elem_sz; ++v) {
+                                e |= (uint32_t) elem_bytes[v] << (((elem_sz - 1) - v) * 4);
+                            }
+                            /* convert to [0, 1] as floating point value */
+                            *results[i] = (float) e / (float) ((1 << (elem_sz * 4)) - 1);
+                            printf("[DEBUG] component %d value: %d (float: %f)\n", i, e, *results[i]);
+                            s = 0;
+                            ++i;
+                        } else { /* advance character */
+                            ++s;
+                        }
+                    }
+                })
+        },
+        {
+            .name = "setbgf", .fmt = "ffff",
+            .handler = RHANDLER(name, args, {
+                    gl->clear_color.r = *(float*) args[0];
+                    gl->clear_color.g = *(float*) args[1];
+                    gl->clear_color.b = *(float*) args[2];
+                    gl->clear_color.a = *(float*) args[3];
                 })
         },
         {
@@ -1002,8 +1070,6 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     
     size_t m_len = strlen(module);
     size_t bsz = d_len + m_len + 2;
@@ -1156,6 +1222,8 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
 
     glfwShowWindow(gl->w);
     
+    glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
+    
     if (xwintype) {
         xwin_settype(r, xwintype);
         free(xwintype);
@@ -1281,15 +1349,15 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             static bool setup = false;
             /* Shader to flip texture and override alpha channel */
             static const char* frag_shader =
-                "uniform sampler2D tex;"                                                                   "\n"
-                "uniform ivec2 screen;"                                                                    "\n"
-                "out vec4 fragment;"                                                                       "\n"
-                "in vec4 gl_FragCoord;"                                                                    "\n"
-                "void main() {"                                                                            "\n"
-                "    fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, "                             "\n"
-                "                       (screen.y - gl_FragCoord.y) / screen.y));"                         "\n"
-                "    fragment.a = 1.0F;"                                                                   "\n"
-                "}"                                                                                        "\n";
+                "uniform sampler2D tex;"                                                             "\n"
+                "uniform ivec2 screen;"                                                              "\n"
+                "out vec4 fragment;"                                                                 "\n"
+                "in vec4 gl_FragCoord;"                                                              "\n"
+                "void main() {"                                                                      "\n"
+                "    fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, "                       "\n"
+                "                       (screen.y - gl_FragCoord.y) / screen.y));"                   "\n"
+                "    fragment.a = 1.0F;"                                                             "\n"
+                "}"                                                                                  "\n";
             if (!setup) {
                 bg_prog = shaderlink(shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC,
                                                 NULL, NULL, 330, true, gl),
