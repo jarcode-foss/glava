@@ -24,8 +24,12 @@
 #include "xwin.h"
 
 bool xwin_should_render(void) {
-    bool ret = true;
-    Display* d = XOpenDisplay(0);
+    bool ret = true, should_close = false;
+    Display* d = glfwGetX11Display();
+    if (!d) {
+        d = XOpenDisplay(0);
+        should_close = true;
+    }
 
     Atom prop       = XInternAtom(d, "_NET_ACTIVE_WINDOW", true);
     Atom fullscreen = XInternAtom(d, "_NET_WM_STATE_FULLSCREEN", true);
@@ -58,7 +62,8 @@ bool xwin_should_render(void) {
         }
     }
  close:
-    XCloseDisplay(d);
+    if (should_close)
+        XCloseDisplay(d);
     return ret;
 }
 
@@ -66,7 +71,7 @@ bool xwin_should_render(void) {
    -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
 static void xwin_changeatom(struct renderer* rd, const char* type, const char* atom, const char* fmt, int mode) {
     Window w = glfwGetX11Window((GLFWwindow*) rd_get_impl_window(rd));
-    Display* d = XOpenDisplay(0);
+    Display* d = glfwGetX11Display();
     Atom wtype = XInternAtom(d, atom, false);
     size_t len = strlen(type), t;
     char formatted[len + 1];
@@ -81,7 +86,6 @@ static void xwin_changeatom(struct renderer* rd, const char* type, const char* a
     snprintf(buf, sizeof(buf), fmt, formatted);
     Atom desk = XInternAtom(d, buf, false);
     XChangeProperty(d, w, wtype, XA_ATOM, 32, mode, (unsigned char*) &desk, 1);
-    XCloseDisplay(d);
 }
 
 void xwin_settype(struct renderer* rd, const char* type) {
@@ -127,7 +131,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     glfwGetFramebufferSize(gwin, &w, &h);
     glfwGetWindowPos(gwin, &x, &y);
     XColor c;
-    Display* d = XOpenDisplay(0);
+    Display* d = glfwGetX11Display();
     Pixmap p = get_pixmap(d, RootWindow(d, DefaultScreen(d)));
 
     /* Obtain section of root pixmap using XShm */
@@ -228,7 +232,6 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     shmctl(shminfo.shmid, IPC_RMID, NULL);
 
     XDestroyImage(image);
-    XCloseDisplay(d);
     
     return texture;
 }
