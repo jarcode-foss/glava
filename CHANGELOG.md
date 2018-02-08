@@ -2,7 +2,7 @@
 
 ## 1.3
 
-* Added RGBA color parsing for GLSL code and directives (does not work within `#request` directives). The behaviour converts '#3ef708ff' -> `vec4(0.243, 0.967, 0.031, 1.0)`. If the alpha component is omitted, it is assumed to be `1.0`. The parsing occurs during compile time, so it does not incurr any performance penalty.
+* Added RGBA color parsing for GLSL code and directives (does not work within `#request` directives). The behaviour converts `#3ef708ff` -> `vec4(0.243, 0.967, 0.031, 1.0)`. If the alpha component is omitted, it is assumed to be `1.0`. The parsing occurs during compile time, so it does not incurr any performance penalty.
 * Fixed stray `[DEBUG]` messages that were errornously being printed
 * _Actually_ added support for GLFW 3.1, see issue #13
 * Fixed issue with some WMs not responding to GLava's window types and hints, see #17
