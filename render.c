@@ -1219,8 +1219,6 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     }
 
     overlay(&gl->overlay);
-
-    glfwShowWindow(gl->w);
     
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
     
@@ -1233,6 +1231,8 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         xwin_addstate(r, xwinstates[t]);
     }
     free(xwinstates);
+
+    glfwShowWindow(gl->w);
     
     return r;
 }
