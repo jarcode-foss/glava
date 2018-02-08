@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -51,7 +52,7 @@ static void se_append(struct sbuf* sbuf, size_t elen, const char* fmt, ...) {
     int written;
     if ((written = vsnprintf(sbuf->buf + sbuf->at, space, fmt, args)) < 0)
         abort();
-    sbuf->at += space;
+    sbuf->at += written;
     va_end(args);
 }
 
@@ -67,6 +68,42 @@ struct schar {
     char* buf;
     size_t sz;
 };
+
+bool ext_parse_color(const char* str, size_t elem_sz, float** results) {
+    size_t t, len = strlen(str), i = 0, s = 0;
+    uint8_t elem_bytes[elem_sz];
+    /* Ignore '0x' prefix, if present */
+    if (len >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
+        len -= 2;
+        str += 2;
+    }
+    for (t = 0; t < len && t < 8; ++t) {
+        char c = str[t];
+        uint8_t b;
+        /* obtain value from character */
+        switch (c) {
+        case 'a' ... 'f': b = (c - 'a') + 10; break;
+        case 'A' ... 'F': b = (c - 'A') + 10; break;
+        case '0' ... '9': b =  c - '0';       break;
+        default: return false;
+        }
+        elem_bytes[s] = b;
+        if (s >= elem_sz - 1) { /* advance to next element */
+            uint32_t e = 0; /* component storage */
+                            /* mask storage with input data */
+            for (size_t v = 0; v < elem_sz; ++v) {
+                e |= (uint32_t) elem_bytes[v] << (((elem_sz - 1) - v) * 4);
+            }
+            /* convert to [0, 1] as floating point value */
+            *results[i] = (float) e / (float) ((1 << (elem_sz * 4)) - 1);
+            s = 0;
+            ++i;
+        } else { /* advance character */
+            ++s;
+        }
+    }
+    return true;
+}
 
 /* handle raw arguments for #include and #request directives */
 /* NOTE: munmap needs to be called on the result */
@@ -91,7 +128,8 @@ static struct schar directive(struct glsl_ext* ext, char** args,
         
         int fd = open(path, O_RDONLY);
         if (fd == -1) {
-            parse_error(line, f, "failed to load GLSL shader source specified by #include directive '%s': %s\n",
+            parse_error(line, f, "failed to load GLSL shader source "
+                        "specified by #include directive '%s': %s\n",
                         path, strerror(errno));
         }
         
@@ -100,7 +138,8 @@ static struct schar directive(struct glsl_ext* ext, char** args,
         
         char* map = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
         if (!map) {
-            parse_error(line, f, "failed to map GLSL shader source specified by #include directive '%s': %s\n",
+            parse_error(line, f, "failed to map GLSL shader source "
+                        "specified by #include directive '%s': %s\n",
                         path, strerror(errno));
         }
 
@@ -128,7 +167,7 @@ static struct schar directive(struct glsl_ext* ext, char** args,
 
             struct request_handler* handler;
             bool found = false;
-            size_t t, i;
+            size_t t;
             for (t = 0; (handler = &ext->handlers[t])->name != NULL; ++t) {
                 if(!strcmp(handler->name, request)) {
                     found = true;
@@ -173,10 +212,12 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                                     case '1': { v = true; break; }
                                     case '0': { v = false; break; }
                                     default:
-                                        parse_error_s(line, f, "tried to parse invalid raw string into a boolean");
+                                        parse_error_s(line, f,
+                                                      "tried to parse invalid raw string into a boolean");
                                     }
                                 } else {
-                                    parse_error_s(line, f, "tried to parse invalid raw string into a boolean");
+                                    parse_error_s(line, f,
+                                                  "tried to parse invalid raw string into a boolean");
                                 }
                                 processed_args[i] = malloc(sizeof(bool));
                                 *(bool*) processed_args[i] = v;
@@ -211,10 +252,11 @@ static struct schar directive(struct glsl_ext* ext, char** args,
 void ext_process(struct glsl_ext* ext, const char* f) {
     
     #define LINE_START 0
-    #define IGNORING 1
+    #define GLSL 1
     #define MACRO 2
     #define REQUEST 3
     #define INCLUDE 4
+    #define COLOR 5
     
     struct sbuf sbuf = {
         .buf   = malloc(256),
@@ -226,12 +268,16 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     size_t t;
     char at;
     int state = LINE_START;
-    size_t macro_start_idx, arg_start_idx;
+    size_t macro_start_idx, arg_start_idx, cbuf_idx;
     size_t line = 1;
     bool quoted = false, arg_start;
+    char cbuf[9];
     char** args = NULL;
     size_t args_sz = 0;
-    
+
+    bool prev_slash = false, comment = false, comment_line = false, prev_asterix = false,
+        prev_escape = false, string = false;
+     
     for (t = 0; t <= source_len; ++t) {
         at = source_len == t ? '\0' : ext->source[t];
         if (at == '\n')
@@ -244,40 +290,128 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                     macro_start_idx = t;
                     state = MACRO;
                     continue; }
-                case ' ':
-                case '\t':
                 case '\n':
+                    if (comment && comment_line) {
+                        comment = false;
+                        comment_line = false;
+                    }
+                case '\t':
+                case ' ':
                     goto copy;
-                default: {
-                    state = IGNORING;
-                    goto copy; }
+                default: state = GLSL;
+                    /* let execution continue into next state */
                 }
             }
-        case IGNORING: /* copying GLSL source or unrelated preprocessor syntax */
-            if (at == '\n') {
-                state = LINE_START;
+        case GLSL: /* copying GLSL source or unrelated preprocessor syntax */
+            {
+                switch (at) {
+                case '"':
+                    if (!comment && !prev_escape)
+                        string = !string;
+                    goto normal_char;
+                case '\\':
+                    if (!comment) {
+                        prev_escape  = !prev_escape;
+                        prev_asterix = false;
+                        prev_slash   = false;
+                        goto copy;
+                    } else goto normal_char;
+                case '/':
+                    if (!comment) {
+                        if (prev_slash) {
+                            comment = true;
+                            comment_line = true;
+                            prev_slash = false;
+                        } else prev_slash = true;
+                    } else if (!comment_line) {
+                        if (prev_asterix) {
+                            comment = false;
+                            prev_asterix = false;
+                        }
+                    }
+                    prev_escape = false;
+                    goto copy;
+                case '*':
+                    if (!comment) {
+                        if (prev_slash) {
+                            comment = true;
+                            prev_slash = false;
+                        }
+                    } else prev_asterix = true;
+                    prev_escape = false;
+                    goto copy;
+                case '#': {
+                    /* handle hex color syntax */
+                    if (!comment && !string) {
+                        state = COLOR;
+                        cbuf_idx = 0;
+                        continue;
+                    } else goto normal_char;
+                }
+                case '\n':
+                    if (comment && comment_line) {
+                        comment = false;
+                        comment_line = false;
+                    }
+                    state = LINE_START;
+                normal_char:
+                default:
+                    prev_asterix = false;
+                    prev_slash   = false;
+                    prev_escape  = false;
+                    goto copy;
+                }
             }
-            goto copy;
+        case COLOR: /* parse hex color syntax (#ffffffff -> vec4(1.0, 1.0, 1.0, 1.0)) */
+            {
+                switch (at) {
+                case 'a' ... 'z':
+                case 'A' ... 'Z':
+                case '0' ... '9': {
+                    cbuf[cbuf_idx] = at;
+                    ++cbuf_idx;
+                    if (cbuf_idx >= 8)
+                        goto emit_color;
+                    else continue;
+                }
+                emit_color:
+                default:
+                    cbuf[cbuf_idx] = '\0'; /* null terminate */
+                    float r = 0.0F, g = 0.0F, b = 0.0F, a = 1.0F;
+                    if (ext_parse_color(cbuf, 2, (float*[]) { &r, &g, &b, &a })) {
+                        se_append(&sbuf, 64, " vec4(%.6f, %.6f, %.6f, %.6f) ", r, g, b, a);
+                    } else {
+                        parse_error(line, f, "Invalid color format '#%s' while "
+                                    "parsing GLSL color syntax extension", cbuf);
+                    }
+                    state = at == '\n' ? LINE_START : GLSL;
+                    if (cbuf_idx >= 8)
+                        continue;
+                    else goto copy; /* copy character if it ended the sequence */
+                }
+            }
         case MACRO: /* processing start of macro */
             {
                 switch (at) {
                 case '\n':
                 case ' ':
                 case '\t':
-                case '\0':
+                case '\0': 
                     {
                         /* end parsing directive */
                         if (!strncmp("#request", &ext->source[macro_start_idx], t - macro_start_idx)
                             || !strncmp("#REQUEST", &ext->source[macro_start_idx], t - macro_start_idx)) {
                             state = REQUEST;
                             goto prepare_arg_parse;
-                        } else if (!strncmp("#include", &ext->source[macro_start_idx], t - macro_start_idx)
-                                   || !strncmp("#INCLUDE", &ext->source[macro_start_idx], t - macro_start_idx)) {
+                        } else if (!strncmp("#include", &ext->source[macro_start_idx],
+                                            t - macro_start_idx)
+                                   || !strncmp("#INCLUDE", &ext->source[macro_start_idx],
+                                               t - macro_start_idx)) {
                             state = INCLUDE;
                             goto prepare_arg_parse;
                         } else {
                             n_append(&sbuf, t - macro_start_idx, &ext->source[macro_start_idx]);
-                            state = IGNORING;
+                            state = at == '\n' ? LINE_START : GLSL;
                             goto copy;
                         }
                     prepare_arg_parse:

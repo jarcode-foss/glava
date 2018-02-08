@@ -35,3 +35,4 @@ struct glsl_ext {
 
 void ext_process(struct glsl_ext* ext, const char* f);
 void ext_free   (struct glsl_ext* ext);
+bool ext_parse_color(const char* hex, size_t elem_sz, float** results);

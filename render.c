@@ -753,10 +753,10 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                     
                     #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
                     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, native_opacity ? GLFW_TRUE : GLFW_FALSE);
-                    gl->use_alpha = false;
+                    if (native_opacity) gl->use_alpha = false;
                     #elif GLFW_TRANSPARENT
                     glfwWindowHint(GLFW_TRANSPARENT, native_opacity ? GLFW_TRUE : GLFW_FALSE);
-                    gl->use_alpha = false;
+                    if (native_opacity) gl->use_alpha = false;
                     #else
                     if (native_opacity)
                         printf("WARNING: the linked version of GLFW3 does not have transparency support"
@@ -783,42 +783,9 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                         &gl->clear_color.b,
                         &gl->clear_color.a
                     };
-                    const size_t elem_sz = 2;
-                    char* str = (char*) args[0];
-                    size_t t, len = strlen(str), i = 0, s = 0;
-                    uint8_t elem_bytes[elem_sz];
-                    /* Ignore '0x' prefix, if present */
-                    if (len >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
-                        len -= 2;
-                        str += 2;
-                    }
-                    for (t = 0; t < len && t < 8; ++t) {
-                        char c = str[t];
-                        uint8_t b;
-                        /* obtain value from character */
-                        switch (c) {
-                        case 'a' ... 'f': b = (c - 'a') + 10; break;
-                        case 'A' ... 'F': b = (c - 'A') + 10; break;
-                        case '0' ... '9': b =  c - '0';       break;
-                        default:
-                            fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
-                            exit(EXIT_FAILURE);
-                        }
-                        elem_bytes[s] = b;
-                        if (s >= elem_sz - 1) { /* advance to next element */
-                            uint32_t e = 0; /* component storage */
-                            /* mask storage with input data */
-                            for (size_t v = 0; v < elem_sz; ++v) {
-                                e |= (uint32_t) elem_bytes[v] << (((elem_sz - 1) - v) * 4);
-                            }
-                            /* convert to [0, 1] as floating point value */
-                            *results[i] = (float) e / (float) ((1 << (elem_sz * 4)) - 1);
-                            printf("[DEBUG] component %d value: %d (float: %f)\n", i, e, *results[i]);
-                            s = 0;
-                            ++i;
-                        } else { /* advance character */
-                            ++s;
-                        }
+                    if (!ext_parse_color((char*) args[0], 2, results)) {
+                        fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
+                        exit(EXIT_FAILURE);
                     }
                 })
         },
@@ -1055,6 +1022,16 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         abort();
     }
     
+    if (xwintype) {
+        xwin_settype(r, xwintype);
+        free(xwintype);
+    }
+
+    for (size_t t = 0; t < xwinstates_sz; ++t) {
+        xwin_addstate(r, xwinstates[t]);
+    }
+    free(xwinstates);
+    
     glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
     glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
 
@@ -1086,7 +1063,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     
     struct gl_sfbo* stages;
     size_t count = 0;
-
+    
     {
         char buf[32];
         DIR* dir = opendir(shaders);
@@ -1219,20 +1196,10 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     }
 
     overlay(&gl->overlay);
-
-    glfwShowWindow(gl->w);
     
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
-    
-    if (xwintype) {
-        xwin_settype(r, xwintype);
-        free(xwintype);
-    }
 
-    for (size_t t = 0; t < xwinstates_sz; ++t) {
-        xwin_addstate(r, xwinstates[t]);
-    }
-    free(xwinstates);
+    glfwShowWindow(gl->w);
     
     return r;
 }

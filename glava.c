@@ -18,7 +18,7 @@
 #include "render.h"
 #include "xwin.h"
 
-#define GLAVA_VERSION "1.2"
+#define GLAVA_VERSION "1.3"
 #ifdef GLAD_DEBUG
 #define GLAVA_RELEASE_TYPE_PREFIX "debug, "
 #else
@@ -151,6 +151,8 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
     closedir(dir);
 }
 
+#define GLAVA_VERSION_STRING "GLava (glava) " GLAVA_VERSION " (" GLAVA_RELEASE_TYPE ")"
+
 static const char* help_str =
     "Usage: %s [OPTIONS]...\n"
     "Opens a window with an OpenGL context to draw an audio visualizer.\n"
@@ -165,17 +167,19 @@ static const char* help_str =
     "-C, --copy-config       creates copies and symbolic links in the user configuration\n"
     "                          directory for glava, copying any files in the root directory\n"
     "                          of the installed shader directory, and linking any modules.\n"
+    "-V, --version           print application version and exit\n"
     "\n"
-    "GLava (glava) " GLAVA_VERSION " (" GLAVA_RELEASE_TYPE ")\n"
+    GLAVA_VERSION_STRING "\n"
     " -- Copyright (C) 2017 Levi Webb\n";
 
-static const char* opt_str = "hve:Cm:";
+static const char* opt_str = "hvVe:Cm:";
 static struct option p_opts[] = {
     {"help",        no_argument,       0, 'h'},
     {"verbose",     no_argument,       0, 'v'},
     {"entry",       required_argument, 0, 'e'},
     {"force-mod",   required_argument, 0, 'm'},
     {"copy-config", no_argument,       0, 'C'},
+    {"version",     no_argument,       0, 'V'},
     {0,             0,                 0,  0 }
 };
 
@@ -198,10 +202,15 @@ int main(int argc, char** argv) {
         case 'e': entry     = optarg; break;
         case 'm': force     = optarg; break;
         case '?': exit(EXIT_FAILURE); break;
+        case 'V':
+            puts(GLAVA_VERSION_STRING);
+            exit(EXIT_SUCCESS);
+            break;
         default:
         case 'h':
             printf(help_str, argc > 0 ? argv[0] : "glava");
             exit(EXIT_SUCCESS);
+            break;
         }
     }
 
