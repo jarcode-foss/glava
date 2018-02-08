@@ -16,11 +16,16 @@
 #include <X11/extensions/XShm.h>
 
 #define GLFW_EXPOSE_NATIVE_X11
-/* Hack to make GLFW 3.1 headers work with GLava. We don't use the context APIs from GLFW, but
-   the old headers require one of them to be selected for exposure in glfw3native.h. */
-#define GLFW_EXPOSE_NATIVE_GLX
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+/* Hack to make GLFW 3.1 headers work with GLava. We don't use the context APIs from GLFW, but
+   the old headers require one of them to be selected for exposure in glfw3native.h. */
+#if GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR <= 1
+#define GLFW_EXPOSE_NATIVE_GLX
+#error "GLX defined"
+#endif
 #include <GLFW/glfw3native.h>
 
 #include "render.h"
