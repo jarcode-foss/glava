@@ -275,7 +275,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     char** args = NULL;
     size_t args_sz = 0;
 
-    bool prev_slash = false, comment = false, comment_line = false, prev_asterix = false;
+    bool prev_slash = false, comment = false, comment_line = false, prev_asterix = false,
+        prev_escape = false, string = false;
      
     for (t = 0; t <= source_len; ++t) {
         at = source_len == t ? '\0' : ext->source[t];
@@ -304,6 +305,17 @@ void ext_process(struct glsl_ext* ext, const char* f) {
         case GLSL: /* copying GLSL source or unrelated preprocessor syntax */
             {
                 switch (at) {
+                case '"':
+                    if (!comment && !prev_escape)
+                        string = !string;
+                    goto normal_char;
+                case '\\':
+                    if (!comment) {
+                        prev_escape  = !prev_escape;
+                        prev_asterix = false;
+                        prev_slash   = false;
+                        goto copy;
+                    } else goto normal_char;
                 case '/':
                     if (!comment) {
                         if (prev_slash) {
@@ -317,6 +329,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             prev_asterix = false;
                         }
                     }
+                    prev_escape = false;
                     goto copy;
                 case '*':
                     if (!comment) {
@@ -325,10 +338,11 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             prev_slash = false;
                         }
                     } else prev_asterix = true;
+                    prev_escape = false;
                     goto copy;
                 case '#': {
                     /* handle hex color syntax */
-                    if (!comment) {
+                    if (!comment && !string) {
                         state = COLOR;
                         cbuf_idx = 0;
                         continue;
@@ -344,6 +358,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                 default:
                     prev_asterix = false;
                     prev_slash   = false;
+                    prev_escape  = false;
                     goto copy;
                 }
             }
