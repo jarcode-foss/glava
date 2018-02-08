@@ -783,42 +783,9 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                         &gl->clear_color.b,
                         &gl->clear_color.a
                     };
-                    const size_t elem_sz = 2;
-                    char* str = (char*) args[0];
-                    size_t t, len = strlen(str), i = 0, s = 0;
-                    uint8_t elem_bytes[elem_sz];
-                    /* Ignore '0x' prefix, if present */
-                    if (len >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
-                        len -= 2;
-                        str += 2;
-                    }
-                    for (t = 0; t < len && t < 8; ++t) {
-                        char c = str[t];
-                        uint8_t b;
-                        /* obtain value from character */
-                        switch (c) {
-                        case 'a' ... 'f': b = (c - 'a') + 10; break;
-                        case 'A' ... 'F': b = (c - 'A') + 10; break;
-                        case '0' ... '9': b =  c - '0';       break;
-                        default:
-                            fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
-                            exit(EXIT_FAILURE);
-                        }
-                        elem_bytes[s] = b;
-                        if (s >= elem_sz - 1) { /* advance to next element */
-                            uint32_t e = 0; /* component storage */
-                            /* mask storage with input data */
-                            for (size_t v = 0; v < elem_sz; ++v) {
-                                e |= (uint32_t) elem_bytes[v] << (((elem_sz - 1) - v) * 4);
-                            }
-                            /* convert to [0, 1] as floating point value */
-                            *results[i] = (float) e / (float) ((1 << (elem_sz * 4)) - 1);
-                            printf("[DEBUG] component %d value: %d (float: %f)\n", i, e, *results[i]);
-                            s = 0;
-                            ++i;
-                        } else { /* advance character */
-                            ++s;
-                        }
+                    if (!ext_parse_color((char*) args[0], 2, results)) {
+                        fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
+                        exit(EXIT_FAILURE);
                     }
                 })
         },

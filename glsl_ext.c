@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -68,6 +69,42 @@ struct schar {
     size_t sz;
 };
 
+bool ext_parse_color(const char* str, size_t elem_sz, float** results) {
+    size_t t, len = strlen(str), i = 0, s = 0;
+    uint8_t elem_bytes[elem_sz];
+    /* Ignore '0x' prefix, if present */
+    if (len >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
+        len -= 2;
+        str += 2;
+    }
+    for (t = 0; t < len && t < 8; ++t) {
+        char c = str[t];
+        uint8_t b;
+        /* obtain value from character */
+        switch (c) {
+        case 'a' ... 'f': b = (c - 'a') + 10; break;
+        case 'A' ... 'F': b = (c - 'A') + 10; break;
+        case '0' ... '9': b =  c - '0';       break;
+        default: return false;
+        }
+        elem_bytes[s] = b;
+        if (s >= elem_sz - 1) { /* advance to next element */
+            uint32_t e = 0; /* component storage */
+                            /* mask storage with input data */
+            for (size_t v = 0; v < elem_sz; ++v) {
+                e |= (uint32_t) elem_bytes[v] << (((elem_sz - 1) - v) * 4);
+            }
+            /* convert to [0, 1] as floating point value */
+            *results[i] = (float) e / (float) ((1 << (elem_sz * 4)) - 1);
+            s = 0;
+            ++i;
+        } else { /* advance character */
+            ++s;
+        }
+    }
+    return true;
+}
+
 /* handle raw arguments for #include and #request directives */
 /* NOTE: munmap needs to be called on the result */
 static struct schar directive(struct glsl_ext* ext, char** args,
@@ -128,7 +165,7 @@ static struct schar directive(struct glsl_ext* ext, char** args,
 
             struct request_handler* handler;
             bool found = false;
-            size_t t, i;
+            size_t t;
             for (t = 0; (handler = &ext->handlers[t])->name != NULL; ++t) {
                 if(!strcmp(handler->name, request)) {
                     found = true;
