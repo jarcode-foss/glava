@@ -24,7 +24,6 @@
    the old headers require one of them to be selected for exposure in glfw3native.h. */
 #if GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR <= 1
 #define GLFW_EXPOSE_NATIVE_GLX
-#error "GLX defined"
 #endif
 #include <GLFW/glfw3native.h>
 
