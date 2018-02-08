@@ -17,7 +17,7 @@
 /* actual color definition */
 #define COLOR vec4((0.3 + RCOL_OFF) + LSTEP, 0.6 - LSTEP, (0.3 + LCOL_OFF) + LSTEP, 1)
 /* outline color */
-#define OUTLINE vec4(0.15, 0.15, 0.15, 1)
+#define OUTLINE #262626
 /* 1 to invert (vertically), 0 otherwise */
 #define INVERT 0
 
