@@ -16,6 +16,14 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+/* Fixes for old GLFW versions */
+#ifndef GLFW_TRUE
+#define GLFW_TRUE GL_TRUE
+#endif
+#ifndef GLFW_FALSE
+#define GLFW_FALSE GL_FALSE
+#endif
+
 #include "render.h"
 #include "xwin.h"
 #include "glsl_ext.h"
@@ -742,6 +750,12 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         { .name = request, .fmt = "b",                                  \
                 .handler = RHANDLER(name, args, { glfwWindowHint(attr, *(bool*) args[0]); }) }
     
+    #define STUB(request, f)                                            \
+        { .name = request, .fmt = f,                                    \
+                .handler = RHANDLER(name, args, {                       \
+                        fprintf(stderr, "warning: '%s' request is not implemented for this build\n", \
+                                request); }) }
+    
     struct request_handler handlers[] = {
         {
             .name = "setopacity", .fmt = "s",
@@ -812,7 +826,11 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         WINDOW_HINT("setfloating",  GLFW_FLOATING),
         WINDOW_HINT("setdecorated", GLFW_DECORATED),
         WINDOW_HINT("setfocused",   GLFW_FOCUSED),
+        #if GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR <= 1
         WINDOW_HINT("setmaximized", GLFW_MAXIMIZED),
+        #else
+        STUB("setmaximized", "b"),
+        #endif
         {
             .name = "setversion", .fmt = "ii",
             .handler = RHANDLER(name, args, {
