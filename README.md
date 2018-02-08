@@ -28,6 +28,11 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 - python (required to generate bindings with glad)
 - GCC (this program uses GNU C features)
 
+**Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile and run GLava:
+```bash
+sudo apt-get install libpulse libpulse-dev libglfw3 libglfw3-dev libxext6 libxext6-dev python make gcc
+```
+
 ## [Configuration](https://github.com/wacossusca34/glava/wiki)
 
 GLava will start by looking for an entry point in the user configuration folder (`~/.config/glava/rc.glsl`\*), and will fall back to loading from the shader installation folder (`/etc/xdg/glava`\*). The entry point will specify a module to load and should set global configuration variables. Configuration for specific modules can be done in their respective `.glsl` files, which the module itself will include.
