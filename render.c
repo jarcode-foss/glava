@@ -1055,6 +1055,16 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         abort();
     }
     
+    if (xwintype) {
+        xwin_settype(r, xwintype);
+        free(xwintype);
+    }
+
+    for (size_t t = 0; t < xwinstates_sz; ++t) {
+        xwin_addstate(r, xwinstates[t]);
+    }
+    free(xwinstates);
+    
     glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
     glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
 
@@ -1086,7 +1096,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     
     struct gl_sfbo* stages;
     size_t count = 0;
-
+    
     {
         char buf[32];
         DIR* dir = opendir(shaders);
@@ -1221,16 +1231,6 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     overlay(&gl->overlay);
     
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
-    
-    if (xwintype) {
-        xwin_settype(r, xwintype);
-        free(xwintype);
-    }
-
-    for (size_t t = 0; t < xwinstates_sz; ++t) {
-        xwin_addstate(r, xwinstates[t]);
-    }
-    free(xwinstates);
 
     glfwShowWindow(gl->w);
     
