@@ -826,7 +826,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         WINDOW_HINT("setfloating",  GLFW_FLOATING),
         WINDOW_HINT("setdecorated", GLFW_DECORATED),
         WINDOW_HINT("setfocused",   GLFW_FOCUSED),
-        #if GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR <= 1
+        #ifdef GLFW_MAXIMIZED
         WINDOW_HINT("setmaximized", GLFW_MAXIMIZED),
         #else
         STUB("setmaximized", "b"),
