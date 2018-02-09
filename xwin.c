@@ -30,6 +30,7 @@
 #include "render.h"
 #include "xwin.h"
 
+
 static Window find_desktop(void) {
     static Window desktop;
     static bool searched = false;
@@ -54,6 +55,7 @@ static Window find_desktop(void) {
             }
             XFree(children);
         }
+        searched = true;
     }
     return desktop;
 }
