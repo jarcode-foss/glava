@@ -30,6 +30,34 @@
 #include "render.h"
 #include "xwin.h"
 
+static Window find_desktop(void) {
+    static Window desktop;
+    static bool searched = false;
+    if (!searched) {
+        Display* d = glfwGetX11Display();
+        desktop = DefaultRootWindow(d);
+        Window _ignored, * children;
+        unsigned int nret;
+        XQueryTree(d, desktop, &_ignored, &_ignored, &children, &nret);
+        if (children) {
+            for (unsigned int t = 0; t < nret; ++t) {
+                char* name;
+                XFetchName(d, children[t], &name);
+                if (name) {
+                    /* Mutter-based window managers */
+                    if (!strcmp(name, "mutter guard window")) {
+                        desktop = children[t];
+                        t = nret; /* break after */
+                    }
+                    XFree(name);
+                }
+            }
+            XFree(children);
+        }
+    }
+    return desktop;
+}
+
 bool xwin_should_render(void) {
     bool ret = true, should_close = false;
     Display* d = glfwGetX11Display();
@@ -50,7 +78,7 @@ bool xwin_should_render(void) {
     
     XSetErrorHandler(handler); /* dummy error handler */
           
-    if (Success != XGetWindowProperty(d, RootWindow(d, 0), prop, 0, 1, false, AnyPropertyType,
+    if (Success != XGetWindowProperty(d, DefaultRootWindow(d), prop, 0, 1, false, AnyPropertyType,
                                      &actual_type, &actual_format, &nitems, &bytes_after, &data)) {
         goto close; /* if an error occurs here, the WM probably isn't EWMH compliant */
     }
@@ -139,7 +167,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     glfwGetWindowPos(gwin, &x, &y);
     XColor c;
     Display* d = glfwGetX11Display();
-    Pixmap p = get_pixmap(d, RootWindow(d, DefaultScreen(d)));
+    Pixmap p = get_pixmap(d, find_desktop());
 
     /* Obtain section of root pixmap using XShm */
     
@@ -150,7 +178,8 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     XVisualInfo* info = XGetVisualInfo(d, VisualIDMask, &match, &nret);
     XImage* image = XShmCreateImage(d, visual, info->depth, ZPixmap, NULL,
                                     &shminfo, (unsigned int) w, (unsigned int) h);
-    if ((shminfo.shmid = shmget(IPC_PRIVATE, image->bytes_per_line * image->height, IPC_CREAT | 0777)) == -1) {
+    if ((shminfo.shmid = shmget(IPC_PRIVATE, image->bytes_per_line * image->height,
+                                IPC_CREAT | 0777)) == -1) {
         fprintf(stderr, "shmget() failed: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
