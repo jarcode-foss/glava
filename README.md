@@ -28,7 +28,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 - python (required to generate bindings with glad)
 - GCC (this program uses GNU C features)
 
-**Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile and run GLava:
+**Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
 sudo apt-get install libpulse libpulse-dev libglfw3 libglfw3-dev libxext6 libxext6-dev python make gcc
 ```
@@ -51,12 +51,13 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 
 | WM | ! | Details
 | :---: | --- | --- |
-| GNOME (on X11) | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
 | Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | [Some tweaks may be required](https://www.reddit.com/r/unixporn/comments/7vcgi4/oc_after_receiving_positive_feedback_here_i/dtrkvja/)
 | Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | iceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
-| AwesomeWM | ![-](https://placehold.it/15/f09c00/000000?text=+) | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, can still be focused, may require other changes to config depending on layout
+| Herbstluftwm | ![-](https://placehold.it/15/118932/000000?text=+) | `hc rule windowtype~'_NET_WM_WINDOW_TYPE_DESKTOP' manage=off` can be used to unmanage desktop windows
+| GNOME (on X11) | ![-](https://placehold.it/15/f09c00/000000?text=+) | [Some issues with `"xroot"` reported](https://github.com/wacossusca34/glava/issues/18)
+| AwesomeWM | ![-](https://placehold.it/15/f09c00/000000?text=+) | Can still be focused, may require other changes to config depending on layout
 | Budgie Desktop | ![-](https://placehold.it/15/f09c00/000000?text=+) | `"xroot"` transparency breaks with Budgie's wallpaper window
 | kwin (KDE) | ![-](https://placehold.it/15/f09c00/000000?text=+) | [Issues with workspaces and stacking](https://github.com/wacossusca34/glava/issues/4), needs further testing
 | i3 (and i3-gaps) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [i3 does not respect the `"desktop"` window type](https://github.com/wacossusca34/glava/issues/6)
@@ -64,7 +65,6 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | Unity | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Bspwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
-| Herbstluftwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Any non EWMH-compliant WM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Window types and hints will not work if the window manager does not support the EWMH standards.
 
