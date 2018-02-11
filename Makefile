@@ -43,7 +43,7 @@ ifeq ($(INSTALL),osx)
     SHADER_DIR = Library/glava
 endif
 
-LDFLAGS = $(ASAN) -lpulse -lpulse-simple -pthread -lglfw -ldl -lm -lX11 -lXext
+LDFLAGS = $(ASAN) -lpulse -lpulse-simple -pthread -lglfw -ldl -lm -lX11 -lXext -lXcomposite
 
 PYTHON = python
 

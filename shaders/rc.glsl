@@ -17,7 +17,7 @@
 
 /* GLFW window hints */
 #request setfloating  false
-#request setdecorated false
+#request setdecorated true
 #request setfocused   false
 #request setmaximized false
 

@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
         pthread_mutex_unlock(&audio.mutex);
         
         /* Only render if needed (ie. stop rendering when fullscreen windows are focused) */
-        if (xwin_should_render()) {
+        if (xwin_should_render(r)) {
             rd_update(r, lb, rb, r->bufsize_request, modified);
         } else {
             /* Sleep for 50ms and then attempt to render again */

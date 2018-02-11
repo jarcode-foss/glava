@@ -16,6 +16,18 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+
+#define GLFW_EXPOSE_NATIVE_X11
+
+/* Hack to make GLFW 3.1 headers work with GLava. We don't use the context APIs from GLFW, but
+   the old headers require one of them to be selected for exposure in glfw3native.h. */
+#if GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR <= 1
+#define GLFW_EXPOSE_NATIVE_GLX
+#endif
+#include <GLFW/glfw3native.h>
+
 /* Fixes for old GLFW versions */
 #ifndef GLFW_TRUE
 #define GLFW_TRUE GL_TRUE
@@ -98,6 +110,7 @@ struct overlay_data {
 struct gl_data {
     struct gl_sfbo* stages;
     struct overlay_data overlay;
+    Display* display;
     GLuint audio_tex_r, audio_tex_l, bg_tex, sm_prog;
     size_t stages_sz, bufscale, avg_frames;
     GLFWwindow* w;
@@ -116,6 +129,8 @@ struct gl_data {
     float* interpolate_buf[6];
     int geometry[4];
 };
+
+
 
 /* load shader file */
 static GLuint shaderload(const char*             rpath,
@@ -731,6 +746,8 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     
     if (!glfwInit())
         abort();
+
+    gl->display = glfwGetX11Display();
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -1576,6 +1593,10 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 }
 
 void* rd_get_impl_window(struct renderer* r) { return r->gl->w; }
+Display* rd_get_x11_display(struct renderer* r) { return r->gl->display; }
+Window rd_get_x11_window(struct renderer* r) { return glfwGetX11Window(r->gl->w); }
+void rd_get_fbsize(struct renderer* r, int* w, int* h) { glfwGetFramebufferSize(r->gl->w, w, h); }
+void rd_get_wpos(struct renderer* r, int* x, int* y) { glfwGetWindowPos(r->gl->w, x, y); }
 
 void rd_destroy(struct renderer* r) {
     /* TODO: delete everything else, not really needed though (as the application exits after here) */

@@ -12,30 +12,21 @@
 #include <sys/shm.h>
 
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <X11/Xatom.h>
+#include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/XShm.h>
 
-#define GLFW_EXPOSE_NATIVE_X11
-
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
 
-/* Hack to make GLFW 3.1 headers work with GLava. We don't use the context APIs from GLFW, but
-   the old headers require one of them to be selected for exposure in glfw3native.h. */
-#if GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR <= 1
-#define GLFW_EXPOSE_NATIVE_GLX
-#endif
-#include <GLFW/glfw3native.h>
-
+#define GLAVA_RDX11
 #include "render.h"
-#include "xwin.h"
 
-
-static Window find_desktop(void) {
+static Window find_desktop(struct renderer* r) {
     static Window desktop;
     static bool searched = false;
     if (!searched) {
-        Display* d = glfwGetX11Display();
+        Display* d = rd_get_x11_display(r);
         desktop = DefaultRootWindow(d);
         Window _ignored, * children;
         unsigned int nret;
@@ -47,7 +38,8 @@ static Window find_desktop(void) {
                 if (name) {
                     /* Mutter-based window managers */
                     if (!strcmp(name, "mutter guard window")) {
-                        desktop = children[t];
+                        printf("Using mutter guard window instead of root window\n");
+                        // desktop = children[t];
                         t = nret; /* break after */
                     }
                     XFree(name);
@@ -60,9 +52,9 @@ static Window find_desktop(void) {
     return desktop;
 }
 
-bool xwin_should_render(void) {
+bool xwin_should_render(struct renderer* rd) {
     bool ret = true, should_close = false;
-    Display* d = glfwGetX11Display();
+    Display* d = rd_get_x11_display(rd);
     if (!d) {
         d = XOpenDisplay(0);
         should_close = true;
@@ -107,8 +99,8 @@ bool xwin_should_render(void) {
 /* Set window types defined by the EWMH standard, possible values:
    -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
 static void xwin_changeatom(struct renderer* rd, const char* type, const char* atom, const char* fmt, int mode) {
-    Window w = glfwGetX11Window((GLFWwindow*) rd_get_impl_window(rd));
-    Display* d = glfwGetX11Display();
+    Window w = rd_get_x11_window(rd);
+    Display* d = rd_get_x11_display(rd);
     Atom wtype = XInternAtom(d, atom, false);
     size_t len = strlen(type), t;
     char formatted[len + 1];
@@ -133,8 +125,8 @@ void xwin_addstate(struct renderer* rd, const char* state) {
     xwin_changeatom(rd, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend); 
 }
 
-static Pixmap get_pixmap(Display* d, Window w) {
-    Pixmap p;
+static Drawable get_drawable(Display* d, Window w) {
+    Drawable p;
     Atom act_type;
     int act_format;
     unsigned long nitems, bytes_after;
@@ -142,14 +134,14 @@ static Pixmap get_pixmap(Display* d, Window w) {
     Atom id;
 
     id = XInternAtom(d, "_XROOTPMAP_ID", False);
-
+    
     if (XGetWindowProperty(d, w, id, 0, 1, False, XA_PIXMAP,
                            &act_type, &act_format, &nitems, &bytes_after,
-                           &data) == Success) {
-        if (data) {
-            p = *((Pixmap *) data);
-            XFree(data);
-        }
+                           &data) == Success && data) {
+        p = *((Pixmap *) data);
+        XFree(data);
+    } else {
+        p = w;
     }
 
     return p;
@@ -163,113 +155,123 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     
-    GLFWwindow* gwin = (GLFWwindow*) rd_get_impl_window(rd);
+    bool use_shm = true;
+    
     int x, y, w, h;
-    glfwGetFramebufferSize(gwin, &w, &h);
-    glfwGetWindowPos(gwin, &x, &y);
+    rd_get_fbsize(rd, &w, &h);
+    rd_get_wpos(rd, &x, &y);
     XColor c;
-    Display* d = glfwGetX11Display();
-    Pixmap p = get_pixmap(d, find_desktop());
+    Display* d = rd_get_x11_display(rd);
+    Drawable src = get_drawable(d, find_desktop(rd));
 
-    /* Obtain section of root pixmap using XShm */
+    /* Obtain section of root pixmap */
     
     XShmSegmentInfo shminfo;
     Visual* visual = DefaultVisual(d, DefaultScreen(d));
     XVisualInfo match = { .visualid = XVisualIDFromVisual(visual) };
     int nret;
     XVisualInfo* info = XGetVisualInfo(d, VisualIDMask, &match, &nret);
-    XImage* image = XShmCreateImage(d, visual, info->depth, ZPixmap, NULL,
-                                    &shminfo, (unsigned int) w, (unsigned int) h);
-    if ((shminfo.shmid = shmget(IPC_PRIVATE, image->bytes_per_line * image->height,
-                                IPC_CREAT | 0777)) == -1) {
-        fprintf(stderr, "shmget() failed: %s\n", strerror(errno));
-        exit(EXIT_FAILURE);
+    XImage* image;
+    if (use_shm) {
+        image = XShmCreateImage(d, visual, info->depth, ZPixmap, NULL,
+                                &shminfo, (unsigned int) w, (unsigned int) h);
+        if ((shminfo.shmid = shmget(IPC_PRIVATE, image->bytes_per_line * image->height,
+                                    IPC_CREAT | 0777)) == -1) {
+            fprintf(stderr, "shmget() failed: %s\n", strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        shminfo.shmaddr = image->data = shmat(shminfo.shmid, 0, 0);
+        shminfo.readOnly = false;
+        XShmAttach(d, &shminfo);
+        XShmGetImage(d, src, image, x, y, AllPlanes);
+    } else {
+        image = XGetImage(d, src, x, y, (unsigned int) w, (unsigned int) h,
+                  ZPixmap, AllPlanes);
     }
-    shminfo.shmaddr = image->data = shmat(shminfo.shmid, 0, 0);
-    shminfo.readOnly = false;
-    XShmAttach(d, &shminfo);
-    XShmGetImage(d, p, image, x, y, AllPlanes);
 
     /* Try to convert pixel bit depth to OpenGL storage format. The following formats\
        will need intermediate conversion before OpenGL can accept the data:
        
        - 8-bit pixel formats (retro displays, low-bandwidth virtual displays)
        - 36-bit pixel formats (rare deep color displays) */
-    
-    bool invalid = false, aligned = false;
-    GLenum type;
-    switch (image->bits_per_pixel) {
-    case 16:
-        switch (image->depth) {
-        case 12: type = GL_UNSIGNED_SHORT_4_4_4_4; break; /* 12-bit (rare)    */
-        case 15: type = GL_UNSIGNED_SHORT_5_5_5_1; break; /* 15-bit, hi-color */
-        case 16:                                          /* 16-bit, hi-color */
-            type    = GL_UNSIGNED_SHORT_5_6_5;
-            aligned = true;
-            break;
-        }
-        break;
-    case 32:
-        switch (image->depth) {
-        case 24: type = GL_UNSIGNED_BYTE;           break; /* 24-bit, true color */
-        case 30: type = GL_UNSIGNED_INT_10_10_10_2; break; /* 30-bit, deep color */
-        }
-        break;
-    case 64: 
-        if (image->depth == 48) /* 48-bit deep color */
-            type = GL_UNSIGNED_SHORT;
-        else goto invalid;
-        break;
-        /* >64-bit formats */
-    case 128:
-        if (image->depth == 96)
-            type = GL_UNSIGNED_INT;
-        else goto invalid;
-        break;
-    default:
-    invalid: invalid = true;
-    }
-    
-    uint8_t* buf;
-    if (invalid) {
-        abort();
-        /* Manual reformat (slow) */
-        buf = malloc(4 * w * h);
-        int xi, yi;
-        Colormap map = DefaultColormap(d, DefaultScreen(d));
-        for (yi = 0; yi < h; ++yi) {
-            for (xi = 0; xi < w; ++xi) {
-                c.pixel = XGetPixel(image, xi, yi);
-                XQueryColor(d, map, &c);
-                size_t base = (xi + (yi * w)) * 4;
-                buf[base + 0] = c.red   / 256;
-                buf[base + 1] = c.green / 256;
-                buf[base + 2] = c.blue  / 256;
-                buf[base + 3] = 255;
+
+    if (image) {
+        bool invalid = false, aligned = false;
+        GLenum type;
+        switch (image->bits_per_pixel) {
+        case 16:
+            switch (image->depth) {
+            case 12: type = GL_UNSIGNED_SHORT_4_4_4_4; break; /* 12-bit (rare)    */
+            case 15: type = GL_UNSIGNED_SHORT_5_5_5_1; break; /* 15-bit, hi-color */
+            case 16:                                          /* 16-bit, hi-color */
+                type    = GL_UNSIGNED_SHORT_5_6_5;
+                aligned = true;
+                break;
             }
+            break;
+        case 32:
+            switch (image->depth) {
+            case 24: type = GL_UNSIGNED_BYTE;           break; /* 24-bit, true color */
+            case 30: type = GL_UNSIGNED_INT_10_10_10_2; break; /* 30-bit, deep color */
+            }
+            break;
+        case 64: 
+            if (image->depth == 48) /* 48-bit deep color */
+                type = GL_UNSIGNED_SHORT;
+            else goto invalid;
+            break;
+            /* >64-bit formats */
+        case 128:
+            if (image->depth == 96)
+                type = GL_UNSIGNED_INT;
+            else goto invalid;
+            break;
+        default:
+        invalid: invalid = true;
         }
     
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
-        free(buf);
-    } else {
-        /* Use image data directly. The alpha value is garbage/unassigned data, but
-           we need to read it because X11 keeps pixel data aligned */
-        buf = (uint8_t*) image->data;
-        /* Data could be 2, 4, or 8 byte aligned, the RGBA format and type (depth)
-           already ensures reads will be properly aligned across scanlines */
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        GLenum format = image->bitmap_bit_order == LSBFirst ?
-            (!aligned ? GL_BGRA : GL_BGR) :
-            (!aligned ? GL_RGBA : GL_RGB);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, format, type, buf);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4); /* restore default */
+        uint8_t* buf;
+        if (invalid) {
+            abort();
+            /* Manual reformat (slow) */
+            buf = malloc(4 * w * h);
+            int xi, yi;
+            Colormap map = DefaultColormap(d, DefaultScreen(d));
+            for (yi = 0; yi < h; ++yi) {
+                for (xi = 0; xi < w; ++xi) {
+                    c.pixel = XGetPixel(image, xi, yi);
+                    XQueryColor(d, map, &c);
+                    size_t base = (xi + (yi * w)) * 4;
+                    buf[base + 0] = c.red   / 256;
+                    buf[base + 1] = c.green / 256;
+                    buf[base + 2] = c.blue  / 256;
+                    buf[base + 3] = 255;
+                }
+            }
+    
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
+            free(buf);
+        } else {
+            /* Use image data directly. The alpha value is garbage/unassigned data, but
+               we need to read it because X11 keeps pixel data aligned */
+            buf = (uint8_t*) image->data;
+            /* Data could be 2, 4, or 8 byte aligned, the RGBA format and type (depth)
+               already ensures reads will be properly aligned across scanlines */
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            GLenum format = image->bitmap_bit_order == LSBFirst ?
+                (!aligned ? GL_BGRA : GL_BGR) :
+                (!aligned ? GL_RGBA : GL_RGB);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, format, type, buf);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4); /* restore default */
+        }
+    }
+    if (use_shm) {
+        XShmDetach(d, &shminfo);
+        shmdt(shminfo.shmaddr);
+        shmctl(shminfo.shmid, IPC_RMID, NULL);
     }
 
-    XShmDetach(d, &shminfo);
-    shmdt(shminfo.shmaddr);
-    shmctl(shminfo.shmid, IPC_RMID, NULL);
-
-    XDestroyImage(image);
+    if (image) XDestroyImage(image);
     
     return texture;
 }
