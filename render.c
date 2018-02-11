@@ -784,10 +784,10 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                     
                     #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
                     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, native_opacity ? GLFW_TRUE : GLFW_FALSE);
-                    if (native_opacity) gl->use_alpha = false;
+                    // if (native_opacity) gl->use_alpha = false;
                     #elif GLFW_TRANSPARENT
                     glfwWindowHint(GLFW_TRANSPARENT, native_opacity ? GLFW_TRUE : GLFW_FALSE);
-                    if (native_opacity) gl->use_alpha = false;
+                    // if (native_opacity) gl->use_alpha = false;
                     #else
                     if (native_opacity)
                         printf("WARNING: the linked version of GLFW3 does not have transparency support"
