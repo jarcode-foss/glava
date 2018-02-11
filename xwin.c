@@ -77,6 +77,9 @@ bool xwin_should_render(struct renderer* rd) {
         goto close; /* if an error occurs here, the WM probably isn't EWMH compliant */
     }
 
+    if (!nitems)
+        goto close;
+    
     Window active = ((Window*) data)[0];
 
     prop = XInternAtom(d, "_NET_WM_STATE", true);
