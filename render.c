@@ -14,27 +14,6 @@
 #include <unistd.h>
 
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-
-#define GLFW_EXPOSE_NATIVE_X11
-
-/* Hack to make GLFW 3.1 headers work with GLava. We don't use the context APIs from GLFW, but
-   the old headers require one of them to be selected for exposure in glfw3native.h. */
-#if GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR <= 1
-#define GLFW_EXPOSE_NATIVE_GLX
-#endif
-#include <GLFW/glfw3native.h>
-
-/* Fixes for old GLFW versions */
-#ifndef GLFW_TRUE
-#define GLFW_TRUE GL_TRUE
-#endif
-#ifndef GLFW_FALSE
-#define GLFW_FALSE GL_FALSE
-#endif
 
 #include "render.h"
 #include "xwin.h"
@@ -55,6 +34,18 @@
    over a fullscreen quad */
 #define VERTEX_SHADER_SRC \
     "layout(location = 0) in vec3 pos; void main() { gl_Position = vec4(pos.x, pos.y, 0.0F, 1.0F); }"
+
+/* Window creation backend interfaces */
+#ifdef GLAVA_GLFW
+extern struct gl_wcb wcb_glfw;
+#endif
+
+#define INIT_WCBS()                             \
+    do {                                        \
+        wcbs[0] = wcb_glfw;                     \
+    } while (0)
+
+struct gl_wcb wcbs[2] = {};
 
 /* GLSL bind source */
  
@@ -110,10 +101,10 @@ struct overlay_data {
 struct gl_data {
     struct gl_sfbo* stages;
     struct overlay_data overlay;
-    Display* display;
     GLuint audio_tex_r, audio_tex_l, bg_tex, sm_prog;
     size_t stages_sz, bufscale, avg_frames;
-    GLFWwindow* w;
+    void* w;
+    struct gl_wcb* wcb;
     int lww, lwh, lwx, lwy; /* last window dimensions */
     int rate; /* framerate */
     double tcounter;
@@ -706,6 +697,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
         .w               = NULL,
+        .wcb             = NULL,
         .stages          = NULL,
         .rate            = 0,
         .tcounter        = 0.0D,
@@ -734,6 +726,28 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         .geometry        = { 0, 0, 500, 400 },
         .clear_color     = { 0.0F, 0.0F, 0.0F, 0.0F }
     };
+
+    const char* backend = "glfw";
+
+    INIT_WCBS();
+
+    #ifdef GLAVA_UNIX
+    if (!getenv("WAYLAND_DISPLAY") && getenv("DISPLAY")) {
+        // backend = "glx";
+    }
+    #endif
+
+    for (size_t t = 0; t < sizeof(wcbs) / sizeof(*wcbs); ++t) {
+        if (wcbs[t].name && !strcmp(wcbs[t].name, backend)) {
+            gl->wcb = &wcbs[t];
+            break;
+        }
+    };
+
+    if (!gl->wcb) {
+        fprintf(stderr, "Invalid window creation backend selected: '%s'\n", gl->wcb);
+        abort();
+    }
     
     #ifdef GLAD_DEBUG
     printf("Assigning debug callback\n");
@@ -744,17 +758,11 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     }
     #endif
     
-    if (!glfwInit())
-        abort();
+    gl->wcb->init();
 
-    gl->display = glfwGetX11Display();
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_FLOATING, GLFW_FALSE);
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-
-    int shader_version = 330;
+    int shader_version        = 330,
+        context_version_major = 3,
+        context_version_minor = 3;
     const char* module = force_mod;
     char* xwintype = NULL, * wintitle = "GLava";
     char** xwinstates = malloc(1);
@@ -763,15 +771,9 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     struct gl_sfbo* current = NULL;
     size_t t_count = 0;
 
-    #define WINDOW_HINT(request, attr)                                  \
-        { .name = request, .fmt = "b",                                  \
-                .handler = RHANDLER(name, args, { glfwWindowHint(attr, *(bool*) args[0]); }) }
-    
-    #define STUB(request, f)                                            \
-        { .name = request, .fmt = f,                                    \
-                .handler = RHANDLER(name, args, {                       \
-                        fprintf(stderr, "warning: '%s' request is not implemented for this build\n", \
-                                request); }) }
+    #define WINDOW_HINT(request)                                        \
+        { .name = "set" #request, .fmt = "b",                           \
+                .handler = RHANDLER(name, args, { gl->wcb->set_##request(gl->w, *(bool*) args[0]); }) }
     
     struct request_handler handlers[] = {
         {
@@ -781,18 +783,8 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                     bool native_opacity = !strcmp("native", (char*) args[0]);
                     
                     gl->use_alpha = true;
-                    
-                    #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
-                    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, native_opacity ? GLFW_TRUE : GLFW_FALSE);
-                    // if (native_opacity) gl->use_alpha = false;
-                    #elif GLFW_TRANSPARENT
-                    glfwWindowHint(GLFW_TRANSPARENT, native_opacity ? GLFW_TRUE : GLFW_FALSE);
-                    // if (native_opacity) gl->use_alpha = false;
-                    #else
-                    if (native_opacity)
-                        printf("WARNING: the linked version of GLFW3 does not have transparency support"
-                               " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n"); 
-                    #endif
+
+                    gl->wcb->set_transparent(gl->w, native_opacity);
 
                     if (!strcmp("xroot", (char*) args[0]))
                         gl->copy_desktop = true;
@@ -840,19 +832,15 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                     }
                 })
         },
-        WINDOW_HINT("setfloating",  GLFW_FLOATING),
-        WINDOW_HINT("setdecorated", GLFW_DECORATED),
-        WINDOW_HINT("setfocused",   GLFW_FOCUSED),
-        #ifdef GLFW_MAXIMIZED
-        WINDOW_HINT("setmaximized", GLFW_MAXIMIZED),
-        #else
-        STUB("setmaximized", "b"),
-        #endif
+        WINDOW_HINT(floating),
+        WINDOW_HINT(decorated),
+        WINDOW_HINT(focused),
+        WINDOW_HINT(maximized),
         {
             .name = "setversion", .fmt = "ii",
             .handler = RHANDLER(name, args, {
-                    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, *(int*) args[0]);
-                    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, *(int*) args[1]);
+                    context_version_major = *(int*) args[0];
+                    context_version_minor = *(int*) args[1];
                 })
         },
         {
@@ -882,7 +870,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         {   .name = "setshaderversion", .fmt = "i",
             .handler = RHANDLER(name, args, { shader_version = *(int*) args[0]; })           },
         {   .name = "setswap", .fmt = "i",
-            .handler = RHANDLER(name, args, { glfwSwapInterval(*(int*) args[0]); })          },
+            .handler = RHANDLER(name, args, { gl->wcb->set_swap(gl->w, *(int*) args[0]); })  },
         {   .name = "setframerate", .fmt = "i",
             .handler = RHANDLER(name, args, { gl->rate = *(int*) args[0]; })                 },
         {   .name = "setprintframes", .fmt = "b",
@@ -1052,26 +1040,16 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         exit(EXIT_FAILURE);
     }
     
-    if (!(gl->w = glfwCreateWindow(500, 400, wintitle, NULL, NULL))) {
-        glfwTerminate();
+    if (!(gl->w = gl->wcb->create_and_bind(wintitle, "GLava", xwintype,
+                                           (const char**) xwinstates, xwinstates_sz,
+                                           gl->geometry[2], gl->geometry[3],
+                                           gl->geometry[0], gl->geometry[1],
+                                           context_version_major, context_version_minor))) {
         abort();
     }
     
-    if (xwintype) {
-        xwin_settype(r, xwintype);
-        free(xwintype);
-    }
-
-    for (size_t t = 0; t < xwinstates_sz; ++t) {
-        xwin_addstate(r, xwinstates[t]);
-    }
-    free(xwinstates);
-    
-    glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
-    glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
-
-    glfwMakeContextCurrent(gl->w);
-    gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+    if (xwintype)   free(xwintype);
+    if (xwinstates) free(xwinstates);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_DEPTH_CLAMP);
@@ -1161,7 +1139,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                                as it can rendered directly */
                             if (idx != count) {
                                 int w, h;
-                                glfwGetFramebufferSize(gl->w, &w, &h);
+                                gl->wcb->get_fbsize(gl->w, &w, &h);
                                 setup_sfbo(&stages[idx - 1], w, h);
                             }
 
@@ -1234,7 +1212,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
 
-    glfwShowWindow(gl->w);
+    gl->wcb->set_visible(gl->w, true);
     
     return r;
 }
@@ -1242,14 +1220,14 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
 void rd_time(struct renderer* r) {
     struct gl_data* gl = r->gl;
     
-    glfwSetTime(0.0D); /* reset time for measuring this frame */
+    gl->wcb->set_time(gl->w, 0.0D); /* reset time for measuring this frame */
 }
 
 void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
     struct gl_data* gl = r->gl;
     size_t t, a, fbsz = bsz * sizeof(float);
     
-    r->alive = !glfwWindowShouldClose(gl->w);
+    r->alive = !gl->wcb->should_close(gl->w);
     if (!r->alive)
         return;
 
@@ -1304,8 +1282,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         }
     }
     int ww, wh, wx, wy;
-    glfwGetFramebufferSize(gl->w, &ww, &wh);
-    glfwGetWindowPos(gl->w, &wx, &wy);
+    gl->wcb->get_fbsize(gl->w, &ww, &wh);
+    gl->wcb->get_pos(gl->w, &wx, &wy);
     
     /* Resize screen textures if needed */
     if (ww != gl->lww || wh != gl->lwh) {
@@ -1544,10 +1522,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     }
 
     /* Swap buffers, handle events, etc. (vsync is potentially included here, too) */
-    glfwSwapBuffers(gl->w);
-    glfwPollEvents();
+    gl->wcb->swap_buffers(gl->w);
 
-    double duration = glfwGetTime(); /* frame execution time */
+    double duration = gl->wcb->get_time(gl->w); /* frame execution time */
 
     /* Handling sleeping (to meet target framerate) */
     if (gl->rate > 0) {
@@ -1583,8 +1560,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         
         /* Refresh window position and size if we are forcing it */
         if (gl->force_geometry) {
-            glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
-            glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
+            gl->wcb->set_geometry(gl->w,
+                                  gl->geometry[0], gl->geometry[1],
+                                  gl->geometry[2], gl->geometry[3]);
         }
     }
 
@@ -1592,15 +1570,11 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     gl->interpolate = old_interpolate;
 }
 
-void* rd_get_impl_window(struct renderer* r) { return r->gl->w; }
-Display* rd_get_x11_display(struct renderer* r) { return r->gl->display; }
-Window rd_get_x11_window(struct renderer* r) { return glfwGetX11Window(r->gl->w); }
-void rd_get_fbsize(struct renderer* r, int* w, int* h) { glfwGetFramebufferSize(r->gl->w, w, h); }
-void rd_get_wpos(struct renderer* r, int* x, int* y) { glfwGetWindowPos(r->gl->w, x, y); }
+void*          rd_get_impl_window (struct renderer* r)  { return r->gl->w;   }
+struct gl_wcb* rd_get_wcb         (struct renderer* r)  { return r->gl->wcb; }
 
 void rd_destroy(struct renderer* r) {
     /* TODO: delete everything else, not really needed though (as the application exits after here) */
-    glfwTerminate();
     free(r->gl);
     free(r);
 }

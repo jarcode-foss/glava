@@ -50,7 +50,7 @@ PYTHON = python
 GLAD_INSTALL_DIR = glad
 GLAD_SRCFILE = ./glad/src/glad.c
 GLAD_ARGS = --generator=$(GLAD_GEN) --extensions=GL_EXT_framebuffer_multisample,GL_EXT_texture_filter_anisotropic
-CFLAGS_COMMON = -I glad/include
+CFLAGS_COMMON = -DGLAVA_GLFW -DGLAVA_GLX -I glad/include
 CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
 
 all: glava

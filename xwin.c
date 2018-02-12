@@ -21,12 +21,13 @@
 
 #define GLAVA_RDX11
 #include "render.h"
+#include "xwin.h"
 
 static Window find_desktop(struct renderer* r) {
     static Window desktop;
     static bool searched = false;
     if (!searched) {
-        Display* d = rd_get_x11_display(r);
+        Display* d = rd_get_wcb(r)->get_x11_display();
         desktop = DefaultRootWindow(d);
         Window _ignored, * children;
         unsigned int nret;
@@ -54,7 +55,7 @@ static Window find_desktop(struct renderer* r) {
 
 bool xwin_should_render(struct renderer* rd) {
     bool ret = true, should_close = false;
-    Display* d = rd_get_x11_display(rd);
+    Display* d = rd_get_wcb(rd)->get_x11_display();
     if (!d) {
         d = XOpenDisplay(0);
         should_close = true;
@@ -101,9 +102,10 @@ bool xwin_should_render(struct renderer* rd) {
 
 /* Set window types defined by the EWMH standard, possible values:
    -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
-static void xwin_changeatom(struct renderer* rd, const char* type, const char* atom, const char* fmt, int mode) {
-    Window w = rd_get_x11_window(rd);
-    Display* d = rd_get_x11_display(rd);
+static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
+                            const char* atom, const char* fmt, int mode) {
+    Window w = wcb->get_x11_window(impl);
+    Display* d = wcb->get_x11_display();
     Atom wtype = XInternAtom(d, atom, false);
     size_t len = strlen(type), t;
     char formatted[len + 1];
@@ -120,12 +122,12 @@ static void xwin_changeatom(struct renderer* rd, const char* type, const char* a
     XChangeProperty(d, w, wtype, XA_ATOM, 32, mode, (unsigned char*) &desk, 1);
 }
 
-void xwin_settype(struct renderer* rd, const char* type) {
-    xwin_changeatom(rd, type, "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_%s", PropModeReplace); 
+void xwin_settype(struct gl_wcb* wcb, void* impl, const char* type) {
+    xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_%s", PropModeReplace); 
 }
 
-void xwin_addstate(struct renderer* rd, const char* state) {
-    xwin_changeatom(rd, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend); 
+void xwin_addstate(struct gl_wcb* wcb, void* impl, const char* state) {
+    xwin_changeatom(wcb, impl, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend); 
 }
 
 static Drawable get_drawable(Display* d, Window w) {
@@ -161,10 +163,10 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     bool use_shm = true;
     
     int x, y, w, h;
-    rd_get_fbsize(rd, &w, &h);
-    rd_get_wpos(rd, &x, &y);
+    rd_get_wcb(rd)->get_fbsize(rd_get_impl_window(rd), &w, &h);
+    rd_get_wcb(rd)->get_pos(rd_get_impl_window(rd), &x, &y);
     XColor c;
-    Display* d = rd_get_x11_display(rd);
+    Display* d = rd_get_wcb(rd)->get_x11_display();
     Drawable src = get_drawable(d, find_desktop(rd));
 
     /* Obtain section of root pixmap */
