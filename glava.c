@@ -18,7 +18,7 @@
 #include "render.h"
 #include "xwin.h"
 
-#define GLAVA_VERSION "1.3"
+#define GLAVA_VERSION "1.4"
 #ifdef GLAD_DEBUG
 #define GLAVA_RELEASE_TYPE_PREFIX "debug, "
 #else
@@ -167,18 +167,22 @@ static const char* help_str =
     "-C, --copy-config       creates copies and symbolic links in the user configuration\n"
     "                          directory for glava, copying any files in the root directory\n"
     "                          of the installed shader directory, and linking any modules.\n"
+    "-b, --backend           specifies a window creation backend to use. By default, the most\n"
+    "                          appropriate backend will be used for the underlying windowing\n"
+    "                          system.\n"
     "-V, --version           print application version and exit\n"
     "\n"
     GLAVA_VERSION_STRING "\n"
     " -- Copyright (C) 2017 Levi Webb\n";
 
-static const char* opt_str = "hvVe:Cm:";
+static const char* opt_str = "hvVe:Cm:b:";
 static struct option p_opts[] = {
     {"help",        no_argument,       0, 'h'},
     {"verbose",     no_argument,       0, 'v'},
     {"entry",       required_argument, 0, 'e'},
     {"force-mod",   required_argument, 0, 'm'},
     {"copy-config", no_argument,       0, 'C'},
+    {"backend",     required_argument, 0, 'b'},
     {"version",     no_argument,       0, 'V'},
     {0,             0,                 0,  0 }
 };
@@ -190,6 +194,7 @@ int main(int argc, char** argv) {
     const char* user_path    = SHADER_USER_PATH;
     const char* entry        = "rc.glsl";
     const char* force        = NULL;
+    const char* backend      = NULL;
     const char* system_shader_paths[] = { user_path, install_path, NULL };
     bool verbose = false;
     bool copy_mode = false;
@@ -201,6 +206,7 @@ int main(int argc, char** argv) {
         case 'C': copy_mode = true;   break;
         case 'e': entry     = optarg; break;
         case 'm': force     = optarg; break;
+        case 'b': backend   = optarg; break;
         case '?': exit(EXIT_FAILURE); break;
         case 'V':
             puts(GLAVA_VERSION_STRING);
@@ -219,7 +225,7 @@ int main(int argc, char** argv) {
         exit(EXIT_SUCCESS);
     }
 
-    renderer* r = rd_new(system_shader_paths, entry, force);
+    renderer* r = rd_new(system_shader_paths, entry, force, backend);
 
     float b0[r->bufsize_request], b1[r->bufsize_request];
     size_t t;

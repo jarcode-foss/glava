@@ -12,7 +12,7 @@ typedef struct renderer {
 } renderer;
 
 struct renderer* rd_new            (const char** paths, const char* entry,
-                                    const char* force_mod);
+                                    const char* force_mod, const char* force_backend);
 void             rd_update         (struct renderer*, float* lb, float* rb,
                                     size_t bsz, bool modified);
 void             rd_destroy        (struct renderer*);
@@ -22,7 +22,7 @@ struct gl_wcb*   rd_get_wcb        (struct renderer*);
 
 /* gl_wcb - OpenGL Window Creation Backend interface */
 struct gl_wcb {
-    const char* name;\
+    const char* name;
     void     (*init)           (void);
     void*    (*create_and_bind)(const char* name, const char* class,
                                 const char* type, const char** states,
@@ -32,15 +32,15 @@ struct gl_wcb {
                                 int version_major, int version_minor);
     bool     (*should_close)   (void* ptr);
     bool     (*swap_buffers)   (void* ptr);
-    void     (*set_swap)       (void* ptr, int interval);
     void     (*get_pos)        (void* ptr, int* x, int* y);
     void     (*get_fbsize)     (void* ptr, int* w, int* h);
     void     (*set_geometry)   (void* ptr, int x, int y, int w, int h);
-    void     (*set_floating)   (void* ptr, bool floating);
-    void     (*set_decorated)  (void* ptr, bool decorated);
-    void     (*set_focused)    (void* ptr, bool focused);
-    void     (*set_maximized)  (void* ptr, bool maximized);
-    void     (*set_transparent)(void* ptr, bool transparent);
+    void     (*set_swap)       (int interval);
+    void     (*set_floating)   (bool floating);
+    void     (*set_decorated)  (bool decorated);
+    void     (*set_focused)    (bool focused);
+    void     (*set_maximized)  (bool maximized);
+    void     (*set_transparent)(bool transparent);
     double   (*get_time)       (void* ptr);
     void     (*set_time)       (void* ptr, double time);
     void     (*set_visible)    (void* ptr, bool visible);

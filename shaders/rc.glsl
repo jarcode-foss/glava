@@ -51,7 +51,7 @@
 #request settitle "GLava"
 
 /* GLFW window geometry (x, y, width, height) */
-#request setgeometry 0 0 400 600
+#request setgeometry 0 0 800 600
 
 /* Window background color (RGB format).
    Only works with `setopacity "none"` */
@@ -68,7 +68,7 @@
    
    https://standards.freedesktop.org/wm-spec/wm-spec-1.3.html#idm140130317606816
 */
-#request setxwintype "normal"
+#request setxwintype "desktop"
 
 /* (X11 only) EWMH Window state atoms (multiple can be specified).
    Possible values are:

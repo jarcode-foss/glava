@@ -35,17 +35,16 @@
 #define VERTEX_SHADER_SRC \
     "layout(location = 0) in vec3 pos; void main() { gl_Position = vec4(pos.x, pos.y, 0.0F, 1.0F); }"
 
-/* Window creation backend interfaces */
-#ifdef GLAVA_GLFW
-extern struct gl_wcb wcb_glfw;
-#endif
+struct gl_wcb* wcbs[2] = {};
+static size_t wcbs_idx = 0;
 
-#define INIT_WCBS()                             \
+static inline void register_wcb(struct gl_wcb* wcb) { wcbs[wcbs_idx++] = wcb; }
+
+#define DECL_WCB(N)                             \
     do {                                        \
-        wcbs[0] = wcb_glfw;                     \
+        extern struct gl_wcb N;                 \
+        register_wcb(&N);                       \
     } while (0)
-
-struct gl_wcb wcbs[2] = {};
 
 /* GLSL bind source */
  
@@ -682,7 +681,8 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
     return NULL;
 }
 
-struct renderer* rd_new(const char** paths, const char* entry, const char* force_mod) {
+struct renderer* rd_new(const char** paths, const char* entry,
+                        const char* force_mod, const char* force_backend) {
     
     renderer* r = malloc(sizeof(struct renderer));
     *r = (struct renderer) {
@@ -727,19 +727,40 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         .clear_color     = { 0.0F, 0.0F, 0.0F, 0.0F }
     };
 
-    const char* backend = "glfw";
+    bool forced = force_backend != NULL;
+    const char* backend = force_backend;
 
-    INIT_WCBS();
+    /* Window creation backend interfaces */
+    #ifdef GLAVA_GLFW
+    DECL_WCB(wcb_glfw);
+    if (!forced) backend = "glfw";
+    #endif
 
-    #ifdef GLAVA_UNIX
-    if (!getenv("WAYLAND_DISPLAY") && getenv("DISPLAY")) {
-        // backend = "glx";
+    #ifdef GLAVA_GLX
+    DECL_WCB(wcb_glx);
+    if (!forced && !getenv("WAYLAND_DISPLAY") && getenv("DISPLAY")) {
+        backend = "glx";
     }
     #endif
 
-    for (size_t t = 0; t < sizeof(wcbs) / sizeof(*wcbs); ++t) {
-        if (wcbs[t].name && !strcmp(wcbs[t].name, backend)) {
-            gl->wcb = &wcbs[t];
+    if (!backend) {
+        fprintf(stderr, "No backend available for the active windowing system\n");
+        if (wcbs_idx == 0) {
+            fprintf(stderr, "None have been compiled into this build.\n");
+        } else {
+            fprintf(stderr, "Available backends:\n");
+            for (size_t t = 0; t < wcbs_idx; ++t) {
+                fprintf(stderr, "\t\"%s\"\n", wcbs[t]->name);
+            }
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Using backend: '%s'\n", backend);
+
+    for (size_t t = 0; t < wcbs_idx; ++t) {
+        if (wcbs[t]->name && !strcmp(wcbs[t]->name, backend)) {
+            gl->wcb = wcbs[t];
             break;
         }
     };
@@ -773,7 +794,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
 
     #define WINDOW_HINT(request)                                        \
         { .name = "set" #request, .fmt = "b",                           \
-                .handler = RHANDLER(name, args, { gl->wcb->set_##request(gl->w, *(bool*) args[0]); }) }
+                .handler = RHANDLER(name, args, { gl->wcb->set_##request(*(bool*) args[0]); }) }
     
     struct request_handler handlers[] = {
         {
@@ -784,7 +805,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                     
                     gl->use_alpha = true;
 
-                    gl->wcb->set_transparent(gl->w, native_opacity);
+                    gl->wcb->set_transparent(native_opacity);
 
                     if (!strcmp("xroot", (char*) args[0]))
                         gl->copy_desktop = true;
@@ -870,7 +891,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         {   .name = "setshaderversion", .fmt = "i",
             .handler = RHANDLER(name, args, { shader_version = *(int*) args[0]; })           },
         {   .name = "setswap", .fmt = "i",
-            .handler = RHANDLER(name, args, { gl->wcb->set_swap(gl->w, *(int*) args[0]); })  },
+            .handler = RHANDLER(name, args, { gl->wcb->set_swap(*(int*) args[0]); })         },
         {   .name = "setframerate", .fmt = "i",
             .handler = RHANDLER(name, args, { gl->rate = *(int*) args[0]; })                 },
         {   .name = "setprintframes", .fmt = "b",
@@ -1334,8 +1355,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 "out vec4 fragment;"                                                                 "\n"
                 "in vec4 gl_FragCoord;"                                                              "\n"
                 "void main() {"                                                                      "\n"
-                "    fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, "                       "\n"
-                "                       (screen.y - gl_FragCoord.y) / screen.y));"                   "\n"
+                "    fragment = texelFetch(tex, ivec2(gl_FragCoord.x, "                              "\n"
+                "                       screen.y - gl_FragCoord.y), 0);"                             "\n"
                 "    fragment.a = 1.0F;"                                                             "\n"
                 "}"                                                                                  "\n";
             if (!setup) {

@@ -19,7 +19,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 - X11
 - PulseAudio
-- GLFW 3.1+
+- GLFW 3.1+ (optional, disable with `DISABLE_GLFW=1`)
 - Linux or BSD
 
 **Additional compile time requirements:**
@@ -27,8 +27,9 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 - glad (included as a submodule)
 - python (required to generate bindings with glad)
 - GCC (this program uses GNU C features)
+- GLX headers (optional, disable direct GLX support with `DISABLE_GLX=1`), usually the development packages for `libgl` include this on your distro
 
-**Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile and run GLava:
+**Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
 sudo apt-get install libpulse libpulse-dev libglfw3 libglfw3-dev libxext6 libxext6-dev python make gcc
 ```
@@ -43,28 +44,25 @@ To embed GLava in your desktop (for EWMH compliant window managers), use `#reque
 
 \* On an XDG compliant Linux or BSD system. OSX will use `/Library/glava` and `~/Library/Preferences/glava` instead.
 
-**Note for `#request setopacity`:** While most users will prefer the faster `xroot` transparency, GLFW 3.3 (unreleased) is needed in order to support the `native` transparency option (older versions still work). Arch users can install `glfw-x11-git` from the AUR and recompile GLava for this feature.
-
 ## Desktop window compatibility
 
 GLava aims to be compatible with _most_ EWMH compliant window managers. Below is a list of common window managers and issues specific to them for trying to get GLava to behave as a desktop window or widget:
 
 | WM | ! | Details
 | :---: | --- | --- |
-| GNOME (on X11) | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
+| Mutter (GNOME, Budgie) | ![-](https://placehold.it/15/118932/000000?text=+) | `"native"` (default) opacity should be used
 | Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | [Some tweaks may be required](https://www.reddit.com/r/unixporn/comments/7vcgi4/oc_after_receiving_positive_feedback_here_i/dtrkvja/)
 | Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | iceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
-| AwesomeWM | ![-](https://placehold.it/15/f09c00/000000?text=+) | Requires the WM to be restarted (`Super + Ctl + R`) in order for new desktop windows to behave correctly, can still be focused, may require other changes to config depending on layout
-| Budgie Desktop | ![-](https://placehold.it/15/f09c00/000000?text=+) | `"xroot"` transparency breaks with Budgie's wallpaper window
+| Herbstluftwm | ![-](https://placehold.it/15/118932/000000?text=+) | `hc rule windowtype~'_NET_WM_WINDOW_TYPE_DESKTOP' manage=off` can be used to unmanage desktop windows
+| AwesomeWM | ![-](https://placehold.it/15/f09c00/000000?text=+) | Can still be focused, may require other changes to config depending on layout
 | kwin (KDE) | ![-](https://placehold.it/15/f09c00/000000?text=+) | [Issues with workspaces and stacking](https://github.com/wacossusca34/glava/issues/4), needs further testing
 | i3 (and i3-gaps) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [i3 does not respect the `"desktop"` window type](https://github.com/wacossusca34/glava/issues/6)
 | EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
 | Unity | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Bspwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
-| Herbstluftwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Any non EWMH-compliant WM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Window types and hints will not work if the window manager does not support the EWMH standards.
 
