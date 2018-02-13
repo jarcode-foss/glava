@@ -15,23 +15,22 @@
    See documentation for more details. */
 #request mod bars
 
-/* GLFW window hints */
+/* Window hints */
 #request setfloating  false
-#request setdecorated false
+#request setdecorated true
 #request setfocused   false
 #request setmaximized false
 
-/* Force GLFW window geometry (locking the window in place),
-   useful for some pesky WMs that try to reposition the window
-   when embedding in the desktop. */
+/* Force window geometry (locking the window in place), useful
+   for some pesky WMs that try to reposition the window when
+   embedding in the desktop. */
 #request setforcegeometry false
 
 /* Set window background opacity mode. Possible values are:
    
-   "native" - True transparency provided by the compositor.
-              Requires GLFW 3.3+ and an active compositor. Can
-              reduce performance on some systems, and will not
-              blend with the visualizer's alpha layer.
+   "native" - True transparency provided by the compositor. Can
+              reduce performance on some systems, depending on
+              the compositor used.
    
    "xroot"  - Maintain a copy of the root window's pixmap
               (usually the desktop background) to provide a
@@ -40,22 +39,22 @@
               Has very little performance impact.
     
    "none"   - Disable window opacity completely. */
-#request setopacity "xroot"
+#request setopacity "native"
 
 /* OpenGL context and GLSL shader versions, do not change unless
    you *absolutely* know what you are doing. */
 #request setversion 3 3
 #request setshaderversion 330
 
-/* GLFW window title */
+/* Window title */
 #request settitle "GLava"
 
-/* GLFW window geometry (x, y, width, height) */
-#request setgeometry 0 0 400 600
+/* Window geometry (x, y, width, height) */
+#request setgeometry 0 0 800 600
 
 /* Window background color (RGB format).
-   Only works with `setopacity "none"` */
-#request setbg 3C3C3C
+   Does not work with `setopacity "xroot"` */
+#request setbg 00000000
 
 /* (X11 only) EWMH Window type. Possible values are:
    
@@ -96,7 +95,7 @@
    default output device. */
 #request setsource "auto"
 
-/* GLFW buffer swap interval (vsync), set to '0' to prevent
+/* Buffer swap interval (vsync), set to '0' to prevent
    waiting for refresh, '1' (or more) to wait for the specified
    amount of frames. */
 #request setswap 1

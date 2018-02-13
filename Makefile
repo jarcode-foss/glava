@@ -4,7 +4,7 @@ obj = $(src:.c=.o)
 # Build type parameter
 
 ifeq ($(BUILD),debug)
-    CFLAGS_BUILD = -O1 -ggdb -Wall -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls
+    CFLAGS_BUILD = -O0 -ggdb -Wall -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls
     GLAD_GEN = c-debug
     ASAN = -lasan
 else
@@ -38,12 +38,22 @@ ifeq ($(INSTALL),unix)
     endif
 endif
 
+ifndef DISABLE_GLFW
+    CFLAGS_GLFW = -DGLAVA_GLFW
+    LDFLAGS_GLFW = -lglfw
+endif
+
+ifndef DISABLE_GLX
+    CFLAGS_GLX = -DGLAVA_GLX
+    LDFLAGS_GLX = -lGLX -lXrender
+endif
+
 ifeq ($(INSTALL),osx)
     CFLAGS_INSTALL = -DGLAVA_OSX
     SHADER_DIR = Library/glava
 endif
 
-LDFLAGS = $(ASAN) -lpulse -lpulse-simple -pthread -lglfw -ldl -lm -lX11 -lXext
+LDFLAGS = $(ASAN) -lpulse -lpulse-simple -pthread $(LDFLAGS_GLFW) -ldl -lm -lX11 -lXext $(LDFLAGS_GLX)
 
 PYTHON = python
 
@@ -51,7 +61,7 @@ GLAD_INSTALL_DIR = glad
 GLAD_SRCFILE = ./glad/src/glad.c
 GLAD_ARGS = --generator=$(GLAD_GEN) --extensions=GL_EXT_framebuffer_multisample,GL_EXT_texture_filter_anisotropic
 CFLAGS_COMMON = -I glad/include
-CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
+CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_GLX) $(CFLAGS_GLFW) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
 
 all: glava
 

@@ -29,10 +29,10 @@ out vec4 fragment;
 #define PI 3.14159265359
 
 void main() {
-
+    
     #if USE_ALPHA > 0
-    #define APPLY_FRAG(f, c) f = vec4(f.rgb * f.a + c.rgb * (1 - f.a), max(c.a, f.a))
-    fragment.a = 0;
+    #define APPLY_FRAG(f, c) f = vec4(f.rgb * f.a + c.rgb * (1 - clamp(f.a, 0, 1)), max(c.a, f.a))
+    fragment = #00000000;
     #else
     #define APPLY_FRAG(f, c) f = c
     #endif
@@ -46,9 +46,9 @@ void main() {
     float theta = atan(dy, dx); /* fragment angle with the center of the screen as the origin */
     float d = sqrt((dx * dx) + (dy * dy)); /* distance */
     if (d > C_RADIUS - (float(C_LINE) / 2.0F) && d < C_RADIUS + (float(C_LINE) / 2.0F)) {
-        fragment = OUTLINE;
+        APPLY_FRAG(fragment, OUTLINE);
         #if USE_ALPHA > 0
-        fragment.a *= ((float(C_LINE) / 2.0F) - abs(d - C_RADIUS)) * C_ALIAS_FACTOR;
+        fragment.a *= clamp(((C_LINE / 2) - abs(C_RADIUS - d)) * C_ALIAS_FACTOR, 0, 1);
         #else
         return; /* return immediately if there is no alpha blending available */
         #endif

@@ -14,15 +14,6 @@
 #include <unistd.h>
 
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-/* Fixes for old GLFW versions */
-#ifndef GLFW_TRUE
-#define GLFW_TRUE GL_TRUE
-#endif
-#ifndef GLFW_FALSE
-#define GLFW_FALSE GL_FALSE
-#endif
 
 #include "render.h"
 #include "xwin.h"
@@ -43,6 +34,17 @@
    over a fullscreen quad */
 #define VERTEX_SHADER_SRC \
     "layout(location = 0) in vec3 pos; void main() { gl_Position = vec4(pos.x, pos.y, 0.0F, 1.0F); }"
+
+struct gl_wcb* wcbs[2] = {};
+static size_t wcbs_idx = 0;
+
+static inline void register_wcb(struct gl_wcb* wcb) { wcbs[wcbs_idx++] = wcb; }
+
+#define DECL_WCB(N)                             \
+    do {                                        \
+        extern struct gl_wcb N;                 \
+        register_wcb(&N);                       \
+    } while (0)
 
 /* GLSL bind source */
  
@@ -83,7 +85,7 @@ struct gl_bind {
 
 struct gl_sfbo {
     GLuint fbo, tex, shader;
-    bool valid;
+    bool valid, nativeonly;
     const char* name;
     struct gl_bind* binds;
     size_t binds_sz;
@@ -100,13 +102,14 @@ struct gl_data {
     struct overlay_data overlay;
     GLuint audio_tex_r, audio_tex_l, bg_tex, sm_prog;
     size_t stages_sz, bufscale, avg_frames;
-    GLFWwindow* w;
+    void* w;
+    struct gl_wcb* wcb;
     int lww, lwh, lwx, lwy; /* last window dimensions */
     int rate; /* framerate */
     double tcounter;
     int fcounter, ucounter, kcounter;
     bool print_fps, avg_window, interpolate, force_geometry, copy_desktop,
-        smooth_pass, use_alpha;
+        smooth_pass, premultiply_alpha;
     void** t_data;
     float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio,
         smooth_factor, fft_scale, fft_cutoff;
@@ -116,6 +119,8 @@ struct gl_data {
     float* interpolate_buf[6];
     int geometry[4];
 };
+
+
 
 /* load shader file */
 static GLuint shaderload(const char*             rpath,
@@ -160,7 +165,8 @@ static GLuint shaderload(const char*             rpath,
         "#define UNIFORM_LIMIT %d\n"
         "#define PRE_SMOOTHED_AUDIO %d\n"
         "#define SMOOTH_FACTOR %.6f\n"
-        "#define USE_ALPHA %d\n";
+        "#define USE_ALPHA %d\n"
+        "#define PREMULTIPLY_ALPHA %d\n";
     
     struct glsl_ext ext = {
         .source     = raw ? NULL : map,
@@ -175,11 +181,11 @@ static GLuint shaderload(const char*             rpath,
     /* If this is raw input, skip processing */
     if (!raw) ext_process(&ext, rpath);
     
-    size_t blen = strlen(header_fmt) + 42;
+    size_t blen = strlen(header_fmt) + 64;
     GLchar* buf = malloc((blen * sizeof(GLchar*)) + ext.p_len);
     int written = snprintf(buf, blen, header_fmt, (int) shader_version, (int) max_uniforms,
                            gl->smooth_pass ? 1 : 0, (double) gl->smooth_factor,
-                           gl->use_alpha ? 1 : 0);
+                           1, gl->premultiply_alpha ? 1 : 0);
     if (written < 0) {
         fprintf(stderr, "snprintf() encoding error while prepending header to shader '%s'\n", path);
         return 0;
@@ -676,7 +682,8 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
     return NULL;
 }
 
-struct renderer* rd_new(const char** paths, const char* entry, const char* force_mod) {
+struct renderer* rd_new(const char** paths, const char* entry,
+                        const char* force_mod, const char* force_backend) {
     
     renderer* r = malloc(sizeof(struct renderer));
     *r = (struct renderer) {
@@ -690,35 +697,79 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     
     struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
-        .w               = NULL,
-        .stages          = NULL,
-        .rate            = 0,
-        .tcounter        = 0.0D,
-        .fcounter        = 0,
-        .ucounter        = 0,
-        .kcounter        = 0,
-        .fr              = 1.0F,
-        .ur              = 1.0F,
-        .print_fps       = true,
-        .bufscale        = 1,
-        .avg_frames      = 6,
-        .avg_window      = true,
-        .gravity_step    = 4.2,
-        .interpolate     = true,
-        .force_geometry  = false,
-        .smooth_factor   = 0.025,
-        .smooth_distance = 0.01,
-        .smooth_ratio    = 4,
-        .bg_tex          = 0,
-        .sm_prog         = 0,
-        .copy_desktop    = true,
-        .use_alpha       = true,
-        .smooth_pass     = true,
-        .fft_scale       = 10.2F,
-        .fft_cutoff      = 0.3F,
-        .geometry        = { 0, 0, 500, 400 },
-        .clear_color     = { 0.0F, 0.0F, 0.0F, 0.0F }
+        .w                 = NULL,
+        .wcb               = NULL,
+        .stages            = NULL,
+        .rate              = 0,
+        .tcounter          = 0.0D,
+        .fcounter          = 0,
+        .ucounter          = 0,
+        .kcounter          = 0,
+        .fr                = 1.0F,
+        .ur                = 1.0F,
+        .print_fps         = true,
+        .bufscale          = 1,
+        .avg_frames        = 6,
+        .avg_window        = true,
+        .gravity_step      = 4.2,
+        .interpolate       = true,
+        .force_geometry    = false,
+        .smooth_factor     = 0.025,
+        .smooth_distance   = 0.01,
+        .smooth_ratio      = 4,
+        .bg_tex            = 0,
+        .sm_prog           = 0,
+        .copy_desktop      = true,
+        .premultiply_alpha = true,
+        .smooth_pass       = true,
+        .fft_scale         = 10.2F,
+        .fft_cutoff        = 0.3F,
+        .geometry          = { 0, 0, 500, 400 },
+        .clear_color       = { 0.0F, 0.0F, 0.0F, 0.0F }
     };
+
+    bool forced = force_backend != NULL;
+    const char* backend = force_backend;
+
+    /* Window creation backend interfaces */
+    #ifdef GLAVA_GLFW
+    DECL_WCB(wcb_glfw);
+    if (!forced) backend = "glfw";
+    #endif
+
+    #ifdef GLAVA_GLX
+    DECL_WCB(wcb_glx);
+    if (!forced && !getenv("WAYLAND_DISPLAY") && getenv("DISPLAY")) {
+        backend = "glx";
+    }
+    #endif
+
+    if (!backend) {
+        fprintf(stderr, "No backend available for the active windowing system\n");
+        if (wcbs_idx == 0) {
+            fprintf(stderr, "None have been compiled into this build.\n");
+        } else {
+            fprintf(stderr, "Available backends:\n");
+            for (size_t t = 0; t < wcbs_idx; ++t) {
+                fprintf(stderr, "\t\"%s\"\n", wcbs[t]->name);
+            }
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Using backend: '%s'\n", backend);
+
+    for (size_t t = 0; t < wcbs_idx; ++t) {
+        if (wcbs[t]->name && !strcmp(wcbs[t]->name, backend)) {
+            gl->wcb = wcbs[t];
+            break;
+        }
+    };
+
+    if (!gl->wcb) {
+        fprintf(stderr, "Invalid window creation backend selected: '%s'\n", gl->wcb);
+        abort();
+    }
     
     #ifdef GLAD_DEBUG
     printf("Assigning debug callback\n");
@@ -729,15 +780,11 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     }
     #endif
     
-    if (!glfwInit())
-        abort();
+    gl->wcb->init();
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_FLOATING, GLFW_FALSE);
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-
-    int shader_version = 330;
+    int shader_version        = 330,
+        context_version_major = 3,
+        context_version_minor = 3;
     const char* module = force_mod;
     char* xwintype = NULL, * wintitle = "GLava";
     char** xwinstates = malloc(1);
@@ -746,15 +793,9 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     struct gl_sfbo* current = NULL;
     size_t t_count = 0;
 
-    #define WINDOW_HINT(request, attr)                                  \
-        { .name = request, .fmt = "b",                                  \
-                .handler = RHANDLER(name, args, { glfwWindowHint(attr, *(bool*) args[0]); }) }
-    
-    #define STUB(request, f)                                            \
-        { .name = request, .fmt = f,                                    \
-                .handler = RHANDLER(name, args, {                       \
-                        fprintf(stderr, "warning: '%s' request is not implemented for this build\n", \
-                                request); }) }
+    #define WINDOW_HINT(request)                                        \
+        { .name = "set" #request, .fmt = "b",                           \
+                .handler = RHANDLER(name, args, { gl->wcb->set_##request(*(bool*) args[0]); }) }
     
     struct request_handler handlers[] = {
         {
@@ -763,19 +804,9 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
 
                     bool native_opacity = !strcmp("native", (char*) args[0]);
                     
-                    gl->use_alpha = true;
-                    
-                    #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
-                    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, native_opacity ? GLFW_TRUE : GLFW_FALSE);
-                    if (native_opacity) gl->use_alpha = false;
-                    #elif GLFW_TRANSPARENT
-                    glfwWindowHint(GLFW_TRANSPARENT, native_opacity ? GLFW_TRUE : GLFW_FALSE);
-                    if (native_opacity) gl->use_alpha = false;
-                    #else
-                    if (native_opacity)
-                        printf("WARNING: the linked version of GLFW3 does not have transparency support"
-                               " (GLFW_TRANSPARENT[_FRAMEBUFFER])!\n"); 
-                    #endif
+                    gl->premultiply_alpha = native_opacity;
+
+                    gl->wcb->set_transparent(native_opacity);
 
                     if (!strcmp("xroot", (char*) args[0]))
                         gl->copy_desktop = true;
@@ -823,19 +854,26 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                     }
                 })
         },
-        WINDOW_HINT("setfloating",  GLFW_FLOATING),
-        WINDOW_HINT("setdecorated", GLFW_DECORATED),
-        WINDOW_HINT("setfocused",   GLFW_FOCUSED),
-        #ifdef GLFW_MAXIMIZED
-        WINDOW_HINT("setmaximized", GLFW_MAXIMIZED),
-        #else
-        STUB("setmaximized", "b"),
-        #endif
+        {
+            .name = "nativeonly", .fmt = "b",
+            .handler = RHANDLER(name, args, {
+                    if (current)
+                        current->nativeonly = *(bool*) args[0];
+                    else {
+                        fprintf(stderr, "`nativeonly` request needs module context\n");
+                        exit(EXIT_FAILURE);
+                    }
+                })
+        },
+        WINDOW_HINT(floating),
+        WINDOW_HINT(decorated),
+        WINDOW_HINT(focused),
+        WINDOW_HINT(maximized),
         {
             .name = "setversion", .fmt = "ii",
             .handler = RHANDLER(name, args, {
-                    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, *(int*) args[0]);
-                    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, *(int*) args[1]);
+                    context_version_major = *(int*) args[0];
+                    context_version_minor = *(int*) args[1];
                 })
         },
         {
@@ -865,7 +903,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         {   .name = "setshaderversion", .fmt = "i",
             .handler = RHANDLER(name, args, { shader_version = *(int*) args[0]; })           },
         {   .name = "setswap", .fmt = "i",
-            .handler = RHANDLER(name, args, { glfwSwapInterval(*(int*) args[0]); })          },
+            .handler = RHANDLER(name, args, { gl->wcb->set_swap(*(int*) args[0]); })         },
         {   .name = "setframerate", .fmt = "i",
             .handler = RHANDLER(name, args, { gl->rate = *(int*) args[0]; })                 },
         {   .name = "setprintframes", .fmt = "b",
@@ -1035,26 +1073,16 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         exit(EXIT_FAILURE);
     }
     
-    if (!(gl->w = glfwCreateWindow(500, 400, wintitle, NULL, NULL))) {
-        glfwTerminate();
+    if (!(gl->w = gl->wcb->create_and_bind(wintitle, "GLava", xwintype,
+                                           (const char**) xwinstates, xwinstates_sz,
+                                           gl->geometry[2], gl->geometry[3],
+                                           gl->geometry[0], gl->geometry[1],
+                                           context_version_major, context_version_minor))) {
         abort();
     }
     
-    if (xwintype) {
-        xwin_settype(r, xwintype);
-        free(xwintype);
-    }
-
-    for (size_t t = 0; t < xwinstates_sz; ++t) {
-        xwin_addstate(r, xwinstates[t]);
-    }
-    free(xwinstates);
-    
-    glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
-    glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
-
-    glfwMakeContextCurrent(gl->w);
-    gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+    if (xwintype)   free(xwintype);
+    if (xwinstates) free(xwinstates);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_DEPTH_CLAMP);
@@ -1063,8 +1091,10 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     glDisable(GL_MULTISAMPLE);
     glDisable(GL_LINE_SMOOTH);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (!gl->premultiply_alpha) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
     
     size_t m_len = strlen(module);
     size_t bsz = d_len + m_len + 2;
@@ -1125,11 +1155,12 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                         
                             struct gl_sfbo* s = &stages[idx - 1];
                             *s = (struct gl_sfbo) {
-                                .name     = strdup(d->d_name),
-                                .shader   = 0,
-                                .valid    = false,
-                                .binds    = malloc(1),
-                                .binds_sz = 0
+                                .name       = strdup(d->d_name),
+                                .shader     = 0,
+                                .valid      = false,
+                                .nativeonly = false,
+                                .binds      = malloc(1),
+                                .binds_sz   = 0
                             };
 
                             current = s;
@@ -1144,7 +1175,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
                                as it can rendered directly */
                             if (idx != count) {
                                 int w, h;
-                                glfwGetFramebufferSize(gl->w, &w, &h);
+                                gl->wcb->get_fbsize(gl->w, &w, &h);
                                 setup_sfbo(&stages[idx - 1], w, h);
                             }
 
@@ -1167,6 +1198,23 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
             } while (found);
         }
     }
+    
+    gl->stages = stages;
+    gl->stages_sz = count;
+    
+    {
+        struct gl_sfbo* final = NULL;
+        if (!gl->premultiply_alpha) {
+            for (size_t t = 0; t < gl->stages_sz; ++t) {
+                if (!gl->stages[t].nativeonly) {
+                    final = &gl->stages[t];
+                }
+            }
+        }
+        /* Invalidate framebuffer and use direct rendering if it was instantiated 
+           due to a following `nativeonly` shader pass. */
+        if (final) final->valid = false;
+    }
 
     /* Compile smooth pass shader */
     
@@ -1177,14 +1225,10 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
         char util[usz]; /* module pack path to use */
         snprintf(util, usz, "%s/%s", data, util_folder);
         loading_smooth_pass = true;
-        if (!(gl->sm_prog = shaderbuild(gl, util, data, handlers, shader_version, "smooth_pass.frag"))) {
+        if (!(gl->sm_prog = shaderbuild(gl, util, data, handlers, shader_version, "smooth_pass.frag")))
             abort();
-        }
         loading_smooth_pass = false;
     }
-    
-    gl->stages = stages;
-    gl->stages_sz = count;
     
     /* target seconds per update */
     gl->target_spu = (float) (r->samplesize_request / 4) / (float) r->rate_request;
@@ -1217,7 +1261,7 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
     
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
 
-    glfwShowWindow(gl->w);
+    gl->wcb->set_visible(gl->w, true);
     
     return r;
 }
@@ -1225,14 +1269,14 @@ struct renderer* rd_new(const char** paths, const char* entry, const char* force
 void rd_time(struct renderer* r) {
     struct gl_data* gl = r->gl;
     
-    glfwSetTime(0.0D); /* reset time for measuring this frame */
+    gl->wcb->set_time(gl->w, 0.0D); /* reset time for measuring this frame */
 }
 
 void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
     struct gl_data* gl = r->gl;
     size_t t, a, fbsz = bsz * sizeof(float);
     
-    r->alive = !glfwWindowShouldClose(gl->w);
+    r->alive = !gl->wcb->should_close(gl->w);
     if (!r->alive)
         return;
 
@@ -1287,8 +1331,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         }
     }
     int ww, wh, wx, wy;
-    glfwGetFramebufferSize(gl->w, &ww, &wh);
-    glfwGetWindowPos(gl->w, &wx, &wy);
+    gl->wcb->get_fbsize(gl->w, &ww, &wh);
+    gl->wcb->get_pos(gl->w, &wx, &wy);
     
     /* Resize screen textures if needed */
     if (ww != gl->lww || wh != gl->lwh) {
@@ -1321,6 +1365,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         
         /* Current shader program */
         struct gl_sfbo* current = &gl->stages[t];
+
+        if (current->nativeonly && !gl->premultiply_alpha)
+            continue;
         
         /* Bind framebuffer if this is not the final pass */
         if (current->valid)
@@ -1339,8 +1386,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 "out vec4 fragment;"                                                                 "\n"
                 "in vec4 gl_FragCoord;"                                                              "\n"
                 "void main() {"                                                                      "\n"
-                "    fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, "                       "\n"
-                "                       (screen.y - gl_FragCoord.y) / screen.y));"                   "\n"
+                "    fragment = texelFetch(tex, ivec2(gl_FragCoord.x, "                              "\n"
+                "                       screen.y - gl_FragCoord.y), 0);"                             "\n"
                 "    fragment.a = 1.0F;"                                                             "\n"
                 "}"                                                                                  "\n";
             if (!setup) {
@@ -1361,9 +1408,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             /* We need to disable blending, we might read in bogus alpha values due
                to how we obtain the background texture (format is four byte `rgb_`, 
                where the last value is skipped) */
-            glDisable(GL_BLEND);
+            if (!gl->premultiply_alpha) glDisable(GL_BLEND);
             drawoverlay(&gl->overlay);
-            glEnable(GL_BLEND);
+            if (!gl->premultiply_alpha) glEnable(GL_BLEND);
             glUseProgram(0);
         }
         
@@ -1441,7 +1488,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     
                         /* setup and bind framebuffer to texture */
                         glBindFramebuffer(GL_FRAMEBUFFER, sm->fbo);
-                        glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, sm->tex, 0);
+                        glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,\
+                                               GL_TEXTURE_1D, sm->tex, 0);
                         
                         switch (glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
                         case GL_FRAMEBUFFER_COMPLETE: break;
@@ -1462,11 +1510,11 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                     glUniform1i(sm_uw, sz);  /* target texture width */
                     glUniform1i(sm_usz, sz); /* source texture width */
                     glUniform1i(sm_utex, offset);
-                    glDisable(GL_BLEND);
+                    if (!gl->premultiply_alpha) glDisable(GL_BLEND);
                     glViewport(0, 0, sz, 1);
                     drawoverlay(&gl->overlay);
                     glViewport(0, 0, ww, wh);
-                    glEnable(GL_BLEND);
+                    if (!gl->premultiply_alpha) glEnable(GL_BLEND);
 
                     /* Return state */
                     glUseProgram(current->shader);
@@ -1527,10 +1575,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     }
 
     /* Swap buffers, handle events, etc. (vsync is potentially included here, too) */
-    glfwSwapBuffers(gl->w);
-    glfwPollEvents();
+    gl->wcb->swap_buffers(gl->w);
 
-    double duration = glfwGetTime(); /* frame execution time */
+    double duration = gl->wcb->get_time(gl->w); /* frame execution time */
 
     /* Handling sleeping (to meet target framerate) */
     if (gl->rate > 0) {
@@ -1566,8 +1613,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         
         /* Refresh window position and size if we are forcing it */
         if (gl->force_geometry) {
-            glfwSetWindowPos(gl->w, gl->geometry[0], gl->geometry[1]);
-            glfwSetWindowSize(gl->w, gl->geometry[2], gl->geometry[3]);
+            gl->wcb->set_geometry(gl->w,
+                                  gl->geometry[0], gl->geometry[1],
+                                  gl->geometry[2], gl->geometry[3]);
         }
     }
 
@@ -1575,11 +1623,11 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     gl->interpolate = old_interpolate;
 }
 
-void* rd_get_impl_window(struct renderer* r) { return r->gl->w; }
+void*          rd_get_impl_window (struct renderer* r)  { return r->gl->w;   }
+struct gl_wcb* rd_get_wcb         (struct renderer* r)  { return r->gl->wcb; }
 
 void rd_destroy(struct renderer* r) {
     /* TODO: delete everything else, not really needed though (as the application exits after here) */
-    glfwTerminate();
     free(r->gl);
     free(r);
 }
