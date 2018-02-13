@@ -170,6 +170,8 @@ static void* create_and_bind(const char* name, const char* class,
         xwin_addstate(&wcb_glx, w, "maximized_vert");
     }
 
+    XSetClassHint(display, w->w, &((XClassHint) { .res_name = (char*) class, .res_class = (char*) class }));
+
     apply_decorations(w->w);
 
     XFree(vi);

@@ -15,15 +15,15 @@
    See documentation for more details. */
 #request mod bars
 
-/* GLFW window hints */
+/* Window hints */
 #request setfloating  false
 #request setdecorated true
 #request setfocused   false
 #request setmaximized false
 
-/* Force GLFW window geometry (locking the window in place),
-   useful for some pesky WMs that try to reposition the window
-   when embedding in the desktop. */
+/* Force window geometry (locking the window in place), useful
+   for some pesky WMs that try to reposition the window when
+   embedding in the desktop. */
 #request setforcegeometry false
 
 /* Set window background opacity mode. Possible values are:
@@ -46,10 +46,10 @@
 #request setversion 3 3
 #request setshaderversion 330
 
-/* GLFW window title */
+/* Window title */
 #request settitle "GLava"
 
-/* GLFW window geometry (x, y, width, height) */
+/* Window geometry (x, y, width, height) */
 #request setgeometry 0 0 800 600
 
 /* Window background color (RGB format).
@@ -95,7 +95,7 @@
    default output device. */
 #request setsource "auto"
 
-/* GLFW buffer swap interval (vsync), set to '0' to prevent
+/* Buffer swap interval (vsync), set to '0' to prevent
    waiting for refresh, '1' (or more) to wait for the specified
    amount of frames. */
 #request setswap 1
