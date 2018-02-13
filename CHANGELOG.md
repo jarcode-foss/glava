@@ -1,4 +1,10 @@
+## 1.4
 
+* Added window creation backends. Currently GLava automatically uses the appropriate backend, currently `"glx"` and `"glfw"` are available. The GLX window creation code nicely supports transparent windows so that users do not need to use GLFW 3.3 for native transparency, which is currently unstable and unreleased.
+* Added a `--backend` (or `-b`) flag that can be used to manually select window creation backends.
+* Fixed alpha blending with `"native"` transparency. GLava now correctly uses premultiplied alpha to provide alpha blending with other X windows, where a compositor is available.
+* Fixed a segmentation fault that occurs with uncommon window managers, see #19
+* Fixed various other issues with alpha blending in shader code.
 
 ## 1.3
 
