@@ -29,10 +29,10 @@ out vec4 fragment;
 #define PI 3.14159265359
 
 void main() {
-
+    
     #if USE_ALPHA > 0
-    #define APPLY_FRAG(f, c) f = vec4(f.rgb * f.a + c.rgb * (1 - f.a), max(c.a, f.a))
-    fragment.a;
+    #define APPLY_FRAG(f, c) f = vec4(f.rgb * f.a + c.rgb * (1 - clamp(f.a, 0, 1)), max(c.a, f.a))
+    fragment = #00000000;
     #else
     #define APPLY_FRAG(f, c) f = c
     #endif

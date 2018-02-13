@@ -28,10 +28,9 @@
 
 /* Set window background opacity mode. Possible values are:
    
-   "native" - True transparency provided by the compositor.
-              Requires GLFW 3.3+ and an active compositor. Can
-              reduce performance on some systems, and will not
-              blend with the visualizer's alpha layer.
+   "native" - True transparency provided by the compositor. Can
+              reduce performance on some systems, depending on
+              the compositor used.
    
    "xroot"  - Maintain a copy of the root window's pixmap
               (usually the desktop background) to provide a
@@ -54,8 +53,8 @@
 #request setgeometry 0 0 800 600
 
 /* Window background color (RGB format).
-   Only works with `setopacity "none"` */
-#request setbg 000000
+   Does not work with `setopacity "xroot"` */
+#request setbg 00000000
 
 /* (X11 only) EWMH Window type. Possible values are:
    
@@ -68,7 +67,7 @@
    
    https://standards.freedesktop.org/wm-spec/wm-spec-1.3.html#idm140130317606816
 */
-#request setxwintype "desktop"
+#request setxwintype "normal"
 
 /* (X11 only) EWMH Window state atoms (multiple can be specified).
    Possible values are:

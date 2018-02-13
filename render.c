@@ -85,7 +85,7 @@ struct gl_bind {
 
 struct gl_sfbo {
     GLuint fbo, tex, shader;
-    bool valid;
+    bool valid, nativeonly;
     const char* name;
     struct gl_bind* binds;
     size_t binds_sz;
@@ -109,7 +109,7 @@ struct gl_data {
     double tcounter;
     int fcounter, ucounter, kcounter;
     bool print_fps, avg_window, interpolate, force_geometry, copy_desktop,
-        smooth_pass, use_alpha;
+        smooth_pass, premultiply_alpha;
     void** t_data;
     float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio,
         smooth_factor, fft_scale, fft_cutoff;
@@ -165,7 +165,8 @@ static GLuint shaderload(const char*             rpath,
         "#define UNIFORM_LIMIT %d\n"
         "#define PRE_SMOOTHED_AUDIO %d\n"
         "#define SMOOTH_FACTOR %.6f\n"
-        "#define USE_ALPHA %d\n";
+        "#define USE_ALPHA %d\n"
+        "#define PREMULTIPLY_ALPHA %d\n";
     
     struct glsl_ext ext = {
         .source     = raw ? NULL : map,
@@ -180,11 +181,11 @@ static GLuint shaderload(const char*             rpath,
     /* If this is raw input, skip processing */
     if (!raw) ext_process(&ext, rpath);
     
-    size_t blen = strlen(header_fmt) + 42;
+    size_t blen = strlen(header_fmt) + 64;
     GLchar* buf = malloc((blen * sizeof(GLchar*)) + ext.p_len);
     int written = snprintf(buf, blen, header_fmt, (int) shader_version, (int) max_uniforms,
                            gl->smooth_pass ? 1 : 0, (double) gl->smooth_factor,
-                           gl->use_alpha ? 1 : 0);
+                           1, gl->premultiply_alpha ? 1 : 0);
     if (written < 0) {
         fprintf(stderr, "snprintf() encoding error while prepending header to shader '%s'\n", path);
         return 0;
@@ -696,35 +697,35 @@ struct renderer* rd_new(const char** paths, const char* entry,
     
     struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
-        .w               = NULL,
-        .wcb             = NULL,
-        .stages          = NULL,
-        .rate            = 0,
-        .tcounter        = 0.0D,
-        .fcounter        = 0,
-        .ucounter        = 0,
-        .kcounter        = 0,
-        .fr              = 1.0F,
-        .ur              = 1.0F,
-        .print_fps       = true,
-        .bufscale        = 1,
-        .avg_frames      = 6,
-        .avg_window      = true,
-        .gravity_step    = 4.2,
-        .interpolate     = true,
-        .force_geometry  = false,
-        .smooth_factor   = 0.025,
-        .smooth_distance = 0.01,
-        .smooth_ratio    = 4,
-        .bg_tex          = 0,
-        .sm_prog         = 0,
-        .copy_desktop    = true,
-        .use_alpha       = true,
-        .smooth_pass     = true,
-        .fft_scale       = 10.2F,
-        .fft_cutoff      = 0.3F,
-        .geometry        = { 0, 0, 500, 400 },
-        .clear_color     = { 0.0F, 0.0F, 0.0F, 0.0F }
+        .w                 = NULL,
+        .wcb               = NULL,
+        .stages            = NULL,
+        .rate              = 0,
+        .tcounter          = 0.0D,
+        .fcounter          = 0,
+        .ucounter          = 0,
+        .kcounter          = 0,
+        .fr                = 1.0F,
+        .ur                = 1.0F,
+        .print_fps         = true,
+        .bufscale          = 1,
+        .avg_frames        = 6,
+        .avg_window        = true,
+        .gravity_step      = 4.2,
+        .interpolate       = true,
+        .force_geometry    = false,
+        .smooth_factor     = 0.025,
+        .smooth_distance   = 0.01,
+        .smooth_ratio      = 4,
+        .bg_tex            = 0,
+        .sm_prog           = 0,
+        .copy_desktop      = true,
+        .premultiply_alpha = true,
+        .smooth_pass       = true,
+        .fft_scale         = 10.2F,
+        .fft_cutoff        = 0.3F,
+        .geometry          = { 0, 0, 500, 400 },
+        .clear_color       = { 0.0F, 0.0F, 0.0F, 0.0F }
     };
 
     bool forced = force_backend != NULL;
@@ -803,7 +804,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
 
                     bool native_opacity = !strcmp("native", (char*) args[0]);
                     
-                    gl->use_alpha = true;
+                    gl->premultiply_alpha = native_opacity;
 
                     gl->wcb->set_transparent(native_opacity);
 
@@ -850,6 +851,17 @@ struct renderer* rd_new(const char** paths, const char* entry,
                         char* str = malloc(sizeof(char) * (strlen((char*) args[0]) + 1));
                         strncpy(str, (char*) args[0], len + 1);
                         module = str;
+                    }
+                })
+        },
+        {
+            .name = "nativeonly", .fmt = "b",
+            .handler = RHANDLER(name, args, {
+                    if (current)
+                        current->nativeonly = *(bool*) args[0];
+                    else {
+                        fprintf(stderr, "`nativeonly` request needs module context\n");
+                        exit(EXIT_FAILURE);
                     }
                 })
         },
@@ -1079,8 +1091,10 @@ struct renderer* rd_new(const char** paths, const char* entry,
     glDisable(GL_MULTISAMPLE);
     glDisable(GL_LINE_SMOOTH);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (!gl->premultiply_alpha) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
     
     size_t m_len = strlen(module);
     size_t bsz = d_len + m_len + 2;
@@ -1141,11 +1155,12 @@ struct renderer* rd_new(const char** paths, const char* entry,
                         
                             struct gl_sfbo* s = &stages[idx - 1];
                             *s = (struct gl_sfbo) {
-                                .name     = strdup(d->d_name),
-                                .shader   = 0,
-                                .valid    = false,
-                                .binds    = malloc(1),
-                                .binds_sz = 0
+                                .name       = strdup(d->d_name),
+                                .shader     = 0,
+                                .valid      = false,
+                                .nativeonly = false,
+                                .binds      = malloc(1),
+                                .binds_sz   = 0
                             };
 
                             current = s;
@@ -1183,6 +1198,23 @@ struct renderer* rd_new(const char** paths, const char* entry,
             } while (found);
         }
     }
+    
+    gl->stages = stages;
+    gl->stages_sz = count;
+    
+    {
+        struct gl_sfbo* final = NULL;
+        if (!gl->premultiply_alpha) {
+            for (size_t t = 0; t < gl->stages_sz; ++t) {
+                if (!gl->stages[t].nativeonly) {
+                    final = &gl->stages[t];
+                }
+            }
+        }
+        /* Invalidate framebuffer and use direct rendering if it was instantiated 
+           due to a following `nativeonly` shader pass. */
+        if (final) final->valid = false;
+    }
 
     /* Compile smooth pass shader */
     
@@ -1193,14 +1225,10 @@ struct renderer* rd_new(const char** paths, const char* entry,
         char util[usz]; /* module pack path to use */
         snprintf(util, usz, "%s/%s", data, util_folder);
         loading_smooth_pass = true;
-        if (!(gl->sm_prog = shaderbuild(gl, util, data, handlers, shader_version, "smooth_pass.frag"))) {
+        if (!(gl->sm_prog = shaderbuild(gl, util, data, handlers, shader_version, "smooth_pass.frag")))
             abort();
-        }
         loading_smooth_pass = false;
     }
-    
-    gl->stages = stages;
-    gl->stages_sz = count;
     
     /* target seconds per update */
     gl->target_spu = (float) (r->samplesize_request / 4) / (float) r->rate_request;
@@ -1337,6 +1365,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         
         /* Current shader program */
         struct gl_sfbo* current = &gl->stages[t];
+
+        if (current->nativeonly && !gl->premultiply_alpha)
+            continue;
         
         /* Bind framebuffer if this is not the final pass */
         if (current->valid)
@@ -1377,9 +1408,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             /* We need to disable blending, we might read in bogus alpha values due
                to how we obtain the background texture (format is four byte `rgb_`, 
                where the last value is skipped) */
-            glDisable(GL_BLEND);
+            if (!gl->premultiply_alpha) glDisable(GL_BLEND);
             drawoverlay(&gl->overlay);
-            glEnable(GL_BLEND);
+            if (!gl->premultiply_alpha) glEnable(GL_BLEND);
             glUseProgram(0);
         }
         
@@ -1457,7 +1488,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     
                         /* setup and bind framebuffer to texture */
                         glBindFramebuffer(GL_FRAMEBUFFER, sm->fbo);
-                        glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, sm->tex, 0);
+                        glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,\
+                                               GL_TEXTURE_1D, sm->tex, 0);
                         
                         switch (glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
                         case GL_FRAMEBUFFER_COMPLETE: break;
@@ -1478,11 +1510,11 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                     glUniform1i(sm_uw, sz);  /* target texture width */
                     glUniform1i(sm_usz, sz); /* source texture width */
                     glUniform1i(sm_utex, offset);
-                    glDisable(GL_BLEND);
+                    if (!gl->premultiply_alpha) glDisable(GL_BLEND);
                     glViewport(0, 0, sz, 1);
                     drawoverlay(&gl->overlay);
                     glViewport(0, 0, ww, wh);
-                    glEnable(GL_BLEND);
+                    if (!gl->premultiply_alpha) glEnable(GL_BLEND);
 
                     /* Return state */
                     glUseProgram(current->shader);

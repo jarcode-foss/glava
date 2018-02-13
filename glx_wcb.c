@@ -86,7 +86,6 @@ static void* create_and_bind(const char* name, const char* class,
 
     XVisualInfo* vi;
     XSetWindowAttributes attr;
-    GC gc;
     GLXFBConfig* fbc;
     int fb_sz, best = -1, samp = -1;
 
@@ -174,8 +173,6 @@ static void* create_and_bind(const char* name, const char* class,
     apply_decorations(w->w);
 
     XFree(vi);
-    
-    gc = XCreateGC(display, w->w, 0, 0);
     
     XStoreName(display, w->w, name);
 

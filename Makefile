@@ -4,7 +4,7 @@ obj = $(src:.c=.o)
 # Build type parameter
 
 ifeq ($(BUILD),debug)
-    CFLAGS_BUILD = -O1 -ggdb -Wall -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls
+    CFLAGS_BUILD = -O0 -ggdb -Wall -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls
     GLAD_GEN = c-debug
     ASAN = -lasan
 else
