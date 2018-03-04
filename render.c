@@ -326,10 +326,8 @@ static GLuint create_1d_tex() {
 }
 
 static void update_1d_tex(GLuint tex, size_t w, float* data) {
-    float buf[w];
-    memcpy(buf, data, w * sizeof(float));
     glBindTexture(GL_TEXTURE_1D, tex);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_R16, w, 0, GL_RED, GL_FLOAT, buf);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_R16, w, 0, GL_RED, GL_FLOAT, data);
 }
 
 #define BIND_VEC2 0
@@ -1361,7 +1359,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     
     for (t = 0; t < gl->stages_sz; ++t) {
 
-        bool needed[64] = { [ 0 ... 63 ] = false }; /* Load flags for each texture position */
+        bool load_flags[64] = { [ 0 ... 63 ] = false }; /* Load flags for each texture position */
         
         /* Current shader program */
         struct gl_sfbo* current = &gl->stages[t];
@@ -1428,6 +1426,10 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
             /* Handle transformations and bindings for 1D samplers */
             void handle_1d_tex(GLuint tex, float* buf, float* ubuf, size_t sz, int offset, bool audio) {
+                
+                if (load_flags[offset])
+                    goto bind_uniform;
+                load_flags[offset] = true;
 
                 /* Only apply transformations if the buffers we
                    were given are newly copied from PA */
@@ -1443,6 +1445,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                                 transform types are added) */
                     }
                 }
+                glActiveTexture(GL_TEXTURE0 + offset);
 
                 /* Update texture with our data */
                 update_1d_tex(tex, sz, gl->interpolate ? (ubuf ? ubuf : buf) : buf);
@@ -1526,11 +1529,9 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                     tex = sm->tex; /* replace input texture with our processed one */
                 }
                 
-                if (!needed[offset]) {
-                    glActiveTexture(GL_TEXTURE0 + offset);
-                    glBindTexture(GL_TEXTURE_1D, tex);
-                    needed[offset] = true;
-                }
+                glActiveTexture(GL_TEXTURE0 + offset);
+                glBindTexture(GL_TEXTURE_1D, tex);
+            bind_uniform:
                 glUniform1i(bind->uniform, offset);
             }
 
