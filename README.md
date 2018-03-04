@@ -1,7 +1,7 @@
-## GLava
+
 <img align="left" width="200" height="200" src="https://thumbs.gfycat.com/DefiantInformalIndianspinyloach-size_restricted.gif" />
 
-GLava is an OpenGL audio spectrum visualizer. Its primary use case is for desktop windows or backgrounds. Displayed to the left is the `radial` shader module, and [here is a demonstration video](https://streamable.com/dgpj8). Development is active, and reporting issues is encouranged.
+**GLava** is an OpenGL audio spectrum visualizer. Its primary use case is for desktop windows or backgrounds. Displayed to the left is the `radial` shader module, and [here is a demonstration video](https://streamable.com/dgpj8). Development is active, and reporting issues is encouranged.
 
 **Compiling** (Or use the [`glava-git` AUR package](https://aur.archlinux.org/packages/glava-git/))**:**
 
@@ -31,7 +31,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
-sudo apt-get install libpulse libpulse-dev libglfw3 libglfw3-dev libxext6 libxext6-dev python make gcc
+sudo apt-get install libpulse0 libpulse-dev libglfw3 libglfw3-dev libglx0 libxext6 libxext-dev python make gcc 
 ```
 
 ## [Configuration](https://github.com/wacossusca34/glava/wiki)
