@@ -14,6 +14,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
+#include <X11/extensions/shape.h>
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/XShm.h>
 
@@ -120,6 +121,14 @@ static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
     snprintf(buf, sizeof(buf), fmt, formatted);
     Atom desk = XInternAtom(d, buf, false);
     XChangeProperty(d, w, wtype, XA_ATOM, 32, mode, (unsigned char*) &desk, 1);
+
+    Region region;
+    region = XCreateRegion();
+    if (region) {
+        XShapeCombineRegion(display, window.window, ShapeInput, 0, 0, region,
+                            ShapeSet);
+        XDestroyRegion(region);
+    }
 }
 
 void xwin_settype(struct gl_wcb* wcb, void* impl, const char* type) {
