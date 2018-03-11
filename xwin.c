@@ -63,16 +63,16 @@ bool xwin_should_render(struct renderer* rd) {
 
     Atom prop       = XInternAtom(d, "_NET_ACTIVE_WINDOW", true);
     Atom fullscreen = XInternAtom(d, "_NET_WM_STATE_FULLSCREEN", true);
-    
+
     Atom actual_type;
     int actual_format, t;
     unsigned long nitems, bytes_after;
     unsigned char* data;
 
     int handler(Display* d, XErrorEvent* e) { return 0; }
-    
+
     XSetErrorHandler(handler); /* dummy error handler */
-          
+
     if (Success != XGetWindowProperty(d, DefaultRootWindow(d), prop, 0, 1, false, AnyPropertyType,
                                      &actual_type, &actual_format, &nitems, &bytes_after, &data)) {
         goto close; /* if an error occurs here, the WM probably isn't EWMH compliant */
@@ -80,7 +80,7 @@ bool xwin_should_render(struct renderer* rd) {
 
     if (!nitems)
         goto close;
-    
+
     Window active = ((Window*) data)[0];
 
     prop = XInternAtom(d, "_NET_WM_STATE", true);
@@ -123,11 +123,11 @@ static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
 }
 
 void xwin_settype(struct gl_wcb* wcb, void* impl, const char* type) {
-    xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_%s", PropModeReplace); 
+    xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_%s", PropModeReplace);
 }
 
 void xwin_addstate(struct gl_wcb* wcb, void* impl, const char* state) {
-    xwin_changeatom(wcb, impl, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend); 
+    xwin_changeatom(wcb, impl, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend);
 }
 
 static Drawable get_drawable(Display* d, Window w) {
@@ -139,7 +139,7 @@ static Drawable get_drawable(Display* d, Window w) {
     Atom id;
 
     id = XInternAtom(d, "_XROOTPMAP_ID", False);
-    
+
     if (XGetWindowProperty(d, w, id, 0, 1, False, XA_PIXMAP,
                            &act_type, &act_format, &nitems, &bytes_after,
                            &data) == Success && data) {
@@ -159,9 +159,9 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    
+
     bool use_shm = true;
-    
+
     int x, y, w, h;
     rd_get_wcb(rd)->get_fbsize(rd_get_impl_window(rd), &w, &h);
     rd_get_wcb(rd)->get_pos(rd_get_impl_window(rd), &x, &y);
@@ -170,7 +170,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     Drawable src = get_drawable(d, find_desktop(rd));
 
     /* Obtain section of root pixmap */
-    
+
     XShmSegmentInfo shminfo;
     Visual* visual = DefaultVisual(d, DefaultScreen(d));
     XVisualInfo match = { .visualid = XVisualIDFromVisual(visual) };
@@ -196,7 +196,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
 
     /* Try to convert pixel bit depth to OpenGL storage format. The following formats\
        will need intermediate conversion before OpenGL can accept the data:
-       
+
        - 8-bit pixel formats (retro displays, low-bandwidth virtual displays)
        - 36-bit pixel formats (rare deep color displays) */
 
@@ -220,7 +220,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
             case 30: type = GL_UNSIGNED_INT_10_10_10_2; break; /* 30-bit, deep color */
             }
             break;
-        case 64: 
+        case 64:
             if (image->depth == 48) /* 48-bit deep color */
                 type = GL_UNSIGNED_SHORT;
             else goto invalid;
@@ -234,7 +234,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
         default:
         invalid: invalid = true;
         }
-    
+
         uint8_t* buf;
         if (invalid) {
             abort();
@@ -253,7 +253,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
                     buf[base + 3] = 255;
                 }
             }
-    
+
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
             free(buf);
         } else {
@@ -277,6 +277,6 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     }
 
     if (image) XDestroyImage(image);
-    
+
     return texture;
 }
