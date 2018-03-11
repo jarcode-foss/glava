@@ -79,7 +79,7 @@ static void* create_and_bind(const char* name, const char* class,
                              size_t states_sz,
                              int d, int h,
                              int x, int y,
-                             int version_major, int version_minor) {
+                             int version_major, int version_minor, struct renderer* r) {
     struct glxwin* w = malloc(sizeof(struct glxwin));
     w->time         = 0.0D;
     w->should_close = false;
@@ -159,15 +159,15 @@ static void* create_and_bind(const char* name, const char* class,
     }
     
     if (type)
-        xwin_settype(&wcb_glx, w, type);
+        xwin_settype(&wcb_glx, w, type, r);
 
     for (size_t t = 0; t < states_sz; ++t)
-        xwin_addstate(&wcb_glx, w, states[t]);
+        xwin_addstate(&wcb_glx, w, states[t], r);
 
-    if (floating) xwin_addstate(&wcb_glx, w, "above");
+    if (floating) xwin_addstate(&wcb_glx, w, "above", r);
     if (maximized) {
-        xwin_addstate(&wcb_glx, w, "maximized_horz");
-        xwin_addstate(&wcb_glx, w, "maximized_vert");
+        xwin_addstate(&wcb_glx, w, "maximized_horz", r);
+        xwin_addstate(&wcb_glx, w, "maximized_vert", r);
     }
 
     XSetClassHint(display, w->w, &((XClassHint) { .res_name = (char*) class, .res_class = (char*) class }));

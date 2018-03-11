@@ -70,7 +70,7 @@ static void* create_and_bind(const char* name, const char* class,
                              size_t states_sz,
                              int d, int h,
                              int x, int y,
-                             int version_major, int version_minor) {
+                             int version_major, int version_minor, struct renderer* r) {
 
     GLFWwindow* w;
     
@@ -84,10 +84,10 @@ static void* create_and_bind(const char* name, const char* class,
     }
     
     if (type)
-        xwin_settype(&wcb_glfw, w, type);
+        xwin_settype(&wcb_glfw, w, type, r);
 
     for (size_t t = 0; t < states_sz; ++t)
-        xwin_addstate(&wcb_glfw, w, states[t]);
+        xwin_addstate(&wcb_glfw, w, states[t], r);
     
     glfwSetWindowPos(w, x, y);
     glfwMakeContextCurrent(w);

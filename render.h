@@ -29,7 +29,7 @@ struct gl_wcb {
                                 size_t states_sz,
                                 int w, int h,
                                 int x, int y,
-                                int version_major, int version_minor);
+                                int version_major, int version_minor, struct renderer*);
     bool     (*should_close)   (void* ptr);
     bool     (*swap_buffers)   (void* ptr);
     void     (*get_pos)        (void* ptr, int* x, int* y);
