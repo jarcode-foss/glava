@@ -1075,7 +1075,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
                                            (const char**) xwinstates, xwinstates_sz,
                                            gl->geometry[2], gl->geometry[3],
                                            gl->geometry[0], gl->geometry[1],
-                                           context_version_major, context_version_minor))) {
+                                           context_version_major, context_version_minor, r))) {
         abort();
     }
     

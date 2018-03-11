@@ -104,7 +104,7 @@ bool xwin_should_render(struct renderer* rd) {
 /* Set window types defined by the EWMH standard, possible values:
    -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
 static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
-                            const char* atom, const char* fmt, int mode) {
+                            const char* atom, const char* fmt, int mode, struct renderer* rd) {
     Window w = wcb->get_x11_window(impl);
     Display* d = wcb->get_x11_display();
     Atom wtype = XInternAtom(d, atom, false);
@@ -122,6 +122,10 @@ static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
     Atom desk = XInternAtom(d, buf, false);
     XChangeProperty(d, w, wtype, XA_ATOM, 32, mode, (unsigned char*) &desk, 1);
     
+    if (strcmp(formatted, "DESKTOP"))
+    {
+        XReparentWindow(d, w, find_desktop(rd), 0,0);
+    }
     Region region;
     region = XCreateRegion();
     if (region) {
@@ -131,12 +135,12 @@ static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
     }
 }
 
-void xwin_settype(struct gl_wcb* wcb, void* impl, const char* type) {
-    xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_%s", PropModeReplace); 
+void xwin_settype(struct gl_wcb* wcb, void* impl, const char* type, struct renderer* r) {
+    xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_%s", PropModeReplace, r);
 }
 
-void xwin_addstate(struct gl_wcb* wcb, void* impl, const char* state) {
-    xwin_changeatom(wcb, impl, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend); 
+void xwin_addstate(struct gl_wcb* wcb, void* impl, const char* state, struct renderer* r) {
+    xwin_changeatom(wcb, impl, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend, r);
 }
 
 static Drawable get_drawable(Display* d, Window w) {
