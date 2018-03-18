@@ -31,7 +31,7 @@ struct gl_wcb {
                                 int x, int y,
                                 int version_major, int version_minor);
     bool     (*should_close)   (void* ptr);
-    bool     (*swap_buffers)   (void* ptr);
+    void     (*swap_buffers)   (void* ptr);
     void     (*get_pos)        (void* ptr, int* x, int* y);
     void     (*get_fbsize)     (void* ptr, int* w, int* h);
     void     (*set_geometry)   (void* ptr, int x, int y, int w, int h);

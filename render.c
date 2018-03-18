@@ -506,7 +506,6 @@ void transform_smooth(struct gl_data* d, void** udaa, void* data) {
     for (int t = 0; t < asz; ++t) {
         float
             db  = log(t), /* buffer index on log scale */
-            v   = b[t],   /* value at this position */
             avg = 0;      /* adj value averages (weighted) */
         /* Calculate real indexes for sampling at this position, since the
            distance is specified in scalar values */
@@ -592,7 +591,7 @@ void transform_wrange(struct gl_data* d, void** _, void* data) {
 
 void transform_window(struct gl_data* d, void** _, void* data) {
     struct gl_sampler_data* s = (struct gl_sampler_data*) data;
-    float* b = s->buf, w;
+    float* b = s->buf;
     size_t sz = s->sz, t;
     
     for (t = 0; t < sz; ++t) {
@@ -765,7 +764,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
     };
 
     if (!gl->wcb) {
-        fprintf(stderr, "Invalid window creation backend selected: '%s'\n", gl->wcb);
+        fprintf(stderr, "Invalid window creation backend selected: '%s'\n", backend);
         abort();
     }
     

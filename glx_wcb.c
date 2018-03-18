@@ -15,6 +15,7 @@
 
 #include <X11/Xlib.h>
 #include <X11/extensions/Xrender.h>
+#include <X11/extensions/shape.h>
 #include <X11/Xatom.h>
 
 #include <glad/glad.h>
@@ -126,7 +127,7 @@ static void* create_and_bind(const char* name, const char* class,
             if (!fmt || (transparent ? fmt->direct.alphaMask == 0 : fmt->direct.alphaMask != 0))
                 continue;
             
-            if (best < 0 || samp_buf && samples > samp) {
+            if (best < 0 || (samp_buf && samples > samp)) {
                 best = t;
                 samp = samples;
             }
@@ -157,9 +158,11 @@ static void* create_and_bind(const char* name, const char* class,
         fprintf(stderr, "XCreateWindow(): failed\n");
         abort();
     }
+
+    bool desktop = false;
     
     if (type)
-        xwin_settype(&wcb_glx, w, type);
+        desktop = xwin_settype(&wcb_glx, w, type);
 
     for (size_t t = 0; t < states_sz; ++t)
         xwin_addstate(&wcb_glx, w, states[t]);
@@ -180,6 +183,20 @@ static void* create_and_bind(const char* name, const char* class,
 
     Atom dwin = XInternAtom(display, "WM_DELETE_WINDOW", false);
     XSetWMProtocols(display, w->w, &dwin, 1);
+    
+    // XReparentWindow(display, w->w, DefaultRootWindow(display), 0, 0);
+    
+    /* Eliminate the window's effective region */
+    if (desktop){
+        int ignored;
+        if (XShapeQueryExtension(display, &ignored, &ignored)) {
+            Region region;
+            if ((region = XCreateRegion())) {
+                XShapeCombineRegion(display, w->w, ShapeInput, 0, 0, region, ShapeSet);
+                XDestroyRegion(region);
+            }
+        }
+    }
 
     glXCreateContextAttribsARBProc glXCreateContextAttribsARB = NULL;
     glXSwapIntervalEXTProc glXSwapIntervalEXT = NULL;
@@ -255,7 +272,6 @@ static void get_fbsize(struct glxwin* w, int* d, int* h) {
 }
 
 static void get_pos(struct glxwin* w, int* x, int* y) {
-    XWindowAttributes a;
     Window _ignored;
     XTranslateCoordinates(display, w->w, DefaultRootWindow(display), 0, 0, x, y, &_ignored);
 }

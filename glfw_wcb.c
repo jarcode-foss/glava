@@ -119,7 +119,7 @@ static void set_visible(GLFWwindow* w, bool visible) {
     else         glfwHideWindow(w);
 }
 
-static bool swap_buffers(GLFWwindow* w) {
+static void swap_buffers(GLFWwindow* w) {
     glfwSwapBuffers(w);
     glfwPollEvents();
 }
