@@ -100,9 +100,7 @@ bool xwin_should_render(struct renderer* rd) {
     return ret;
 }
 
-/* Set window types defined by the EWMH standard, possible values:
-   -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
-static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
+static bool xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
                             const char* atom, const char* fmt, int mode) {
     Window w = wcb->get_x11_window(impl);
     Display* d = wcb->get_x11_display();
@@ -116,14 +114,19 @@ static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
         default:          formatted[t] = c;
         }
     }
+    bool ret = !strcmp(type, "DESKTOP");
     char buf[256];
     snprintf(buf, sizeof(buf), fmt, formatted);
     Atom desk = XInternAtom(d, buf, false);
     XChangeProperty(d, w, wtype, XA_ATOM, 32, mode, (unsigned char*) &desk, 1);
+    return ret;
 }
 
-void xwin_settype(struct gl_wcb* wcb, void* impl, const char* type) {
-    xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_%s", PropModeReplace); 
+/* Set window types defined by the EWMH standard, possible values:
+   -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
+bool xwin_settype(struct gl_wcb* wcb, void* impl, const char* type) {
+    return xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE",
+                           "_NET_WM_WINDOW_TYPE_%s", PropModeReplace); 
 }
 
 void xwin_addstate(struct gl_wcb* wcb, void* impl, const char* state) {
@@ -160,14 +163,13 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     
-    bool use_shm = true;
-    
     int x, y, w, h;
     rd_get_wcb(rd)->get_fbsize(rd_get_impl_window(rd), &w, &h);
     rd_get_wcb(rd)->get_pos(rd_get_impl_window(rd), &x, &y);
     XColor c;
     Display* d = rd_get_wcb(rd)->get_x11_display();
     Drawable src = get_drawable(d, find_desktop(rd));
+    bool use_shm = XShmQueryExtension(d);
 
     /* Obtain section of root pixmap */
     
@@ -191,7 +193,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
         XShmGetImage(d, src, image, x, y, AllPlanes);
     } else {
         image = XGetImage(d, src, x, y, (unsigned int) w, (unsigned int) h,
-                  ZPixmap, AllPlanes);
+                          AllPlanes, ZPixmap);
     }
 
     /* Try to convert pixel bit depth to OpenGL storage format. The following formats\

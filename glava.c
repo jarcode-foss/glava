@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
     bool verbose = false;
     bool copy_mode = false;
     
-    int c, idx, n = 0;
+    int c, idx;
     while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
         switch (c) {
         case 'v': verbose   = true;   break;
@@ -259,7 +259,7 @@ int main(int argc, char** argv) {
     }
     
     pthread_t thread;
-    int thread_id = pthread_create(&thread, NULL, input_pulse, (void*) &audio);
+    pthread_create(&thread, NULL, input_pulse, (void*) &audio);
     
     float lb[r->bufsize_request], rb[r->bufsize_request];
     while (r->alive) {
