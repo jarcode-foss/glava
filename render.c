@@ -736,7 +736,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
 
     #ifdef GLAVA_GLX
     DECL_WCB(wcb_glx);
-    if (!forced && !getenv("WAYLAND_DISPLAY") && getenv("DISPLAY")) {
+    if (!forced && getenv("DISPLAY")) {
         backend = "glx";
     }
     #endif
