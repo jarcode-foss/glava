@@ -114,7 +114,7 @@ static bool xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
         default:          formatted[t] = c;
         }
     }
-    bool ret = !strcmp(type, "DESKTOP");
+    bool ret = !strcasecmp(type, "DESKTOP");
     char buf[256];
     snprintf(buf, sizeof(buf), fmt, formatted);
     Atom desk = XInternAtom(d, buf, false);
