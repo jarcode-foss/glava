@@ -651,7 +651,7 @@ void transform_fft(struct gl_data* d, void** _, void* in) {
         }
         mmax=istep;
     }
-
+    
     /* abs and log scale */
     for (n = 0; n < s->sz; ++n) {
         if (data[n] < 0.0F) data[n] = -data[n];

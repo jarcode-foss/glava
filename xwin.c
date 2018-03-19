@@ -67,7 +67,7 @@ bool xwin_should_render(struct renderer* rd) {
     Atom actual_type;
     int actual_format, t;
     unsigned long nitems, bytes_after;
-    unsigned char* data;
+    unsigned char* data = NULL;
 
     int handler(Display* d, XErrorEvent* e) { return 0; }
     
@@ -77,13 +77,18 @@ bool xwin_should_render(struct renderer* rd) {
                                      &actual_type, &actual_format, &nitems, &bytes_after, &data)) {
         goto close; /* if an error occurs here, the WM probably isn't EWMH compliant */
     }
-
+    
     if (!nitems)
         goto close;
     
     Window active = ((Window*) data)[0];
 
     prop = XInternAtom(d, "_NET_WM_STATE", true);
+
+    if (data) {
+        XFree(data);
+        data = NULL;
+    }
 
     if (Success != XGetWindowProperty(d, active, prop, 0, LONG_MAX, false, AnyPropertyType,
                                       &actual_type, &actual_format, &nitems, &bytes_after, &data)) {
@@ -95,6 +100,8 @@ bool xwin_should_render(struct renderer* rd) {
         }
     }
  close:
+    if (data)
+        XFree(data);
     if (should_close)
         XCloseDisplay(d);
     return ret;
