@@ -57,10 +57,15 @@ LDFLAGS += $(ASAN) -lpulse -lpulse-simple -pthread $(LDFLAGS_GLFW) -ldl -lm -lX1
 
 PYTHON = python
 
+GLAVA_VERSION = \"$(shell git describe --tags 2>/dev/null)\"
+ifeq ($(GLAVA_VERSION),\"\")
+    GLAVA_VERSION = \"unknown\"
+endif
+
 GLAD_INSTALL_DIR = glad
 GLAD_SRCFILE = ./glad/src/glad.c
 GLAD_ARGS = --generator=$(GLAD_GEN) --extensions=GL_EXT_framebuffer_multisample,GL_EXT_texture_filter_anisotropic
-CFLAGS_COMMON = -I glad/include
+CFLAGS_COMMON = -I glad/include -DGLAVA_VERSION="$(GLAVA_VERSION)"
 CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_GLX) $(CFLAGS_GLFW) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
 
 all: glava
