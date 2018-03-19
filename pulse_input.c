@@ -9,14 +9,14 @@
 
 #include "fifo.h"
 
-static pa_mainloop *m_pulseaudio_mainloop;
+static pa_mainloop* m_pulseaudio_mainloop;
 
-static void cb(__attribute__((unused)) pa_context *pulseaudio_context,
-               const pa_server_info *i,
-               void *userdata) {
+static void cb(__attribute__((unused)) pa_context* pulseaudio_context,
+               const pa_server_info* i,
+               void* userdata) {
 
 	/* Obtain default sink name */
-    struct audio_data *audio = (struct audio_data *)userdata;
+    struct audio_data* audio = (struct audio_data*) userdata;
 	audio->source = malloc(sizeof(char) * 1024);
 
 	strcpy(audio->source,i->default_sink_name);
@@ -32,7 +32,7 @@ static void cb(__attribute__((unused)) pa_context *pulseaudio_context,
 }
 
 
-static void pulseaudio_context_state_callback(pa_context *pulseaudio_context, void *userdata) {
+static void pulseaudio_context_state_callback(pa_context* pulseaudio_context, void* userdata) {
 
 	/* Ensure loop is ready	*/
 	switch (pa_context_get_state(pulseaudio_context))
@@ -61,8 +61,8 @@ static void pulseaudio_context_state_callback(pa_context *pulseaudio_context, vo
 
 void get_pulse_default_sink(struct audio_data* audio) {
     
-	pa_mainloop_api *mainloop_api;
-	pa_context *pulseaudio_context;
+	pa_mainloop_api* mainloop_api;
+	pa_context* pulseaudio_context;
 	int ret;
 
 	/* Create a mainloop API and connection to the default server */
@@ -112,7 +112,7 @@ void get_pulse_default_sink(struct audio_data* audio) {
 #endif
 
 void* input_pulse(void* data) {
-    struct audio_data *audio = (struct audio_data *)data;
+    struct audio_data* audio = (struct audio_data*) data;
     int i, n;
     size_t ssz = audio->sample_sz;
 	float buf[ssz / 2];
@@ -127,7 +127,7 @@ void* input_pulse(void* data) {
         .fragsize  = ssz
 	};
     
-	pa_simple *s = NULL;
+	pa_simple* s = NULL;
 	int error;
     
 	if (!(s = pa_simple_new(NULL, "glava", PA_STREAM_RECORD,
