@@ -18,7 +18,6 @@
 #include "render.h"
 #include "xwin.h"
 
-#define GLAVA_VERSION "1.4.1"
 #ifdef GLAD_DEBUG
 #define GLAVA_RELEASE_TYPE_PREFIX "debug, "
 #else
@@ -272,7 +271,8 @@ int main(int argc, char** argv) {
         pthread_mutex_lock(&audio.mutex);
         modified = audio.modified;
         if (modified) {
-            /* create our own copies of the audio buffers, so the streaming thread can continue to append to it */
+            /* create our own copies of the audio buffers, so the streaming
+               thread can continue to append to it */
             memcpy(lb, (void*) audio.audio_out_l, r->bufsize_request * sizeof(float));
             memcpy(rb, (void*) audio.audio_out_r, r->bufsize_request * sizeof(float));
             audio.modified = false; /* set this flag to false until the next time we read */

@@ -9,22 +9,22 @@
 
 #include "fifo.h"
 
-static pa_mainloop *m_pulseaudio_mainloop;
+static pa_mainloop* m_pulseaudio_mainloop;
 
-static void cb(__attribute__((unused)) pa_context *pulseaudio_context,
-               const pa_server_info *i,
-               void *userdata) {
+static void cb(__attribute__((unused)) pa_context* pulseaudio_context,
+               const pa_server_info* i,
+               void* userdata) {
 
-	//getting default sink name
-    struct audio_data *audio = (struct audio_data *)userdata;
+	/* Obtain default sink name */
+    struct audio_data* audio = (struct audio_data*) userdata;
 	audio->source = malloc(sizeof(char) * 1024);
 
 	strcpy(audio->source,i->default_sink_name);
 
-	//appending .monitor suffix
+	/* Append `.monitor` suffix */
 	audio->source = strcat(audio->source, ".monitor");
 
-	//quiting mainloop
+	/* Quiting mainloop */
     pa_context_disconnect(pulseaudio_context);
     pa_context_unref(pulseaudio_context);
 	pa_mainloop_quit(m_pulseaudio_mainloop, 0);
@@ -32,10 +32,9 @@ static void cb(__attribute__((unused)) pa_context *pulseaudio_context,
 }
 
 
-static void pulseaudio_context_state_callback(pa_context *pulseaudio_context,
-                                       void *userdata) {
+static void pulseaudio_context_state_callback(pa_context* pulseaudio_context, void* userdata) {
 
-	// make sure loop is ready	
+	/* Ensure loop is ready	*/
 	switch (pa_context_get_state(pulseaudio_context))
         {
         case PA_CONTEXT_UNCONNECTED:
@@ -54,7 +53,6 @@ static void pulseaudio_context_state_callback(pa_context *pulseaudio_context,
             exit(EXIT_FAILURE);
             break;
         case PA_CONTEXT_TERMINATED:
-            // printf("PulseAudio context terminated!\n");
             pa_mainloop_quit(m_pulseaudio_mainloop, 0);
             break;	  
         }
@@ -63,29 +61,29 @@ static void pulseaudio_context_state_callback(pa_context *pulseaudio_context,
 
 void get_pulse_default_sink(struct audio_data* audio) {
     
-	pa_mainloop_api *mainloop_api;
-	pa_context *pulseaudio_context;
+	pa_mainloop_api* mainloop_api;
+	pa_context* pulseaudio_context;
 	int ret;
 
-	// Create a mainloop API and connection to the default server
+	/* Create a mainloop API and connection to the default server */
 	m_pulseaudio_mainloop = pa_mainloop_new();
 
 	mainloop_api = pa_mainloop_get_api(m_pulseaudio_mainloop);
 	pulseaudio_context = pa_context_new(mainloop_api, "glava device list");
 
 
-	// This function connects to the pulse server
+	/* Connect to the PA server */
 	pa_context_connect(pulseaudio_context, NULL, PA_CONTEXT_NOFLAGS,
                        NULL);
 
-	// This function defines a callback so the server will tell us its state.
+	/* Define a callback so the server will tell us its state */
 	pa_context_set_state_callback(pulseaudio_context,
                                   pulseaudio_context_state_callback,
                                   (void*)audio);
 
-	// starting a mainloop to get default sink
+	/* Start mainloop to get default sink */
 
-	// starting with one non blokng iteration in case pulseaudio is not able to run
+	/* Start with one non blocking iteration in case pulseaudio is not able to run */
 	if (!(ret = pa_mainloop_iterate(m_pulseaudio_mainloop, 0, &ret))){
         printf("Could not open pulseaudio mainloop to "
                "find default device name: %d\n"
@@ -114,12 +112,11 @@ void get_pulse_default_sink(struct audio_data* audio) {
 #endif
 
 void* input_pulse(void* data) {
-    struct audio_data *audio = (struct audio_data *)data;
+    struct audio_data* audio = (struct audio_data*) data;
     int i, n;
     size_t ssz = audio->sample_sz;
 	float buf[ssz / 2];
-
-	/* The sample type to use */
+    
 	const pa_sample_spec ss = {
 		.format   = FSAMPLE_FORMAT,
 		.rate     = audio->rate,
@@ -129,10 +126,10 @@ void* input_pulse(void* data) {
         .maxlength = ssz * 2,
         .fragsize  = ssz
 	};
-
-	pa_simple *s = NULL;
+    
+	pa_simple* s = NULL;
 	int error;
-
+    
 	if (!(s = pa_simple_new(NULL, "glava", PA_STREAM_RECORD,
                             audio->source, "audio for glava",
                             &ss, NULL, &pb, &error))) {
@@ -141,13 +138,13 @@ void* input_pulse(void* data) {
                 audio->source, pa_strerror(error));
 		exit(EXIT_FAILURE);
 	}
-
+    
 	n = 0;
-
+    
     float* bl = (float*) audio->audio_out_l;
     float* br = (float*) audio->audio_out_r;
     size_t fsz = audio->audio_buf_sz;
-               
+    
 	while (1) {
         
         /* Record some data ... */
@@ -163,17 +160,17 @@ void* input_pulse(void* data) {
         memmove(bl, &bl[ssz / 4], (fsz - (ssz / 4)) * sizeof(float));
         memmove(br, &br[ssz / 4], (fsz - (ssz / 4)) * sizeof(float)); 
 
-        // sorting out channelss
+        /* sorting out channels */
         
         for (n = 0, i = 0; i < ssz / 2; i += 2) {
 
-            // size_t idx = (i / 2) + (at * (BUFSIZE / 2));
+            /* size_t idx = (i / 2) + (at * (BUFSIZE / 2)); */
 
             int idx = (fsz - (ssz / 4)) + n;
 
             if (audio->channels == 1) bl[idx] = (buf[i] + buf[i + 1]) / 2;
 
-            // stereo storing channels in buffer
+            /* stereo storing channels in buffer */
             if (audio->channels == 2) {
                 bl[idx] = buf[i];
                 br[idx] = buf[i + 1];
@@ -183,7 +180,7 @@ void* input_pulse(void* data) {
         audio->modified = true;
         
         pthread_mutex_unlock(&audio->mutex);
-            
+        
         if (audio->terminate == 1) {
             pa_simple_free(s);
             break;

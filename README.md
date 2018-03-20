@@ -1,7 +1,7 @@
-## GLava
+
 <img align="left" width="200" height="200" src="https://thumbs.gfycat.com/DefiantInformalIndianspinyloach-size_restricted.gif" />
 
-GLava is an OpenGL audio spectrum visualizer. Its primary use case is for desktop windows or backgrounds. Displayed to the left is the `radial` shader module, and [here is a demonstration video](https://streamable.com/dgpj8). Development is active, and reporting issues is encouranged.
+**GLava** is an OpenGL audio spectrum visualizer. Its primary use case is for desktop windows or backgrounds. Displayed to the left is the `radial` shader module, and [here is a demonstration video](https://streamable.com/dgpj8). Development is active, and reporting issues is encouranged.
 
 **Compiling** (Or use the [`glava-git` AUR package](https://aur.archlinux.org/packages/glava-git/))**:**
 
@@ -31,7 +31,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
-sudo apt-get install libpulse libpulse-dev libglfw3 libglfw3-dev libxext6 libxext6-dev python make gcc
+sudo apt-get install libpulse0 libpulse-dev libglfw3 libglfw3-dev libglx0 libxext6 libxext-dev python make gcc 
 ```
 
 ## [Configuration](https://github.com/wacossusca34/glava/wiki)
@@ -51,10 +51,11 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | WM | ! | Details
 | :---: | --- | --- |
 | Mutter (GNOME, Budgie) | ![-](https://placehold.it/15/118932/000000?text=+) | `"native"` (default) opacity should be used
-| Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | [Some tweaks may be required](https://www.reddit.com/r/unixporn/comments/7vcgi4/oc_after_receiving_positive_feedback_here_i/dtrkvja/)
+| Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
-| iceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No notable issues
+| IceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
+| Bspwm | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Herbstluftwm | ![-](https://placehold.it/15/118932/000000?text=+) | `hc rule windowtype~'_NET_WM_WINDOW_TYPE_DESKTOP' manage=off` can be used to unmanage desktop windows
 | AwesomeWM | ![-](https://placehold.it/15/f09c00/000000?text=+) | Can still be focused, may require other changes to config depending on layout
 | kwin (KDE) | ![-](https://placehold.it/15/f09c00/000000?text=+) | [Issues with workspaces and stacking](https://github.com/wacossusca34/glava/issues/4), needs further testing
@@ -62,8 +63,7 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
 | Unity | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
-| Bspwm | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
-| xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
+| Xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Any non EWMH-compliant WM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Window types and hints will not work if the window manager does not support the EWMH standards.
 
 ## Licensing
