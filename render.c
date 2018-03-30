@@ -314,6 +314,14 @@ static GLuint shaderbuild_f(struct gl_data* gl,
     return shaderlink_f(shaders);
 }
 
+/* Load and compile simple fragment and vertex shader without any processing */
+GLuint simple_shaderbuild(const char* vertex_source, const char* fragment_source) {
+    return shaderlink(shaderload(NULL, GL_VERTEX_SHADER, vertex_source,
+                                                NULL, NULL, 330, true, gl),
+                                     shaderload(NULL, GL_FRAGMENT_SHADER, fragment_source,
+                                                NULL, NULL, 330, true, gl));
+}
+
 static GLuint create_1d_tex() {
     GLuint tex;
     glGenTextures(1, &tex);
@@ -464,7 +472,7 @@ static struct gl_bind_src bind_sources[] = {
 };
 
 #define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * (double) t  / (double)(sz - 1))))
-#define ALLOC_ONCE(u, udata, ...)                    \
+#define ALLOC_ONCE(u, udata, ...)               \
     if (*udata == NULL) {                       \
         u = malloc(sizeof(*u));                 \
         *u = (typeof(*u)) __VA_ARGS__;          \
@@ -1388,10 +1396,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 "    fragment.a = 1.0F;"                                                             "\n"
                 "}"                                                                                  "\n";
             if (!setup) {
-                bg_prog = shaderlink(shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC,
-                                                NULL, NULL, 330, true, gl),
-                                     shaderload(NULL, GL_FRAGMENT_SHADER, frag_shader,
-                                                NULL, NULL, 330, true, gl));
+                bg_prog   = simple_shaderbuild(VERTEX_SHADER_SRC, frag_shader);
                 bg_utex   = glGetUniformLocation(bg_prog, "tex");
                 bg_screen = glGetUniformLocation(bg_prog, "screen");
                 glBindFragDataLocation(bg_prog, 1, "fragment");
