@@ -79,4 +79,8 @@ struct gl_wcb {
         WCB_FUNC(get_x11_window)                \
     }
 
+#ifdef GLAVA_RD_INTERNAL
+GLuint simple_shaderbuild(const char* vertex_source, const char* fragment_source);
+#endif
+
 #endif /* RENDER_H */
