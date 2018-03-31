@@ -9,6 +9,9 @@ typedef struct renderer {
     size_t  bufsize_request, rate_request, samplesize_request;
     char*   audio_source_request;
     struct gl_data* gl;
+    #ifdef GLAVA_UI
+    struct bindings* bd;
+    #endif
 } renderer;
 
 struct renderer* rd_new            (const char** paths, const char* entry,
@@ -79,8 +82,10 @@ struct gl_wcb {
         WCB_FUNC(get_x11_window)                \
     }
 
+/* Some internal rendering functions that can be used elsewhere in GLava */
 #ifdef GLAVA_RD_INTERNAL
-GLuint simple_shaderbuild(const char* vertex_source, const char* fragment_source);
+GLuint simple_shaderbuild (struct renderer* r, const char* vertex_source, const char* fragment_source);
+void   setup_fbo_tex      (GLuint fbo, GLuint tex, int w, int h);
 #endif
 
 #endif /* RENDER_H */

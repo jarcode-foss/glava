@@ -1,3 +1,5 @@
+#ifdef GLAVA_UI
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -5,11 +7,14 @@
 
 #include <glad/glad.h>
 #include <ft2build.h>
+#include FT_FREETYPE_H
 
 #define GLAVA_RD_INTERNAL
 #include "render.h"
 
 #include "ui.h"
+
+#define UI_TEXTURE_SLOT 4
 
 /*
   FONT RENDERING: We take the codepoint from each UTF-8 character, then split it
@@ -213,6 +218,15 @@ static void charmap_load(uint32_t t, FT_Face face) {
     }
 }
 
+struct tex_uniforms {
+    GLuint tex;
+    GLuint tex_coords;
+    GLuint tex_off;
+    GLuint tex_sz;
+    GLuint tex_ignore;
+    GLuint tex_color;
+};
+
 /* Shader program IDs */
 
 static GLuint sh_fontprog; /* for font rendering */
@@ -224,7 +238,8 @@ static GLuint uf_screen, uf_screen_pos, uf_color;
 /* Shader uniforms */
 static GLuint u_screen, u_screen_pos;
 
-struct tex_uniforms tu_primary; /* old: tu_init */
+struct tex_uniforms tu_normal; /* old: tu_init */
+struct tex_uniforms tu_font;
 
 static void tuniforms(struct tex_uniforms* tu, GLuint shader) {
     tu->tex        = glGetUniformLocation(shader, "tex");
@@ -280,36 +295,27 @@ void ui_box_release(struct box_data* d) {
 }
 
 /* draw a box represented by 'd', using the texture uniforms specified by 'tu' (if not NULL) */
-void ui_box_draw(const struct box_data* d, struct tex_uniforms* tu) {
+static void ui_box_render(const struct box_data* d, struct tex_uniforms* tu) {
     glBindVertexArray(d->vao);
     if (tu) {
         if (d->tex) {
-            glActiveTexture(GL_TEXTURE0 + active_tex_idx);
+            glActiveTexture(GL_TEXTURE0 + UI_TEXTURE_SLOT);
             glBindTexture(GL_TEXTURE_2D, d->tex);
-            glUniform1i(tu->tex, active_tex_idx);
+            glUniform1i(tu->tex, UI_TEXTURE_SLOT);
             
             GLint tex_w, tex_h;
             glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &tex_w);
             glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &tex_h);
             
             glUniform2i(tu->tex_coords, d->tex_pos.x, d->tex_pos.y);
-            if (use_global_pos_offset_b || use_global_pos_offset_t) {
-                glUniform2i(tu->tex_off, d->geometry.x + ((d->g_pos.x - screen_x) * scale),
-                              d->geometry.y + ((d->g_pos.y - screen_y) * scale));
-            } else {
-                glUniform2i(tu->tex_off, d->geometry.x - (ignore_screen_pos ? 0 : screen_x),
-                              d->geometry.y - (ignore_screen_pos ? 0 : screen_y));
-            }
+            glUniform2i(tu->tex_off, d->geometry.x, d->geometry.y);
             glUniform2i(tu->tex_sz, tex_w, tex_h);
         }
         glUniform1i(tu->tex_ignore, !d->tex);
-        glUniform4f(tu->tex_color, d->tex_color.r, d->tex_color.g, d->tex_color.b, d->tex_color.a);
-        
-        if (use_global_pos_offset_b) {
-            glUniform2i(uniform_global_pos_b, d->g_pos.x, d->g_pos.y);
-        } else if (use_global_pos_offset_t) {
-            glUniform2i(uniform_global_pos_t, d->g_pos.x, d->g_pos.y);
-        }
+        glUniform4f(tu->tex_color,
+                    d->tex_color.r * d->tex_color.a,
+                    d->tex_color.g * d->tex_color.a,
+                    d->tex_color.b * d->tex_color.a, d->tex_color.a);
     }
     
     glEnableVertexAttribArray(0);
@@ -319,19 +325,23 @@ void ui_box_draw(const struct box_data* d, struct tex_uniforms* tu) {
     glBindVertexArray(0);
 }
 
+void ui_box_draw(const struct box_data* d) { ui_box_render(d, &tu_normal); }
+
 void ui_layer(struct layer_data* d, uint32_t w, uint32_t h) {
     glGenFramebuffers(1, &d->fbo);
     glGenTextures(1, &d->frame.tex);
     setup_fbo_tex(d->fbo, d->frame.tex, w, h);
-    d->frame.geometry  = (struct geometry) { .x = 0, .y = 0, .w = w, .h = h             };
-    d->frame.tex_pos   = (struct position) { .x = 0, .y = 0                             };
-    d->frame.tex_color = (struct color   ) { .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f };
+    d->frame.geometry  = (struct geometry) { .x = d->frame.geometry.x, .y = d->frame.geometry.y,
+                                             .w = w, .h = h };
+    d->frame.tex_pos   = (struct position) { .x = 0, .y = 0                                   };
+    d->frame.tex_color = (struct color   ) { .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f       };
+    ui_box(&d->frame);
 }
 
 void ui_layer_release(struct layer_data* d) {
     glDeleteTextures(1, &d->frame.tex);
     glDeleteFramebuffers(1, &d->fbo);
-    /* NOTE: freeing the underlying box_data (frame) is skipped here */
+    ui_box_release(&d->frame);
 }
 
 void ui_layer_resize(struct layer_data* d, uint32_t w, uint32_t h) {
@@ -343,19 +353,27 @@ void ui_layer_resize(struct layer_data* d, uint32_t w, uint32_t h) {
 }
 
 void ui_layer_draw(struct layer_data* d) {
+    
+    glUseProgram(sh_normal);
+    
+    glUniform2i(u_screen, d->frame.geometry.w, d->frame.geometry.h);
+    glUniform2i(u_screen_pos, 0, 0);
+    
     /*
       We need to fix tex_color to read 0 values, to avoid color masking (we use
       the value as the clear color for the framebuffer)
     */
     struct color tmp_color = d->frame.tex_color;
     d->frame.tex_color = (struct color) { .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f };
-    ui_box_draw(&d->frame, RD_STAGE_LAYER);
+    ui_box_draw(&d->frame);
     d->frame.tex_color = tmp_color;
 }
 
 void ui_layer_draw_contents(struct layer_data* d) {
     
     /* clear to the frame color */
+    GLint old;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &old);
     glBindFramebuffer(GL_FRAMEBUFFER, d->fbo);
     glClearColor(d->frame.tex_color.r, d->frame.tex_color.g, d->frame.tex_color.b, d->frame.tex_color.a);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -368,7 +386,7 @@ void ui_layer_draw_contents(struct layer_data* d) {
     glUniform2i(u_screen, d->frame.geometry.w, d->frame.geometry.h);
     glUniform2i(u_screen_pos, 0, 0);
     
-    stage_functions[RD_STAGE_UI_SCREEN]();
+    if (d->render_cb) d->render_cb(d->udata);
     
     /* stage: UI font (screen positioning) */
     
@@ -378,9 +396,9 @@ void ui_layer_draw_contents(struct layer_data* d) {
     glUniform3f(uf_color, 1.0f, 1.0f, 1.0f);
     glUniform2i(uf_screen_pos, 0, 0);
     
-    stage_functions[RD_STAGE_FONT_SCREEN]();
-        
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (d->font_cb) d->font_cb(d->udata);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, old > 0 ? (GLuint) old : 0); /* restore old framebuffer */
     
     // glUseProgram(sh_init);
     /* and ensure the viewport is set correctly (OLD) */
@@ -412,16 +430,6 @@ void ui_text_set_pos(struct text_data* d, struct position p) {
     d->position = p;
 }
 
-void ui_text_set_g_pos(struct text_data* d, struct position p) {
-    size_t t;
-    for (t = 0; t < d->num_boxes; ++t) {
-        struct box_data* b = d->boxes + t;
-        b->g_pos.x = p.x;
-        b->g_pos.y = p.y;
-    }
-    d->g_pos = p;
-}
-
 int32_t ui_get_advance_for(uint32_t cp) {
     uint32_t x = CM_X(cp), y = CM_Y(cp), t = CM_T(cp);
     uint32_t idx = ((y * (char_map_res / CM_CHAR_SPACE)) + x);
@@ -450,7 +458,6 @@ void ui_text_char(struct text_data* d, size_t n, uint32_t cp, uint32_t off,
     bd->tex_pos.y = CM_CHAR_SPACE * y;
     bd->tex = char_maps[t];
     bd->tex_color = color;
-    bd->g_pos = d->g_pos;
     ui_box(bd);
 }
 
@@ -481,11 +488,27 @@ void ui_text_size(struct text_data* d, size_t s) {
     }
 }
 
-/* draw text represented by 'd', using the texture uniforms specified by 'tu' (if not NULL) */
-void ui_text_draw(const struct text_data* d, struct tex_uniforms* tu) {
+void ui_text_contents(struct text_data* d, const char* str, size_t str_len, struct color color) {
+    size_t cp_len = 0;
+    for (utf8_iter_s(str, str_len, _))
+        cp_len++;
+
+    ui_text_size(d, cp_len);
+
+    size_t   idx = 0;
+    uint32_t adv = 0;
+    for (utf8_iter_s(str, str_len, c)) {
+        ui_text_char(d, idx, (uint32_t) *c, adv, color);
+        adv += ui_get_advance_for((uint32_t) *c);
+        idx++;
+    }
+}
+
+/* draw text represented by 'd' */
+void ui_text_draw(const struct text_data* d) {
     size_t t;
     for (t = 0; t < d->num_boxes; ++t) {
-        ui_box_draw(&d->boxes[t], tu);
+        ui_box_render(&d->boxes[t], &tu_font);
     }
 }
 
@@ -540,6 +563,7 @@ static const char* src_font_frag =
     "uniform ivec2      tex_coords;" /* positon of tile in texture */                                    "\n"
     "uniform ivec2      tex_off;"    /* render offset (position in screen space) */                      "\n"
     "uniform ivec2      tex_sz;"     /* texture dimensions */                                            "\n"
+    "uniform bool       tex_ignore;"                                                                     "\n"
     "uniform vec4       tex_color;"  /* font color */                                                    "\n"
 
     "out vec4 fragment;" /* output */
@@ -548,11 +572,12 @@ static const char* src_font_frag =
     "    float fx = (float(tex_coords.x + (int(gl_FragCoord.x) - tex_off.x)) + 0.5F) / float(tex_sz.x);" "\n"
     "    float fy = (float(tex_coords.y + (int(gl_FragCoord.y) - tex_off.y)) + 0.5F) / float(tex_sz.y);" "\n"
     "    fragment = vec4(tex_color.rgb, tex_color.a * texture(tex, vec2(fx, fy)).r);"                    "\n"
+    "    fragment.rgb *= fragment.a; "                                                                   "\n"
     "}"                                                                                                  "\n";
 
 /* general texturing shader, maps textures in screen coords */
 static const char* src_texture_frag =
-    "layout(pixel_center_integer) in vec4 gl_FragCoord;"                                   "\n"
+    "in vec4 gl_FragCoord;"                                                                "\n"
     "uniform sampler2D  tex;"        /* texture sheet */                                   "\n"
     "uniform ivec2      tex_coords;" /* positon of tile in texture */                      "\n"
     "uniform ivec2      tex_off;"    /* render offset (position in screen space) */        "\n"
@@ -572,24 +597,30 @@ static const char* src_texture_frag =
     "    } else fragment = tex_color;"                                                     "\n"
     "}"                                                                                    "\n";
 
-void ui_init(void) {
+void ui_init(struct renderer* r) {
     if (!font_set) {
         fprintf(stderr, "Font was not set before calling ui_init!\n");
         abort();
     }
 
-    sh_normal = simple_shaderbuild(src_translate_vert, src_texture_frag);
+    sh_normal = simple_shaderbuild(r, src_translate_vert, src_texture_frag);
     glUseProgram(sh_normal);
     u_screen     = glGetUniformLocation(sh_normal, "screen");
     u_screen_pos = glGetUniformLocation(sh_normal, "screen_pos");
     glBindFragDataLocation(sh_normal, 1, "fragment");
+    tuniforms(&tu_normal, sh_normal);
     glUseProgram(0);
 
-    sh_fontprog = simple_shaderbuild(src_translate_vert, src_font_frag);
+    sh_fontprog = simple_shaderbuild(r, src_translate_vert, src_font_frag);
     glUseProgram(sh_fontprog);
     uf_screen     = glGetUniformLocation(sh_fontprog, "screen");
     uf_screen_pos = glGetUniformLocation(sh_fontprog, "screen_pos");
     uf_color      = glGetUniformLocation(sh_fontprog, "font_color");
     glBindFragDataLocation(sh_fontprog, 1, "fragment");
+    tuniforms(&tu_font, sh_fontprog);
     glUseProgram(0);
+    
+    charmap_init();
 }
+
+#endif /* GLAVA_UI */

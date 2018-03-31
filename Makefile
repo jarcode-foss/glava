@@ -4,11 +4,11 @@ obj = $(src:.c=.o)
 # Build type parameter
 
 ifeq ($(BUILD),debug)
-    CFLAGS_BUILD = -O0 -ggdb -Wall -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls
+    CFLAGS_USE += -O0 -ggdb -Wall # -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls
     GLAD_GEN = c-debug
-    ASAN = -lasan
+    # LDFLAGS += -lasan
 else
-    CFLAGS_BUILD = -O2 -march=native
+    CFLAGS_USE += -O2 -march=native
     GLAD_GEN = c
 endif
 
@@ -26,11 +26,11 @@ endif
 # Install type parameter
 
 ifeq ($(INSTALL),standalone)
-    CFLAGS_INSTALL = -DGLAVA_STANDALONE
+    CFLAGS_USE += -DGLAVA_STANDALONE
 endif
 
 ifeq ($(INSTALL),unix)
-    CFLAGS_INSTALL = -DGLAVA_UNIX
+    CFLAGS_USE += -DGLAVA_UNIX
     ifdef XDG_CONFIG_DIRS
         SHADER_DIR = $(firstword $(subst :, ,$XDG_CONFIG_DIR))/glava
     else
@@ -38,22 +38,33 @@ ifeq ($(INSTALL),unix)
     endif
 endif
 
-ifndef DISABLE_GLFW
-    CFLAGS_GLFW = -DGLAVA_GLFW
-    LDFLAGS_GLFW = -lglfw
-endif
-
-ifndef DISABLE_GLX
-    CFLAGS_GLX = -DGLAVA_GLX
-    LDFLAGS_GLX = -lGLX -lXrender
-endif
-
 ifeq ($(INSTALL),osx)
-    CFLAGS_INSTALL = -DGLAVA_OSX
+    CFLAGS_USE += -DGLAVA_OSX
     SHADER_DIR = Library/glava
 endif
 
-LDFLAGS += $(ASAN) -lpulse -lpulse-simple -pthread $(LDFLAGS_GLFW) -ldl -lm -lX11 -lXext $(LDFLAGS_GLX)
+ifndef DISABLE_GLFW
+    CFLAGS_USE += -DGLAVA_GLFW
+    LDFLAGS += -lglfw
+endif
+
+ifndef DISABLE_GLX
+    CFLAGS_USE += -DGLAVA_GLX
+    LDFLAGS += -lGLX -lXrender
+endif
+
+ifndef DISABLE_UI
+    ifneq ($(shell ls /usr/lib/libluajit-5.1.so 2>/dev/null),)
+        LDFLAGS += -lluajit-5.1
+        CFLAGS_USE += -DGLAVA_LUAJIT
+    else
+        LDFLAGS += -llua
+        CFLAGS_USE += -DGLAVA_LUA
+    endif
+	CFLAGS_USE += -DGLAVA_UI
+endif
+
+LDFLAGS += -lfreetype -lpulse -lpulse-simple -pthread -ldl -lm -lX11 -lXext
 
 PYTHON = python
 
@@ -65,8 +76,7 @@ endif
 GLAD_INSTALL_DIR = glad
 GLAD_SRCFILE = ./glad/src/glad.c
 GLAD_ARGS = --generator=$(GLAD_GEN) --extensions=GL_EXT_framebuffer_multisample,GL_EXT_texture_filter_anisotropic
-CFLAGS_COMMON = -I glad/include -DGLAVA_VERSION="$(GLAVA_VERSION)"
-CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_GLX) $(CFLAGS_GLFW) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
+CFLAGS_USE += -I/usr/include/freetype2 -I glad/include -DGLAVA_VERSION="$(GLAVA_VERSION)" $(CFLAGS)
 
 all: glava
 

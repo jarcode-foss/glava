@@ -18,6 +18,7 @@
 #include "render.h"
 #include "xwin.h"
 #include "glsl_ext.h"
+#include "bindings.h"
 
 #define TWOPI 6.28318530718
 #define PI 3.14159265359
@@ -315,7 +316,8 @@ static GLuint shaderbuild_f(struct gl_data* gl,
 }
 
 /* Load and compile simple fragment and vertex shader without any processing */
-GLuint simple_shaderbuild(const char* vertex_source, const char* fragment_source) {
+GLuint simple_shaderbuild(struct renderer* r, const char* vertex_source, const char* fragment_source) {
+    struct gl_data* gl = r->gl;
     return shaderlink(shaderload(NULL, GL_VERTEX_SHADER, vertex_source,
                                                 NULL, NULL, 330, true, gl),
                                      shaderload(NULL, GL_FRAGMENT_SHADER, fragment_source,
@@ -351,10 +353,7 @@ static void update_1d_tex(GLuint tex, size_t w, float* data) {
 
 /* setup screen framebuffer object and its texture */
 
-static void setup_sfbo(struct gl_sfbo* s, int w, int h) {
-    GLuint tex = s->valid ? s->tex : ({ glGenTextures(1, &s->tex); s->tex; });
-    GLuint fbo = s->valid ? s->fbo : ({ glGenFramebuffers(1, &s->fbo); s->fbo; });
-    s->valid = true;
+void setup_fbo_tex(GLuint fbo, GLuint tex, int w, int h) {
     /* bind texture and setup space */
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -371,6 +370,15 @@ static void setup_sfbo(struct gl_sfbo* s, int w, int h) {
         abort();
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void setup_sfbo(struct gl_sfbo* s, int w, int h) {
+    if (!s->valid) {
+        glGenTextures    (1, &s->tex);
+        glGenFramebuffers(1, &s->fbo);
+    }
+    setup_fbo_tex(s->fbo, s->tex, w, h);
+    s->valid = true;
 }
 
 static void overlay(struct overlay_data* d) {
@@ -1095,10 +1103,11 @@ struct renderer* rd_new(const char** paths, const char* entry,
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_MULTISAMPLE);
     glDisable(GL_LINE_SMOOTH);
-
+    
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
     if (!gl->premultiply_alpha) {
         glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
     
     size_t m_len = strlen(module);
@@ -1266,6 +1275,17 @@ struct renderer* rd_new(const char** paths, const char* entry,
     
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
 
+    #ifdef GLAVA_UI
+    
+    const char* bd_file = "util/entry.lua";
+    size_t e_len = strlen(bd_file);
+    size_t bdsz = d_len + e_len + 2;
+    char bd_entry[bdsz];
+    snprintf(bd_entry, bdsz, "%s/%s", data, bd_file);
+    r->bd = bd_init(r, data, bd_entry);
+    
+    #endif
+
     gl->wcb->set_visible(gl->w, true);
     
     return r;
@@ -1366,7 +1386,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     
     for (t = 0; t < gl->stages_sz; ++t) {
 
-        bool load_flags[64] = { [ 0 ... 63 ] = false }; /* Load flags for each texture position */
+        bool load_flags[4] = { [ 0 ... 3 ] = false }; /* Load flags for each texture position */
         
         /* Current shader program */
         struct gl_sfbo* current = &gl->stages[t];
@@ -1396,7 +1416,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 "    fragment.a = 1.0F;"                                                             "\n"
                 "}"                                                                                  "\n";
             if (!setup) {
-                bg_prog   = simple_shaderbuild(VERTEX_SHADER_SRC, frag_shader);
+                bg_prog   = simple_shaderbuild(r, VERTEX_SHADER_SRC, frag_shader);
                 bg_utex   = glGetUniformLocation(bg_prog, "tex");
                 bg_screen = glGetUniformLocation(bg_prog, "screen");
                 glBindFragDataLocation(bg_prog, 1, "fragment");
@@ -1578,6 +1598,20 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         memcpy(gl->interpolate_buf[IB_END_LEFT   ], lb, fbsz);
         memcpy(gl->interpolate_buf[IB_END_RIGHT  ], rb, fbsz);
     }
+
+    /* UI drawings always have premultiplied alpha. In order to combine it with the
+       visualizer, we need to blend it with the existing pixel data from the rendering. */
+    #ifdef GLAVA_UI
+    
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); /* Formula for premultiplied alpha */
+        
+    bd_frame(r->bd);
+
+    glDisable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); /* Restore old func for `xroot` blending */
+    
+    #endif /* GLAVA_UI */
 
     /* Swap buffers, handle events, etc. (vsync is potentially included here, too) */
     gl->wcb->swap_buffers(gl->w);
