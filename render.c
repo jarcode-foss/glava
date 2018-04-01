@@ -18,6 +18,7 @@
 #include "render.h"
 #include "xwin.h"
 #include "glsl_ext.h"
+#include "ui.h"
 #include "bindings.h"
 
 #define TWOPI 6.28318530718
@@ -1029,6 +1030,14 @@ struct renderer* rd_new(const char** paths, const char* entry,
                     };
                 })
         },
+        {
+            .name = "*", .fmt = NULL,
+            .handler = RHANDLER(name, args, {
+                    #ifdef GLAVA_UI
+                    bd_request(r->bd, name, (const char**) args);
+                    #endif
+                })
+        },
         { .name = NULL }
     };
     
@@ -1061,6 +1070,17 @@ struct renderer* rd_new(const char** paths, const char* entry,
             } else continue;
         }
         fstat(fd, &st);
+
+        /* Load Lua code first, if enabled, so we can handle requests in scripts */
+        
+        #ifdef GLAVA_UI
+        const char* bd_file = "util/entry.lua";
+        size_t e_len = strlen(bd_file);
+        size_t bdsz = d_len + e_len + 2;
+        char bd_entry[bdsz];
+        snprintf(bd_entry, bdsz, "%s/%s", data, bd_file);
+        r->bd = bd_init(r, data, bd_entry);
+        #endif
 
         const char* map = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
@@ -1274,16 +1294,10 @@ struct renderer* rd_new(const char** paths, const char* entry,
     overlay(&gl->overlay);
     
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
-
+    
     #ifdef GLAVA_UI
-    
-    const char* bd_file = "util/entry.lua";
-    size_t e_len = strlen(bd_file);
-    size_t bdsz = d_len + e_len + 2;
-    char bd_entry[bdsz];
-    snprintf(bd_entry, bdsz, "%s/%s", data, bd_file);
-    r->bd = bd_init(r, data, bd_entry);
-    
+    ui_set_font("/usr/share/fonts/TTF/DejaVuSansMono.ttf", 14);
+    ui_init(r);
     #endif
 
     gl->wcb->set_visible(gl->w, true);
@@ -1667,6 +1681,7 @@ struct gl_wcb* rd_get_wcb         (struct renderer* r)  { return r->gl->wcb; }
 
 void rd_destroy(struct renderer* r) {
     /* TODO: delete everything else, not really needed though (as the application exits after here) */
+    r->gl->wcb->destroy(r->gl->w);
     free(r->gl);
     free(r);
 }

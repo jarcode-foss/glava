@@ -47,6 +47,7 @@ struct gl_wcb {
     double   (*get_time)       (void* ptr);
     void     (*set_time)       (void* ptr, double time);
     void     (*set_visible)    (void* ptr, bool visible);
+    void     (*destroy)        (void* ptr);
     #ifdef GLAVA_RDX11
     Display* (*get_x11_display)(void);
     Window   (*get_x11_window) (void* ptr);
@@ -78,6 +79,7 @@ struct gl_wcb {
         WCB_FUNC(set_time),                     \
         WCB_FUNC(get_time),                     \
         WCB_FUNC(set_visible),                  \
+        WCB_FUNC(destroy),                      \
         WCB_FUNC(get_x11_display),              \
         WCB_FUNC(get_x11_window)                \
     }

@@ -97,6 +97,11 @@ static void* create_and_bind(const char* name, const char* class,
     return w;
 }
 
+static void destroy(GLFWwindow* w) {
+    glfwDestroyWindow(w);
+    glfwTerminate();
+}
+
 static void set_transparent(bool transparent) {
     #ifdef GLFW_TRANSPARENT_FRAMEBUFFER
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, transparent ? GLFW_TRUE : GLFW_FALSE);

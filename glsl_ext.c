@@ -159,6 +159,8 @@ static struct schar directive(struct glsl_ext* ext, char** args,
             .sz  = next.p_len
         };
 
+        munmap(map, st.st_size);
+
         return ret;
     } else {
 
@@ -166,12 +168,17 @@ static struct schar directive(struct glsl_ext* ext, char** args,
             char* request = args[0];
 
             struct request_handler* handler;
-            bool found = false;
-            size_t t;
+            bool found = false, has_default = false;
+            size_t t, default_idx;
             for (t = 0; (handler = &ext->handlers[t])->name != NULL; ++t) {
-                if(!strcmp(handler->name, request)) {
+                if (handler->name[0] == '*' && handler->name[1] == '\0') {
+                    default_idx = t;
+                    has_default = true;
+                    continue;
+                }
+                if (!strcmp(handler->name, request)) {
                     found = true;
-                    void** processed_args = malloc(strlen(handler->fmt) * sizeof(void*));
+                    void* processed_args[strlen(handler->fmt) * sizeof(void*)];
                     
                     char c;
                     size_t i;
@@ -231,11 +238,15 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                     for (i = 0; (c = handler->fmt[i]) != '\0'; ++i)
                         if (c != 's')
                             free(processed_args[i]);
-                    free(processed_args);
                 }
             }
-            if (!found) {
-                parse_error(line, f, "unknown request type '%s'", request);
+            if (!has_default) {
+                if (!found) parse_error(line, f, "unknown request type '%s'", request);
+            } else {
+                void* ntargs[args_sz];
+                ntargs[args_sz - 1] = NULL;
+                memcpy(ntargs, &args[1], (args_sz - 1) * sizeof(char*));
+                ext->handlers[default_idx].handler(request, ntargs);
             }
         }
         
@@ -467,8 +478,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         if (r.buf) {
                             n_append(&sbuf, r.sz, r.buf);
                             append(&sbuf, "\n");
+                            free(r.buf);
                         }
-                        munmap(r.buf, r.sz);
                         state = LINE_START;
                     }
                     break;

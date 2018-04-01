@@ -350,6 +350,7 @@ void ui_layer_resize(struct layer_data* d, uint32_t w, uint32_t h) {
     glBindTexture(GL_TEXTURE_2D, 0);
     d->frame.geometry.w = w;
     d->frame.geometry.h = h;
+    ui_box(&d->frame);
 }
 
 void ui_layer_draw(struct layer_data* d) {

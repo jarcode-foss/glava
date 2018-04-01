@@ -227,6 +227,12 @@ static void* create_and_bind(const char* name, const char* class,
     return w;
 }
 
+static void destroy(struct glxwin* w) {
+    glXDestroyContext(display, w->context);
+    XDestroyWindow(display, w->w);
+    XCloseDisplay(display);
+}
+
 static void set_swap       (int  _swap)        { swap        = _swap;        }
 static void set_floating   (bool _floating)    { floating    = _floating;    }
 static void set_decorated  (bool _decorated)   { decorated   = _decorated;   }
