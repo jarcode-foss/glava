@@ -97,6 +97,7 @@ void ui_text_char          (struct text_data* d, size_t n, uint32_t cp, uint32_t
 void ui_text_size          (struct text_data* d, size_t s);
 void ui_text_draw          (const struct text_data* d);
 void ui_text_contents      (struct text_data* d, const char* str, size_t str_len, struct color color);
+void ui_text_set_pos       (struct text_data* d, struct position p);
 void ui_text_release       (struct text_data* d);
 
 void ui_set_font           (const char* path, int32_t size);

@@ -464,7 +464,7 @@ void ui_text_char(struct text_data* d, size_t n, uint32_t cp, uint32_t off,
 
 /* resize the underlying box array for 's' amount of characters */
 void ui_text_size(struct text_data* d, size_t s) {
-        size_t t;
+    size_t t;
     if (!d->boxes) {
         d->num_boxes = s;
         d->boxes = malloc(sizeof(struct box_data) * s);
@@ -493,7 +493,7 @@ void ui_text_contents(struct text_data* d, const char* str, size_t str_len, stru
     size_t cp_len = 0;
     for (utf8_iter_s(str, str_len, _))
         cp_len++;
-
+    
     ui_text_size(d, cp_len);
 
     size_t   idx = 0;

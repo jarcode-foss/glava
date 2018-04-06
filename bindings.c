@@ -63,6 +63,119 @@ static int lui_get_advance_for(lua_State* L) {
     return 1;
 }
 
+#define lua_takenumber(L, name, ...)            \
+    do {                                        \
+        lua_pushstring(L, name);                \
+        lua_rawget(L, -2);                      \
+        if (lua_isnumber(L, -1)) {              \
+            __VA_ARGS__;                        \
+        }                                       \
+        lua_pop(L, 1);                          \
+    } while (0)
+
+#define lua_taketable(L, name, ...)             \
+    do {                                        \
+        lua_pushstring(L, name);                \
+        lua_rawget(L, -2);                      \
+        if (lua_istable(L, -1)) {               \
+            __VA_ARGS__;                        \
+        }                                       \
+        lua_pop(L, 1);                          \
+    } while (0)
+
+static int lui_text(lua_State* L) {
+    struct text_data* d = lua_newuserdata(L, sizeof(struct text_data));
+    *d = (struct text_data) {};
+    luaL_getmetatable(L, "ui.text");
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+static int lui_text_draw(lua_State* L) {
+    ui_text_draw(lua_checkuptr(L, 1, "text"));
+    return 0;
+}
+
+static int lui_text_position(lua_State* L) {
+    ui_text_set_pos(lua_checkuptr(L, 1, "text"), (struct position) {
+            .x = (uint32_t) luaL_checkinteger(L, 2), .y = (uint32_t) luaL_checkinteger(L, 3) });
+    return 0;
+}
+
+static int lui_text_contents(lua_State* L) {
+    struct text_data* d = lua_checkuptr(L, 1, "text");
+    size_t len;
+    const char* str = luaL_checklstring(L, 2, &len);
+    luaL_checktype(L, 3, LUA_TTABLE);
+    struct color color = { .a = 1.0F };
+    lua_settop(L, 3);
+    lua_takenumber(L, "r", color.r = lua_tonumber(L, -1));
+    lua_takenumber(L, "g", color.g = lua_tonumber(L, -1));
+    lua_takenumber(L, "b", color.b = lua_tonumber(L, -1));
+    lua_takenumber(L, "a", color.a = lua_tonumber(L, -1));
+    ui_text_contents(d, str, len, color);
+    return 0;
+}
+
+static int lui_text_release(lua_State* L) {
+    ui_text_release(lua_checkuptr(L, 1, "text"));
+    return 0;
+}
+
+static void handle_box_properties(lua_State* L, struct box_data* d) {
+    lua_takenumber(L, "tex", d->tex = lua_tointeger(L, -1));
+    lua_taketable(L, "tex_color", {
+            lua_takenumber(L, "r", d->tex_color.r = lua_tonumber(L, -1));
+            lua_takenumber(L, "g", d->tex_color.g = lua_tonumber(L, -1));
+            lua_takenumber(L, "b", d->tex_color.b = lua_tonumber(L, -1));
+            lua_takenumber(L, "a", d->tex_color.a = lua_tonumber(L, -1));
+        });
+    lua_taketable(L, "tex_pos", {
+            lua_takenumber(L, "x", d->tex_pos.x = (int32_t) lua_tointeger(L, -1));
+            lua_takenumber(L, "y", d->tex_pos.y = (int32_t) lua_tointeger(L, -1));
+        });
+    lua_taketable(L, "geometry", {
+            lua_takenumber(L, "x", d->geometry.x = (int32_t) lua_tointeger(L, -1));
+            lua_takenumber(L, "y", d->geometry.x = (int32_t) lua_tointeger(L, -1));
+            lua_takenumber(L, "w", d->geometry.x = (int32_t) lua_tointeger(L, -1));
+            lua_takenumber(L, "h", d->geometry.x = (int32_t) lua_tointeger(L, -1));
+        });
+    
+    lua_pop(L, 1); /* pop table */
+}
+
+static int lui_box(lua_State* L) {
+    struct box_data* d = lua_newuserdata(L, sizeof(struct box_data));
+    *d = (struct box_data) {};
+    luaL_getmetatable(L, "ui.box");
+    lua_setmetatable(L, -2);
+    if (lua_istable(L, 1)) {
+        lua_pushvalue(L, 1); /* create copy of table arg for top of stack */
+        handle_box_properties(L, d);
+    }
+    ui_box(d);
+    return 1;
+}
+
+static int lui_box_properties(lua_State* L) {
+    struct box_data* d = lua_checkuptr(L, 1, "box");
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_settop(L, 2); /* make sure the table arg is the last/top value in the stack */
+    handle_box_properties(L, d);
+    ui_box(d);
+    return 0;
+}
+
+static int lui_box_draw(lua_State* L) {
+    ui_box_draw(lua_checkuptr(L, 1, "box"));
+    return 0;
+}
+
+static int lui_box_release(lua_State* L) {
+    ui_box_release(lua_checkuptr(L, 1, "box"));
+    return 0;
+}
+
 static int lui_layer(lua_State* L) {
     uint32_t
         w = (uint32_t) luaL_checkinteger(L, 1),
@@ -89,26 +202,29 @@ static void layer_perrcall(lua_State* L) {
                 "Error while running Lua error handler:\n%s\n", lua_tostring(L, -1));
     }
 }
+    
+static void render_cb(void* udata) {
+    lua_State* L = udata;
+    lua_pushvalue(L, 2);
+    if (lua_isfunction(L, -1))
+        layer_perrcall(L);
+}
+    
+static void font_cb(void* udata) {
+    lua_State* L = udata;
+    lua_pushvalue(L, 3);
+    if (lua_isfunction(L, -1))
+        layer_perrcall(L);
+}
 
 static int lui_layer_handlers(lua_State* L) {
     struct layer_data* d = lua_checkuptr(L, 1, "layer");
     luaL_checktype(L, 2, LUA_TFUNCTION);
     luaL_checktype(L, 3, LUA_TFUNCTION);
-    
-    void render_cb(void* udata) {
-        lua_State* L = udata;
-        lua_pushvalue(L, 2);
-        layer_perrcall(L);
-    }
-    
-    void font_cb(void* udata) {
-        lua_State* L = udata;
-        lua_pushvalue(L, 3);
-        layer_perrcall(L);
-    }
 
     d->render_cb = render_cb;
     d->font_cb   = font_cb;
+    d->udata     = L;
 
     lua_getglobal(L, "__layer_handlers");
     if (!lua_istable(L, -1)) {
@@ -127,22 +243,9 @@ static int lui_layer_handlers(lua_State* L) {
     
     return 0;
 }
+
 static int lui_layer_draw(lua_State* L) {
-    struct layer_data* d = lua_checkuptr(L, 1, "layer");
-    lua_getglobal(L, "__layer_handlers");
-    if (lua_istable(L, -1)) {
-        lua_pushvalue(L, 1);   /* udata key*/
-        lua_rawget(L, -1);     /* index and pop key, return table */
-        if (lua_istable(L, -1)) {
-            lua_rawgeti(L, -1, 1); /* render callback */
-            lua_rawgeti(L, -2, 2); /* font callback */
-            lua_remove(L, 2);      /* remove tables from stack */
-            lua_remove(L, 3);      /* ^ */
-        }
-    }
-    /* stack layout should be (layer, render function, font function),
-       unless the callback functions are NULL */
-    ui_layer_draw(d);
+    ui_layer_draw(lua_checkuptr(L, 1, "layer"));
     return 0;
 }
 
@@ -162,9 +265,24 @@ static int lui_layer_resize(lua_State* L) {
 }
 
 static int lui_layer_draw_contents(lua_State* L) {
-    ui_layer_draw_contents(lua_checkuptr(L, 1, "layer"));
+    struct layer_data* d = lua_checkuptr(L, 1, "layer");
+    lua_getglobal(L, "__layer_handlers");
+    if (lua_istable(L, -1)) {
+        lua_pushvalue(L, 1);   /* udata key*/
+        lua_rawget(L, -2);     /* index and pop key, return table */
+        if (lua_istable(L, -1)) {
+            lua_rawgeti(L, -1, 1); /* render callback */
+            lua_rawgeti(L, -2, 2); /* font callback */
+            lua_remove(L, 2);      /* remove tables from stack */
+            lua_remove(L, 3);      /* ^ */
+        }
+    }
+    /* stack layout should be (layer, render function, font function),
+       unless the callback functions are NULL */
+    ui_layer_draw_contents(d);
     return 0;
 }
+
 static int lui_layer_release(lua_State* L) {
     ui_layer_release(lua_checkuptr(L, 1, "layer"));
     return 0;
@@ -204,7 +322,7 @@ void bd_request(struct bindings* state, const char* request, const char** args) 
 static int lua_call_new(lua_State* L) {
     lua_pushvalue(L, lua_upvalueindex(1));
     lua_replace(L, 1); /* replace mt argument with function */
-    lua_call(L, lua_gettop(L), LUA_MULTRET);
+    lua_call(L, lua_gettop(L) - 1, LUA_MULTRET);
     return lua_gettop(L);
 }
 
@@ -220,13 +338,12 @@ static void lua_newtype(lua_State* L, const char* mtname, lua_CFunction construc
     lua_pushstring(L, "__index");
     lua_pushvalue(L, -2);
     lua_rawset(L, -3); /* @.__index = @ */
-    lua_pushstring(L, "mt");
     lua_newtable(L);   /* new mt */
     lua_pushstring(L, "__call");
     lua_pushcfunction(L, constructor); /* closure upvalue */
     lua_pushcclosure(L, lua_call_new, 1);
-    lua_rawset(L, -3); /* mt.__call = lua_call_new */
-    lua_rawset(L, -3); /* @.mt = mt */
+    lua_rawset(L, -3);       /* mt.__call = lua_call_new */
+    lua_setmetatable(L, -2); /* setmetatable(@, mt) */
     /* leave metatable on the stack */
 }
 
@@ -252,6 +369,21 @@ struct bindings* bd_init(struct renderer* r, const char* root, const char* entry
     lua_rawset_f(L, "resize",        lui_layer_resize);
     lua_rawset_f(L, "__gc",          lui_layer_release);
     lua_rawset(L, -3); /* ui.layer = layer */
+
+    lua_pushstring(L, "box");
+    lua_newtype(L,  "ui.box",     lui_box);
+    lua_rawset_f(L, "draw",       lui_box_draw);
+    lua_rawset_f(L, "properties", lui_box_properties);
+    lua_rawset_f(L, "__gc",       lui_box_release);
+    lua_rawset(L, -3); /* ui.box = box */
+
+    lua_pushstring(L, "text");
+    lua_newtype (L, "ui.text",  lui_text);
+    lua_rawset_f(L, "draw",     lui_text_draw);
+    lua_rawset_f(L, "position", lui_text_position);
+    lua_rawset_f(L, "contents", lui_text_contents);
+    lua_rawset_f(L, "__gc",     lui_text_release);
+    lua_rawset(L, -3); /* ui.text = text */
     
     lua_setglobal(L, "ui"); /* _G.ui = ui */
     
@@ -294,8 +426,31 @@ struct bindings* bd_init(struct renderer* r, const char* root, const char* entry
     return ret;
 }
 
-void bd_frame(struct bindings* ret) {
-    lua_State* L = ret->L;
+void bd_setup(struct bindings* state) {
+    lua_State* L = state->L;
+    lua_getglobal(L, "setup");
+    if (!lua_isfunction(L, -1)) {
+        fputs(FATAL_PREFIX "`setup` is not a Lua function! Did you forget to set it?\n", stderr);
+        exit(EXIT_FAILURE);
+    }
+    switch (lua_pcall(L, 0, 0, 0)) {
+    case LUA_ERRRUN:
+        fprintf(stderr, FATAL_PREFIX
+                "Uncaught error while running Lua setup function:\n%s\n", lua_tostring(L, -1));
+        exit(EXIT_FAILURE);
+    case LUA_ERRMEM:
+        fprintf(stderr, FATAL_PREFIX
+                "Memory error while running Lua setup function:\n%s\n", lua_tostring(L, -1));
+        exit(EXIT_FAILURE);
+    case LUA_ERRERR:
+        fprintf(stderr, FATAL_PREFIX
+                "Error while running Lua error handler:\n%s\n", lua_tostring(L, -1));
+        exit(EXIT_FAILURE);
+    }
+}
+
+void bd_frame(struct bindings* state) {
+    lua_State* L = state->L;
     lua_getglobal(L, "draw");
     if (!lua_isfunction(L, -1)) {
         fputs(FATAL_PREFIX "`draw` is not a Lua function! Did you forget to set it?\n", stderr);

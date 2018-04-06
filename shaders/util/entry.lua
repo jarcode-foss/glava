@@ -7,7 +7,27 @@ package.path = package.path
     .. ";" .. root_path .. "/?.lua"
     .. ";" .. root_path .. "/util/?.lua"
 
-draw = function() end
+-- called when the OpenGL context is properly initialized
+function setup()
+    
+end
+
+function draw()
+    local layer = ui.layer(200, 300)
+    layer:position(20, 20)
+    local function layer_render()
+        
+    end
+    local function layer_fonts()
+        local text = ui.text()
+        text:position(20, 20)
+        text:contents("Hello World!", { r = 1.0 })
+        text:draw()
+    end
+    layer:handlers(layer_render, layer_fonts)
+    layer:draw_contents()
+    layer:draw()
+end
 
 local request_handlers = {
     mod = function(name)
