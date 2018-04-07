@@ -45,7 +45,7 @@ endif
 
 ifndef DISABLE_GLX
     CFLAGS_GLX = -DGLAVA_GLX
-    LDFLAGS_GLX = -lGLX -lXrender
+    LDFLAGS_GLX = -lXrender
 endif
 
 ifeq ($(INSTALL),osx)

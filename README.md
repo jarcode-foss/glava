@@ -27,7 +27,6 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 - glad (included as a submodule)
 - python (required to generate bindings with glad)
 - GCC (this program uses GNU C features)
-- GLX headers (optional, disable direct GLX support with `DISABLE_GLX=1`), usually the development packages for `libgl` include this on your distro
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
