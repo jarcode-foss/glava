@@ -50,7 +50,7 @@ endif
 
 ifndef DISABLE_GLX
     CFLAGS_USE += -DGLAVA_GLX
-    LDFLAGS += -lGLX -lXrender
+    LDFLAGS += -lXrender
 endif
 
 ifndef DISABLE_UI
