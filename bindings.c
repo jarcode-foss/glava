@@ -317,6 +317,27 @@ void bd_request(struct bindings* state, const char* request, const char** args) 
     }
 }
 
+struct lui_font_wrapper {
+    struct char_cache* cache;
+};
+
+static int lui_font(lua_State* L) {
+    const char* str = luaL_checkstring(L, 1);
+    int32_t size = (int32_t) luaL_checkinteger(L, 2);
+    struct char_cache* cache;
+    if (!(cache = ui_load_font(str, size))) return 0;
+    struct lui_font_wrapper* w = lua_newuserdata(L, sizeof(struct lui_font_wrapper));
+    w->cache = cache;
+    luaL_getmetatable(L, "ui.font");
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+static int lui_font_select(lua_State* L) {
+    ui_select_font(((struct lui_font_wrapper*) lua_checkuptr(L, 1, "font"))->cache);
+    return 0;
+}
+
 /* Closure that handles mt.__call(mt, ...) invocations and passes 
    the remaining arguments to the upvalue function */
 static int lua_call_new(lua_State* L) {
@@ -384,6 +405,11 @@ struct bindings* bd_init(struct renderer* r, const char* root, const char* entry
     lua_rawset_f(L, "contents", lui_text_contents);
     lua_rawset_f(L, "__gc",     lui_text_release);
     lua_rawset(L, -3); /* ui.text = text */
+
+    lua_pushstring(L, "font");
+    lua_newtype(L,  "ui.font", lui_font);
+    lua_rawset_f(L, "select",  lui_font_select);
+    lua_rawset(L, -3);
     
     lua_setglobal(L, "ui"); /* _G.ui = ui */
     

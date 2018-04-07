@@ -1296,7 +1296,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
     
     #ifdef GLAVA_UI
-    ui_set_font("/usr/share/fonts/TTF/DejaVuSansMono.ttf", 14);
+    // ui_set_font("/usr/share/fonts/TTF/DejaVuSansMono.ttf", 14);
     ui_init(r);
     bd_setup(r->bd);
     #endif

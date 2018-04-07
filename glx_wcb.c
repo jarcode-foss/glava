@@ -160,6 +160,7 @@ Bool            (*glXMakeCurrent)          (Display* dpy, GLXDrawable drawable, 
 GLXDrawable     (*glXGetCurrentDrawable)   (void);
 __GLXextFuncPtr (*glXGetProcAddressARB)    (const GLubyte *);
 void            (*glXSwapBuffers)          (Display* dpy, GLXDrawable drawable);
+void            (*glXDestroyContext)       (Display* dpy, GLXContext);
 
 extern struct gl_wcb wcb_glx;
 
@@ -218,6 +219,7 @@ static void init(void) {
     resolve(glXGetCurrentDrawable);
     resolve(glXGetProcAddressARB);
     resolve(glXSwapBuffers);
+    resolve(glXDestroyContext);
     
     #undef resolve
 }

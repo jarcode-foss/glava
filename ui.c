@@ -29,9 +29,6 @@
   With a 32x32 character space, a completely filled set of maps will consume
   approximately 1G of VRAM, so it's ideal to limit the ranges of characters
   that can be used (language settings).
-  
-  TODO: scrap the 32x32 character space and pack characters into textures, and
-  build lookup tables to find where characters are located.
 */
 
 /* UTF-8 code point range */
@@ -42,16 +39,21 @@
 /* create mask of S length */
 #define CM_MASK(S) (0xFFFFFFFF >> (32 - (S)))
 /* bits [0, m) */
-#define CM_X(V) (V & (uint32_t) CM_MASK(char_map_bits))
+#define CM_X(V) \
+    (V & (uint32_t) CM_MASK(use_cache->char_map_bits))
 /* bits [m, 2m) */
-#define CM_Y(V) ((V >> char_map_bits) & (uint32_t) CM_MASK(char_map_bits))
+#define CM_Y(V) \
+    ((V >> use_cache->char_map_bits) & (uint32_t) CM_MASK(use_cache->char_map_bits))
 /* bits [2m, 32) */
-#define CM_T(V) ((V >> (2 * char_map_bits)) & (uint32_t) CM_MASK(32 - (2 * char_map_bits)))
+#define CM_T(V) \
+    ((V >> (2 * use_cache->char_map_bits)) & (uint32_t) CM_MASK(32 - (2 * use_cache->char_map_bits)))
 
-#define CM_XYT(X, Y, T) ((X) | ((Y) << char_map_bits) | ((T) << (2 * char_map_bits)))
+#define CM_XYT(X, Y, T) \
+    ((X) | ((Y) << use_cache->char_map_bits) | ((T) << (2 * use_cache->char_map_bits)))
 
 /* amount of texture maps needed (produces integers) */
-#define CM_NUM_TEXTURES (CM_MAX / ((char_map_res / CM_CHAR_SPACE) * (char_map_res / CM_CHAR_SPACE)))
+#define CM_NUM_TEXTURES(C)                                              \
+    (CM_MAX / ((C->char_map_res / CM_CHAR_SPACE) * (C->char_map_res / CM_CHAR_SPACE)))
 
 #define CM_TEX_RESERVE 3
 
@@ -76,18 +78,24 @@ static const struct { int res, bits; } char_map_resolutions[] = {
     { .res = 1024, .bits = 5 }  /* ~ 1MB  */
 };
 
-static int char_map_res    = 0; /* charmap tex resolution in use */
-static int char_map_bits   = 0;
-static int char_map_loaded = 0;
+static int char_map_loaded;
 
-static GLuint* char_maps;          /* maps CP_T(codepoint) to the corresponding texture */
-static struct cm_info** char_info; /* info structure [CM_NUM_TEXTURES][char_map_res ^ 2] */
-static volatile bool* char_flags;  /* atomic flags for whether the map has been loaded */
+static FT_Library ft;
 
-static FT_Face default_face;
+struct char_cache {
+    int char_map_res; /* charmap tex resolution in use */
+    int char_map_bits;
+
+    GLuint* char_maps;          /* maps CP_T(codepoint) to the corresponding texture */
+    struct cm_info** char_info; /* info structure [CM_NUM_TEXTURES][char_map_res ^ 2] */
+    volatile bool* char_flags;  /* atomic flags for whether the map has been loaded */
+
+    FT_Face face;
+    struct font_info face_info;
+};
+
+static struct char_cache* use_cache = NULL;
 static bool font_set = false;
-
-struct font_info default_face_info;
 
 /*
   Get the code point from a UTF-8 character, starting at *str.
@@ -120,29 +128,34 @@ size_t utf8_next(const char* str) {
     return 0; /* invalid encoding, or str pointer is not offset correctly */
 }
 
-static void charmap_init(void) {
+static struct char_cache* charmap_init(struct char_cache* cache) {
+    
+    cache->char_map_res = 0;
+    
     GLint ts, t;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &ts);
     for (t = 0; t < sizeof(char_map_resolutions) / sizeof(char_map_resolutions[0]); ++t) {
         if (char_map_resolutions[t].res <= ts) {
-            char_map_res  = char_map_resolutions[t].res;
-            char_map_bits = char_map_resolutions[t].bits;
+            cache->char_map_res  = char_map_resolutions[t].res;
+            cache->char_map_bits = char_map_resolutions[t].bits;
             break;
         }
     }
-    if (!char_map_res) {
+    if (!cache->char_map_res) {
         fprintf(stderr, "OpenGL driver does not support texture size (1024 x 1024) or larger");
         abort();
     }
-    size_t sz = CM_NUM_TEXTURES * sizeof(GLuint);
-    char_maps = malloc(sz);
-    char_info = malloc(sz);
-    char_flags = calloc(sz, sizeof(bool));
-    memset(char_maps, 0, sz);
+    size_t sz = CM_NUM_TEXTURES(cache) * sizeof(GLuint);
+    cache->char_maps = malloc(sz);
+    cache->char_info = malloc(sz);
+    cache->char_flags = calloc(sz, sizeof(bool));
+    memset(cache->char_maps, 0, sz);
+
+    return cache;
 }
 
 static void charmap_load(uint32_t t, FT_Face face) {
-    if (!char_maps[t]) {
+    if (!use_cache->char_maps[t]) {
         if (char_map_loaded + CM_TEX_RESERVE > GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS) {
             fprintf(stderr, "OpenGL driver does not support more"
                     " than %d active textures, tried to use %d!",
@@ -151,13 +164,15 @@ static void charmap_load(uint32_t t, FT_Face face) {
             abort();
         }
         
-        uint32_t csz = char_map_res / CM_CHAR_SPACE, bsz = char_map_res * char_map_res;
+        uint32_t
+            csz = use_cache->char_map_res / CM_CHAR_SPACE,
+            bsz = use_cache->char_map_res * use_cache->char_map_res;
         uint8_t* buf = malloc(bsz);
-        char_info[t] = malloc(csz * csz * sizeof(struct cm_info));
+        use_cache->char_info[t] = malloc(csz * csz * sizeof(struct cm_info));
         memset(buf, 0, bsz);
         
         printf("loading character map: %d (%d x %d), range: 0x%08X -> 0x%08X\n",
-               t, char_map_res, char_map_res, CM_XYT(0, 0, t),
+               t, use_cache->char_map_res, use_cache->char_map_res, CM_XYT(0, 0, t),
                CM_XYT(csz - 1, csz - 1, t));
 
         /* load each glyph in the charmap */
@@ -176,8 +191,8 @@ static void charmap_load(uint32_t t, FT_Face face) {
                 
                 double dx = g->advance.x / 64.0d;
                 double dy = g->advance.y / 64.0d;
-                char_info[t][idx].xb = uround(dx, double, uint8_t);
-                char_info[t][idx].yb = uround(dy, double, uint8_t);
+                use_cache->char_info[t][idx].xb = uround(dx, double, uint8_t);
+                use_cache->char_info[t][idx].yb = uround(dy, double, uint8_t);
                 
                 bool hor;
                 int height = 0, gx, gy;
@@ -186,23 +201,23 @@ static void charmap_load(uint32_t t, FT_Face face) {
                     hor = false;
                     for (gx = 0; gx < g->bitmap.width; ++gx) {
                         uint8_t bit = g->bitmap.buffer[(gy * g->bitmap.width) + gx];
-                        buf[((by + (g->bitmap.rows - gy)) * char_map_res) + (bx + gx)] = bit;
+                        buf[((by + (g->bitmap.rows - gy)) * use_cache->char_map_res) + (bx + gx)] = bit;
                         if (bit) hor = true;
                     }
                     if (hor) /* row contains data */
                         height = g->bitmap.rows - gy + 1;
                 }
                 
-                char_info[t][idx].h = height;
-                char_info[t][idx].w = g->bitmap.width;
-                char_info[t][idx].xt = g->bitmap_left;
-                char_info[t][idx].yt = g->bitmap_top - g->bitmap.rows;
+                use_cache->char_info[t][idx].h = height;
+                use_cache->char_info[t][idx].w = g->bitmap.width;
+                use_cache->char_info[t][idx].xt = g->bitmap_left;
+                use_cache->char_info[t][idx].yt = g->bitmap_top - g->bitmap.rows;
                 // char_info[t][idx].xb = g->bitmap.width;
             }
         }
-        glGenTextures(1, &char_maps[t]);
-        glBindTexture(GL_TEXTURE_2D, char_maps[t]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, char_map_res, char_map_res, 0,
+        glGenTextures(1, &use_cache->char_maps[t]);
+        glBindTexture(GL_TEXTURE_2D, use_cache->char_maps[t]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, use_cache->char_map_res, use_cache->char_map_res, 0,
                        GL_RED, GL_UNSIGNED_BYTE, buf);
 
         /* no filtering */
@@ -214,7 +229,7 @@ static void charmap_load(uint32_t t, FT_Face face) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         free(buf);
         ++char_map_loaded;
-        __atomic_store_n(char_flags + t, true, __ATOMIC_RELAXED);
+        __atomic_store_n(use_cache->char_flags + t, true, __ATOMIC_RELAXED);
     }
 }
 
@@ -433,22 +448,22 @@ void ui_text_set_pos(struct text_data* d, struct position p) {
 
 int32_t ui_get_advance_for(uint32_t cp) {
     uint32_t x = CM_X(cp), y = CM_Y(cp), t = CM_T(cp);
-    uint32_t idx = ((y * (char_map_res / CM_CHAR_SPACE)) + x);
+    uint32_t idx = ((y * (use_cache->char_map_res / CM_CHAR_SPACE)) + x);
     
-    charmap_load(t, default_face);
+    charmap_load(t, use_cache->face);
     
-    return (int32_t) char_info[t][idx].xb;
+    return (int32_t) use_cache->char_info[t][idx].xb;
 }
 
 /* (re)build a specific character (with codepoint) */
 void ui_text_char(struct text_data* d, size_t n, uint32_t cp, uint32_t off,
                             struct color color) {
     uint32_t x = CM_X(cp), y = CM_Y(cp), t = CM_T(cp);
-    uint32_t idx = ((y * (char_map_res / CM_CHAR_SPACE)) + x);
+    uint32_t idx = ((y * (use_cache->char_map_res / CM_CHAR_SPACE)) + x);
     
-    charmap_load(t, default_face);
+    charmap_load(t, use_cache->face);
         
-    struct cm_info* i = &char_info[t][idx];
+    struct cm_info* i = &use_cache->char_info[t][idx];
         
     struct box_data* bd = &d->boxes[n];
     bd->geometry.x = d->position.x + off + i->xt;
@@ -457,7 +472,7 @@ void ui_text_char(struct text_data* d, size_t n, uint32_t cp, uint32_t off,
     bd->geometry.h = i->yb + i->h;
     bd->tex_pos.x = CM_CHAR_SPACE * x;
     bd->tex_pos.y = CM_CHAR_SPACE * y;
-    bd->tex = char_maps[t];
+    bd->tex = use_cache->char_maps[t];
     bd->tex_color = color;
     ui_box(bd);
 }
@@ -513,34 +528,38 @@ void ui_text_draw(const struct text_data* d) {
     }
 }
 
-void ui_set_font(const char* path, int32_t size) {
-    static FT_Library ft;
-    static bool ft_init = false;
-    if (!ft_init) {
-        if (FT_Init_FreeType(&ft)) {
-            fprintf(stderr, "Could not initializer FreeType library (FT_Init_FreeType)\n");
-            abort();
-        }
-    }
-    if (FT_New_Face(ft, path, 0, &default_face)) {
+struct char_cache* ui_load_font(const char* path, int32_t size) {
+
+    FT_Face face;
+    
+    if (FT_New_Face(ft, path, 0, &face)) {
         fprintf(stderr, "Could not load font: `%s` (size %d)\n", path, (int) size);
-        return;
+        return NULL;
     }
+
+    struct char_cache* cache = charmap_init(malloc(sizeof(struct char_cache)));
+    cache->face = face;
     
-    FT_Set_Pixel_Sizes(default_face, 0, size);
-    font_set = true;
+    FT_Set_Pixel_Sizes(face, 0, size);
     
-    double a = (default_face->size->metrics.ascender / 64.0d);
-    double d = -(default_face->size->metrics.descender / 64.0d);
-    double h = (default_face->size->metrics.height / 64.0d);
-    double m = (default_face->size->metrics.max_advance / 64.0d);
+    double a = (face->size->metrics.ascender / 64.0d);
+    double d = -(face->size->metrics.descender / 64.0d);
+    double h = (face->size->metrics.height / 64.0d);
+    double m = (face->size->metrics.max_advance / 64.0d);
     
-    default_face_info = (struct font_info) {
+    cache->face_info = (struct font_info) {
         .ascender    = uround(a, double, uint8_t), 
         .descender   = uround(d, double, uint8_t),
         .height      = uround(h, double, uint8_t),
         .max_advance = uround(m, double, uint8_t)
     };
+
+    return cache;
+}
+
+void ui_select_font(struct char_cache* cache) {
+    use_cache = cache;
+    font_set = true;
 }
 
 /* vertex shader, translates from screen coords to OpenGL [-1.0, 1.0] bounds */
@@ -599,9 +618,12 @@ static const char* src_texture_frag =
     "}"                                                                                    "\n";
 
 void ui_init(struct renderer* r) {
-    if (!font_set) {
-        fprintf(stderr, "Font was not set before calling ui_init!\n");
-        abort();
+    static bool ft_init = false;
+    if (!ft_init) {
+        if (FT_Init_FreeType(&ft)) {
+            fprintf(stderr, "Could not initializer FreeType library (FT_Init_FreeType)\n");
+            abort();
+        } else ft_init = true;
     }
 
     sh_normal = simple_shaderbuild(r, src_translate_vert, src_texture_frag);
@@ -620,8 +642,6 @@ void ui_init(struct renderer* r) {
     glBindFragDataLocation(sh_fontprog, 1, "fragment");
     tuniforms(&tu_font, sh_fontprog);
     glUseProgram(0);
-    
-    charmap_init();
 }
 
 #endif /* GLAVA_UI */

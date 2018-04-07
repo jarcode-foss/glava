@@ -3,6 +3,8 @@
 #define UI_H
 #ifdef GLAVA_UI
 
+struct char_cache;
+
 struct cm_info {
     uint8_t xb, yb; /* advance       */
     uint8_t h, w;   /* height, width */
@@ -100,7 +102,8 @@ void ui_text_contents      (struct text_data* d, const char* str, size_t str_len
 void ui_text_set_pos       (struct text_data* d, struct position p);
 void ui_text_release       (struct text_data* d);
 
-void ui_set_font           (const char* path, int32_t size);
+struct char_cache* ui_load_font  (const char* path, int32_t size);
+void               ui_select_font(struct char_cache*);
 
 #endif /* GLAVA_UI */
 #endif /* UI_H */

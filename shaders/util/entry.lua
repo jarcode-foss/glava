@@ -9,7 +9,10 @@ package.path = package.path
 
 -- called when the OpenGL context is properly initialized
 function setup()
-    
+    ui.faces = {
+        ["default"] = ui.font("/usr/share/fonts/TTF/DejaVuSansMono.ttf", 14);
+    }
+    ui.faces["default"]:select()
 end
 
 function draw()
