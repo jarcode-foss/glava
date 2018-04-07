@@ -24,7 +24,9 @@ struct font_info {
     uint8_t ascender, /* distance between baseline and highest glyph */
         descender,    /* distance between baseline and lowest glyph */
         height,       /* distance between baselines */
-        max_advance;  /* maximum advance */
+        width,        /* max glyph size */
+        max_advance,  /* maximum advance */
+        baseline;     /* vertical distance between two baselines */
 };
 
 /*

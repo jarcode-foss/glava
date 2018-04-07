@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <math.h>
 
 #include <glad/glad.h>
 #include <ft2build.h>
@@ -33,27 +34,26 @@
 
 /* UTF-8 code point range */
 #define CM_MAX 1114112
-/* character texture space, must be power of 2 */
-#define CM_CHAR_SPACE 32
+
+#define CM_CP_WIDTH(C) (C->char_map_res / C->face_info.width)
+#define CM_CP_HEIGHT(C) (C->char_map_res / C->face_info.height)
+
+#define CM_CP_PER_T(C) (CM_CP_WIDTH(C) * CM_CP_HEIGHT(C))
 
 /* create mask of S length */
 #define CM_MASK(S) (0xFFFFFFFF >> (32 - (S)))
 /* bits [0, m) */
-#define CM_X(V) \
-    (V & (uint32_t) CM_MASK(use_cache->char_map_bits))
+#define CM_X(V) ((V % CM_CP_PER_T(use_cache)) % (uint32_t) CM_CP_WIDTH(use_cache))
 /* bits [m, 2m) */
-#define CM_Y(V) \
-    ((V >> use_cache->char_map_bits) & (uint32_t) CM_MASK(use_cache->char_map_bits))
+#define CM_Y(V) ((V % CM_CP_PER_T(use_cache)) / (uint32_t) CM_CP_WIDTH(use_cache))
 /* bits [2m, 32) */
-#define CM_T(V) \
-    ((V >> (2 * use_cache->char_map_bits)) & (uint32_t) CM_MASK(32 - (2 * use_cache->char_map_bits)))
+#define CM_T(V) (V / CM_CP_PER_T(use_cache))
 
-#define CM_XYT(X, Y, T) \
-    ((X) | ((Y) << use_cache->char_map_bits) | ((T) << (2 * use_cache->char_map_bits)))
+#define CM_XYT(X, Y, T) ((T * CM_CP_PER_T(use_cache)) + (Y * CM_CP_WIDTH(use_cache)) + X)
 
 /* amount of texture maps needed (produces integers) */
-#define CM_NUM_TEXTURES(C)                                              \
-    (CM_MAX / ((C->char_map_res / CM_CHAR_SPACE) * (C->char_map_res / CM_CHAR_SPACE)))
+#define CM_NUM_TEXTURES(C)                      \
+    (CM_MAX / CM_CP_PER_T(C))
 
 #define CM_TEX_RESERVE 3
 
@@ -165,29 +165,32 @@ static void charmap_load(uint32_t t, FT_Face face) {
         }
         
         uint32_t
-            csz = use_cache->char_map_res / CM_CHAR_SPACE,
+            xsz = use_cache->char_map_res / use_cache->face_info.width,
+            ysz = use_cache->char_map_res / use_cache->face_info.height,
             bsz = use_cache->char_map_res * use_cache->char_map_res;
         uint8_t* buf = malloc(bsz);
-        use_cache->char_info[t] = malloc(csz * csz * sizeof(struct cm_info));
+        use_cache->char_info[t] = malloc(xsz * ysz * sizeof(struct cm_info));
         memset(buf, 0, bsz);
         
         printf("loading character map: %d (%d x %d), range: 0x%08X -> 0x%08X\n",
                t, use_cache->char_map_res, use_cache->char_map_res, CM_XYT(0, 0, t),
-               CM_XYT(csz - 1, csz - 1, t));
+               CM_XYT(xsz - 1, ysz - 1, t));
 
         /* load each glyph in the charmap */
         uint32_t x, y, bx, by, idx;
-        for (y = 0; y < csz; ++y) {
-            for (x = 0; x < csz; ++x) {
+        for (y = 0; y < ysz; ++y) {
+            for (x = 0; x < xsz; ++x) {
                 FT_ULong cp = (FT_ULong) (uint32_t) CM_XYT(x, y, t);
                 if (FT_Load_Char(face, cp, FT_LOAD_RENDER))
                     continue;
                 FT_GlyphSlot g = face->glyph;
-                idx = (y * csz) + x;
-                bx = x * CM_CHAR_SPACE;
-                by = y * CM_CHAR_SPACE;
-                if (g->bitmap.width > CM_CHAR_SPACE) g->bitmap.width = CM_CHAR_SPACE;
-                if (g->bitmap.rows > CM_CHAR_SPACE) g->bitmap.rows = CM_CHAR_SPACE;
+                idx = (y * xsz) + x;
+                bx = x * use_cache->face_info.width;
+                by = y * use_cache->face_info.height;
+                if (g->bitmap.width > use_cache->face_info.width)
+                    g->bitmap.width = use_cache->face_info.width;
+                if (g->bitmap.rows > use_cache->face_info.height)
+                    g->bitmap.rows = use_cache->face_info.height;
                 
                 double dx = g->advance.x / 64.0d;
                 double dy = g->advance.y / 64.0d;
@@ -448,7 +451,7 @@ void ui_text_set_pos(struct text_data* d, struct position p) {
 
 int32_t ui_get_advance_for(uint32_t cp) {
     uint32_t x = CM_X(cp), y = CM_Y(cp), t = CM_T(cp);
-    uint32_t idx = ((y * (use_cache->char_map_res / CM_CHAR_SPACE)) + x);
+    uint32_t idx = ((y * (use_cache->char_map_res / use_cache->face_info.width)) + x);
     
     charmap_load(t, use_cache->face);
     
@@ -459,7 +462,7 @@ int32_t ui_get_advance_for(uint32_t cp) {
 void ui_text_char(struct text_data* d, size_t n, uint32_t cp, uint32_t off,
                             struct color color) {
     uint32_t x = CM_X(cp), y = CM_Y(cp), t = CM_T(cp);
-    uint32_t idx = ((y * (use_cache->char_map_res / CM_CHAR_SPACE)) + x);
+    uint32_t idx = ((y * (use_cache->char_map_res / use_cache->face_info.width)) + x);
     
     charmap_load(t, use_cache->face);
         
@@ -470,8 +473,8 @@ void ui_text_char(struct text_data* d, size_t n, uint32_t cp, uint32_t off,
     bd->geometry.y = d->position.y + i->yt;
     bd->geometry.w = i->w;
     bd->geometry.h = i->yb + i->h;
-    bd->tex_pos.x = CM_CHAR_SPACE * x;
-    bd->tex_pos.y = CM_CHAR_SPACE * y;
+    bd->tex_pos.x = use_cache->face_info.width * x;
+    bd->tex_pos.y = use_cache->face_info.height * y;
     bd->tex = use_cache->char_maps[t];
     bd->tex_color = color;
     ui_box(bd);
@@ -537,22 +540,27 @@ struct char_cache* ui_load_font(const char* path, int32_t size) {
         return NULL;
     }
 
-    struct char_cache* cache = charmap_init(malloc(sizeof(struct char_cache)));
-    cache->face = face;
+    struct char_cache* cache = malloc(sizeof(struct char_cache));
     
     FT_Set_Pixel_Sizes(face, 0, size);
     
-    double a = (face->size->metrics.ascender / 64.0d);
-    double d = -(face->size->metrics.descender / 64.0d);
-    double h = (face->size->metrics.height / 64.0d);
-    double m = (face->size->metrics.max_advance / 64.0d);
+    double a = (face->size->metrics.ascender / 64.0D);
+    double d = -(face->size->metrics.descender / 64.0D);
+    double h = (face->size->metrics.height / 64.0D);
+    double m = (face->size->metrics.max_advance / 64.0D);
     
     cache->face_info = (struct font_info) {
         .ascender    = uround(a, double, uint8_t), 
         .descender   = uround(d, double, uint8_t),
-        .height      = uround(h, double, uint8_t),
+        .baseline    = uround(h, double, uint8_t),
+        .height      = (uint8_t) ceil((face->bbox.yMax - face->bbox.yMin) / 64.0D),
+        .width       = (uint8_t) ceil((face->bbox.xMax - face->bbox.yMin)  / 64.0D),
         .max_advance = uround(m, double, uint8_t)
     };
+
+    cache->face = face;
+    
+    charmap_init(cache);
 
     return cache;
 }
