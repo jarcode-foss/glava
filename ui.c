@@ -254,10 +254,13 @@ static GLuint sh_normal;   /* for texturing */
 static GLuint uf_screen, uf_screen_pos, uf_color;
 
 /* Shader uniforms */
-static GLuint u_screen, u_screen_pos;
+static GLuint u_screen, u_screen_pos, u_fade;
 
 struct tex_uniforms tu_normal; /* old: tu_init */
 struct tex_uniforms tu_font;
+
+struct layer_data* active_layer = NULL;
+struct renderer* rd = NULL;
 
 static void tuniforms(struct tex_uniforms* tu, GLuint shader) {
     tu->tex        = glGetUniformLocation(shader, "tex");
@@ -313,8 +316,9 @@ void ui_box_release(struct box_data* d) {
 }
 
 /* draw a box represented by 'd', using the texture uniforms specified by 'tu' (if not NULL) */
-static void ui_box_render(const struct box_data* d, struct tex_uniforms* tu) {
+static void ui_box_render(const struct box_data* d, struct tex_uniforms* tu, uint32_t off) {
     glBindVertexArray(d->vao);
+    
     if (tu) {
         if (d->tex) {
             glActiveTexture(GL_TEXTURE0 + UI_TEXTURE_SLOT);
@@ -326,7 +330,7 @@ static void ui_box_render(const struct box_data* d, struct tex_uniforms* tu) {
             glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &tex_h);
             
             glUniform2i(tu->tex_coords, d->tex_pos.x, d->tex_pos.y);
-            glUniform2i(tu->tex_off, d->geometry.x, d->geometry.y);
+            glUniform2i(tu->tex_off, d->geometry.x - off, d->geometry.y);
             glUniform2i(tu->tex_sz, tex_w, tex_h);
         }
         glUniform1i(tu->tex_ignore, !d->tex);
@@ -343,16 +347,20 @@ static void ui_box_render(const struct box_data* d, struct tex_uniforms* tu) {
     glBindVertexArray(0);
 }
 
-void ui_box_draw(const struct box_data* d) { ui_box_render(d, &tu_normal); }
+void ui_box_draw(const struct box_data* d) { ui_box_render(d, &tu_normal, 0); }
 
 void ui_layer(struct layer_data* d, uint32_t w, uint32_t h) {
     glGenFramebuffers(1, &d->fbo);
     glGenTextures(1, &d->frame.tex);
     setup_fbo_tex(d->fbo, d->frame.tex, w, h);
-    d->frame.geometry  = (struct geometry) { .x = d->frame.geometry.x, .y = d->frame.geometry.y,
-                                             .w = w, .h = h };
-    d->frame.tex_pos   = (struct position) { .x = 0, .y = 0                                   };
-    d->frame.tex_color = (struct color   ) { .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f       };
+    d->scroll          = false;
+    d->scroll_pos      = 0;
+    d->scroll_rate     = 28.0;
+    d->fb              = (struct dimensions) { .w = w, .h = h };
+    d->frame.geometry  = (struct geometry)   { .x = d->frame.geometry.x, .y = d->frame.geometry.y,
+                                               .w = w, .h = h };
+    d->frame.tex_pos   = (struct position)   { .x = 0, .y = 0 };
+    d->frame.tex_color = (struct color   )   { .a = 0.0F };
     ui_box(&d->frame);
 }
 
@@ -363,11 +371,23 @@ void ui_layer_release(struct layer_data* d) {
 }
 
 void ui_layer_resize(struct layer_data* d, uint32_t w, uint32_t h) {
-    glBindTexture(GL_TEXTURE_2D, d->tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    setup_fbo_tex(d->fbo, d->frame.tex, w, h);
     d->frame.geometry.w = w;
     d->frame.geometry.h = h;
+    d->fb.w = w;
+    d->fb.h = h;
+    d->scroll = false;
+    ui_box(&d->frame);
+}
+
+void ui_layer_resize_sep(struct layer_data* d, uint32_t w, uint32_t h,
+                         uint32_t fw, uint32_t fh) {
+    setup_fbo_tex(d->fbo, d->frame.tex, fw, fh);
+    d->frame.geometry.w = w;
+    d->frame.geometry.h = h;
+    d->fb.w = fw;
+    d->fb.h = fh;
+    d->scroll = true;
     ui_box(&d->frame);
 }
 
@@ -375,8 +395,12 @@ void ui_layer_draw(struct layer_data* d) {
     
     glUseProgram(sh_normal);
     
-    glUniform2i(u_screen, d->frame.geometry.w, d->frame.geometry.h);
-    glUniform2i(u_screen_pos, 0, 0);
+    if (!active_layer) {
+        glUniform2i(u_screen, rd->lww, rd->lwh);
+        glUniform2i(u_screen_pos, 0, 0);
+    }
+
+    glUniform1i(u_fade, 1);
     
     /*
       We need to fix tex_color to read 0 values, to avoid color masking (we use
@@ -384,11 +408,18 @@ void ui_layer_draw(struct layer_data* d) {
     */
     struct color tmp_color = d->frame.tex_color;
     d->frame.tex_color = (struct color) { .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f };
-    ui_box_draw(&d->frame);
+    ui_box_render(&d->frame, &tu_normal, d->scroll ? (int32_t) d->scroll_pos : 0);
+    d->scroll_pos += d->scroll_rate * rd->last_frame_duration;
+    if (d->scroll_pos >= d->fb.w) d->scroll_pos -= d->fb.w;
     d->frame.tex_color = tmp_color;
+
+    glUniform1i(u_fade, 0);
 }
 
 void ui_layer_draw_contents(struct layer_data* d) {
+
+    struct layer_data* parent = active_layer;
+    active_layer = d;
     
     /* clear to the frame color */
     GLint old;
@@ -396,13 +427,13 @@ void ui_layer_draw_contents(struct layer_data* d) {
     glBindFramebuffer(GL_FRAMEBUFFER, d->fbo);
     glClearColor(d->frame.tex_color.r, d->frame.tex_color.g, d->frame.tex_color.b, d->frame.tex_color.a);
     glClear(GL_COLOR_BUFFER_BIT);
-    glViewport(0, 0, d->frame.geometry.w, d->frame.geometry.h);
+    glViewport(0, 0, d->fb.w, d->fb.h);
     
     /* stage: UI (screen positioning) */
     
     glUseProgram(sh_normal);
     
-    glUniform2i(u_screen, d->frame.geometry.w, d->frame.geometry.h);
+    glUniform2i(u_screen, d->fb.w, d->fb.h);
     glUniform2i(u_screen_pos, 0, 0);
     
     if (d->render_cb) d->render_cb(d->udata);
@@ -411,13 +442,18 @@ void ui_layer_draw_contents(struct layer_data* d) {
     
     glUseProgram(sh_fontprog);
     
-    glUniform2i(uf_screen, d->frame.geometry.w, d->frame.geometry.h);
+    glUniform2i(uf_screen, d->fb.w, d->fb.h);
     glUniform3f(uf_color, 1.0f, 1.0f, 1.0f);
     glUniform2i(uf_screen_pos, 0, 0);
     
     if (d->font_cb) d->font_cb(d->udata);
+
+    if (parent) glViewport(0, 0, parent->fb.w, parent->fb.h);
+    else        glViewport(0, 0, rd->lww, rd->lwh);
     
     glBindFramebuffer(GL_FRAMEBUFFER, old > 0 ? (GLuint) old : 0); /* restore old framebuffer */
+
+    active_layer = parent;
     
     // glUseProgram(sh_init);
     /* and ensure the viewport is set correctly (OLD) */
@@ -517,8 +553,8 @@ void ui_text_contents(struct text_data* d, const char* str, size_t str_len, stru
     size_t   idx = 0;
     uint32_t adv = 0;
     for (utf8_iter_s(str, str_len, c)) {
-        ui_text_char(d, idx, (uint32_t) *c, adv, color);
-        adv += ui_get_advance_for((uint32_t) *c);
+        ui_text_char(d, idx, utf8_codepoint(c), adv, color);
+        adv += ui_get_advance_for(utf8_codepoint(c));
         idx++;
     }
 }
@@ -527,7 +563,7 @@ void ui_text_contents(struct text_data* d, const char* str, size_t str_len, stru
 void ui_text_draw(const struct text_data* d) {
     size_t t;
     for (t = 0; t < d->num_boxes; ++t) {
-        ui_box_render(&d->boxes[t], &tu_font);
+        ui_box_render(&d->boxes[t], &tu_font, 0);
     }
 }
 
@@ -570,6 +606,10 @@ void ui_select_font(struct char_cache* cache) {
     font_set = true;
 }
 
+struct font_info* ui_font_info(struct char_cache* cache) {
+    return &(cache ? cache : use_cache)->face_info;
+}
+
 /* vertex shader, translates from screen coords to OpenGL [-1.0, 1.0] bounds */
 static const char* src_translate_vert =
     "uniform ivec2 screen;"                                                             "\n"
@@ -585,7 +625,7 @@ static const char* src_translate_vert =
 
 /* font fragment shader, maps font textures in screen coords */
 static const char* src_font_frag =
-    "layout(pixel_center_integer) in vec4 gl_FragCoord;"                                                 "\n"
+    "in vec4 gl_FragCoord;"                                                                              "\n"
     
     "uniform sampler2D  tex;"        /* texture sheet */                                                 "\n"
     "uniform ivec2      tex_coords;" /* positon of tile in texture */                                    "\n"
@@ -596,36 +636,41 @@ static const char* src_font_frag =
 
     "out vec4 fragment;" /* output */
 
-    "void main() {"                                                                                      "\n"
-    "    float fx = (float(tex_coords.x + (int(gl_FragCoord.x) - tex_off.x)) + 0.5F) / float(tex_sz.x);" "\n"
-    "    float fy = (float(tex_coords.y + (int(gl_FragCoord.y) - tex_off.y)) + 0.5F) / float(tex_sz.y);" "\n"
-    "    fragment = vec4(tex_color.rgb, tex_color.a * texture(tex, vec2(fx, fy)).r);"                    "\n"
-    "    fragment.rgb *= fragment.a; "                                                                   "\n"
-    "}"                                                                                                  "\n";
+    "void main() {"                                                                           "\n"
+    "    int fx = (tex_coords.x + (int(gl_FragCoord.x) - tex_off.x));"                        "\n"
+    "    int fy = (tex_coords.y + (int(gl_FragCoord.y) - tex_off.y));"                        "\n"
+    "    fragment = vec4(tex_color.rgb, tex_color.a * texelFetch(tex, ivec2(fx, fy), 0).r);"  "\n"
+    "    fragment.rgb *= fragment.a;"                                                         "\n"
+    "}"                                                                                       "\n";
 
 /* general texturing shader, maps textures in screen coords */
 static const char* src_texture_frag =
     "in vec4 gl_FragCoord;"                                                                "\n"
-    "uniform sampler2D  tex;"        /* texture sheet */                                   "\n"
+    "uniform sampler2D  tex;"        /* texture */                                         "\n"
+    "uniform ivec2      screen;"                                                           "\n"
     "uniform ivec2      tex_coords;" /* positon of tile in texture */                      "\n"
     "uniform ivec2      tex_off;"    /* render offset (position in screen space) */        "\n"
     "uniform ivec2      tex_sz;"     /* texture dimensions */                              "\n"
     "uniform bool       tex_ignore;"                                                       "\n"
+    "uniform bool       fade;"
     "uniform vec4       tex_color;"                                                        "\n"
-
+    "#define PI 3.14159265359"                                                             "\n"
+    "#define sinusoidal(x) ((0.5 * sin((PI * (x)) - (PI / 2))) + 0.5)"                     "\n"
     "out vec4 fragment;" /* output */                                                      "\n"
-
     "void main() {"                                                                        "\n"
     "    if (!tex_ignore) {"                                                               "\n"
-    "        float fx = (float(tex_coords.x + (int(gl_FragCoord.x) - tex_off.x)) + 0.5F)"  "\n"
-    "                   / float(tex_sz.x);"                                                "\n"
-    "        float fy = (float(tex_coords.y + (int(gl_FragCoord.y) - tex_off.y)) + 0.5F)"  "\n"
-    "                   / float(tex_sz.y);"                                                "\n"
-    "        fragment = clamp(texture(tex, vec2(fx, fy)) + tex_color, 0F, 1F);"            "\n"
+    "        int fx = int(mod((tex_coords.x + (int(gl_FragCoord.x) - tex_off.x)), tex_sz.x));"   "\n"
+    "        int fy = int(mod((tex_coords.y + (int(gl_FragCoord.y) - tex_off.y)), tex_sz.y));"   "\n"
+    "        fragment = clamp(texelFetch(tex, ivec2(fx, fy), 0) + tex_color, 0F, 1F);"     "\n"
+    "        if (fade) "                                                                   "\n"
+    "            fragment *= sinusoidal(clamp(min(gl_FragCoord.x * 0.2F, "                 "\n"
+    "                                             (screen.x - gl_FragCoord.x) * 0.2F), "   "\n"
+    "                                         0F, 1F));"                                   "\n"
     "    } else fragment = tex_color;"                                                     "\n"
     "}"                                                                                    "\n";
 
 void ui_init(struct renderer* r) {
+    rd = r;
     static bool ft_init = false;
     if (!ft_init) {
         if (FT_Init_FreeType(&ft)) {
@@ -638,6 +683,7 @@ void ui_init(struct renderer* r) {
     glUseProgram(sh_normal);
     u_screen     = glGetUniformLocation(sh_normal, "screen");
     u_screen_pos = glGetUniformLocation(sh_normal, "screen_pos");
+    u_fade       = glGetUniformLocation(sh_normal, "fade");
     glBindFragDataLocation(sh_normal, 1, "fragment");
     tuniforms(&tu_normal, sh_normal);
     glUseProgram(0);

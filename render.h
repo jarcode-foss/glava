@@ -7,6 +7,8 @@ struct gl_data;
 typedef struct renderer {
     bool    alive;
     size_t  bufsize_request, rate_request, samplesize_request;
+    int     lww, lwh, lwx, lwy; /* last window dimensions */
+    double  last_frame_duration;
     char*   audio_source_request;
     struct gl_data* gl;
     #ifdef GLAVA_UI

@@ -23,8 +23,8 @@ size_t   utf8_next     (const char* str);
 struct font_info {
     uint8_t ascender, /* distance between baseline and highest glyph */
         descender,    /* distance between baseline and lowest glyph */
-        height,       /* distance between baselines */
-        width,        /* max glyph size */
+        height,       /* max glyph height */
+        width,        /* max glyph width */
         max_advance,  /* maximum advance */
         baseline;     /* vertical distance between two baselines */
 };
@@ -56,6 +56,10 @@ struct geometry {
     int32_t x, y, w, h;
 };
 
+struct dimensions {
+    int32_t w, h;
+};
+
 struct position {
     int32_t x, y;
 };
@@ -77,6 +81,10 @@ struct text_data {
 struct layer_data {
     uint32_t tex;
     uint32_t fbo;
+    double scroll_pos;
+    double scroll_rate;
+    bool scroll;
+    struct dimensions fb;
     struct box_data frame;
 
     /* callbacks for when the layer is repainted */
@@ -93,6 +101,7 @@ void ui_layer              (struct layer_data* d, uint32_t w, uint32_t h);
 void ui_layer_draw_contents(struct layer_data* d);
 void ui_layer_draw         (struct layer_data* d);
 void ui_layer_resize       (struct layer_data* d, uint32_t w, uint32_t h);
+void ui_layer_resize_sep   (struct layer_data* d, uint32_t w, uint32_t h, uint32_t fw, uint32_t fh);
 void ui_layer_release      (struct layer_data* d);
 
 int32_t ui_get_advance_for (uint32_t cp);
@@ -106,6 +115,7 @@ void ui_text_release       (struct text_data* d);
 
 struct char_cache* ui_load_font  (const char* path, int32_t size);
 void               ui_select_font(struct char_cache*);
+struct font_info*  ui_font_info  (struct char_cache*);
 
 #endif /* GLAVA_UI */
 #endif /* UI_H */

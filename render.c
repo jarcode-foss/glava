@@ -106,7 +106,6 @@ struct gl_data {
     size_t stages_sz, bufscale, avg_frames;
     void* w;
     struct gl_wcb* wcb;
-    int lww, lwh, lwx, lwy; /* last window dimensions */
     int rate; /* framerate */
     double tcounter;
     int fcounter, ucounter, kcounter;
@@ -1136,8 +1135,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
     snprintf(shaders, bsz, "%s/%s", data, module);
 
     printf("Loading module: '%s'\n", module);
-
-    if (!force_mod) free((void*) module);
+    
     loading_module = false;
 
     /* Iterate through shader passes in the shader directory and build textures, framebuffers, and
@@ -1298,8 +1296,10 @@ struct renderer* rd_new(const char** paths, const char* entry,
     #ifdef GLAVA_UI
     // ui_set_font("/usr/share/fonts/TTF/DejaVuSansMono.ttf", 14);
     ui_init(r);
-    bd_setup(r->bd);
+    bd_setup(r->bd, module);
     #endif
+    
+    if (!force_mod) free((void*) module);
 
     gl->wcb->set_visible(gl->w, true);
     
@@ -1375,7 +1375,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     gl->wcb->get_pos(gl->w, &wx, &wy);
     
     /* Resize screen textures if needed */
-    if (ww != gl->lww || wh != gl->lwh) {
+    if (ww != r->lww || wh != r->lwh) {
         for (t = 0; t < gl->stages_sz; ++t) {
             if (gl->stages[t].valid) {
                 setup_sfbo(&gl->stages[t], ww, wh);
@@ -1384,14 +1384,14 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     }
 
     /* Resize and grab new background data if needed */
-    if (gl->copy_desktop && (ww != gl->lww || wh != gl->lwh || wx != gl->lwx || wy != gl->lwy)) {
+    if (gl->copy_desktop && (ww != r->lww || wh != r->lwh || wx != r->lwx || wy != r->lwy)) {
         gl->bg_tex = xwin_copyglbg(r, gl->bg_tex);
     }
 
-    gl->lwx = wx;
-    gl->lwy = wy;
-    gl->lww = ww;
-    gl->lwh = wh;
+    r->lwx = wx;
+    r->lwy = wy;
+    r->lww = ww;
+    r->lwh = wh;
     
     glViewport(0, 0, ww, wh);
         
@@ -1605,7 +1605,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
         prev = current;
     }
-
+    
     /* Push and copy buffer if we need to interpolate from it later */
     if (gl->interpolate && modified) {
         memcpy(gl->interpolate_buf[IB_START_LEFT ], gl->interpolate_buf[IB_END_LEFT ], fbsz);
@@ -1621,7 +1621,7 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); /* Formula for premultiplied alpha */
         
-    bd_frame(r->bd);
+    bd_frame(r->bd, ww, wh);
 
     glDisable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); /* Restore old func for `xroot` blending */
@@ -1630,9 +1630,10 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
     /* Swap buffers, handle events, etc. (vsync is potentially included here, too) */
     gl->wcb->swap_buffers(gl->w);
-
+    
     double duration = gl->wcb->get_time(gl->w); /* frame execution time */
-
+    r->last_frame_duration = duration;
+    
     /* Handling sleeping (to meet target framerate) */
     if (gl->rate > 0) {
         double target = 1.0D / (double) gl->rate; /* 1 / freq = time per frame */
