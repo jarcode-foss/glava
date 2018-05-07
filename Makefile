@@ -32,7 +32,7 @@ endif
 ifeq ($(INSTALL),unix)
     CFLAGS_INSTALL = -DGLAVA_UNIX
     ifdef XDG_CONFIG_DIRS
-        SHADER_DIR = $(firstword $(subst :, ,$XDG_CONFIG_DIR))/glava
+        SHADER_DIR = $(firstword $(subst :, ,$(XDG_CONFIG_DIRS)))/glava
     else
         SHADER_DIR = etc/xdg/glava
     endif
