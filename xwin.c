@@ -107,37 +107,51 @@ bool xwin_should_render(struct renderer* rd) {
     return ret;
 }
 
-static bool xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
+/* Create string copy on stack with upcase chars */
+#define S_UPPER(in, out) char out[strlen(in) + 1];                  \
+    do {                                                            \
+        for (size_t t = 0; t < sizeof(out) / sizeof(char); ++t) {   \
+            char c = in[t];                                         \
+            switch (c) {                                            \
+            case 'a' ... 'z': c -= 'a' - 'A';                       \
+            default:          out[t] = c;                           \
+            }                                                       \
+        }                                                           \
+    } while (0)
+
+static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
                             const char* atom, const char* fmt, int mode) {
     Window w = wcb->get_x11_window(impl);
     Display* d = wcb->get_x11_display();
     Atom wtype = XInternAtom(d, atom, false);
-    size_t len = strlen(type), t;
-    char formatted[len + 1];
-    for (t = 0; t < len + 1; ++t) {
-        char c = type[t];
-        switch (c) {
-        case 'a' ... 'z': c -= 'a' - 'A';
-        default:          formatted[t] = c;
-        }
-    }
-    bool ret = !strcmp(formatted, "DESKTOP");
     char buf[256];
-    snprintf(buf, sizeof(buf), fmt, formatted);
+    snprintf(buf, sizeof(buf), fmt, type);
     Atom desk = XInternAtom(d, buf, false);
     XChangeProperty(d, w, wtype, XA_ATOM, 32, mode, (unsigned char*) &desk, 1);
-    return ret;
 }
 
 /* Set window types defined by the EWMH standard, possible values:
    -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
-bool xwin_settype(struct gl_wcb* wcb, void* impl, const char* type) {
-    return xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE",
-                           "_NET_WM_WINDOW_TYPE_%s", PropModeReplace); 
+bool xwin_settype(struct gl_wcb* wcb, void* impl, const char* rtype) {
+    S_UPPER(rtype, type);
+    xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE",
+                    "_NET_WM_WINDOW_TYPE_%s", PropModeReplace);
+    return !strcmp(type, "DESTKTOP");
 }
 
-void xwin_addstate(struct gl_wcb* wcb, void* impl, const char* state) {
-    xwin_changeatom(wcb, impl, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend); 
+void xwin_addstate(struct gl_wcb* wcb, void* impl, const char* rstate) {
+    S_UPPER(rstate, state);
+    if (strcmp(state, "PINNED"))
+        xwin_changeatom(wcb, impl, state, "_NET_WM_STATE", "_NET_WM_STATE_%s", PropModeAppend);
+    else
+        xwin_setdesktop(wcb, impl, XWIN_ALL_DESKTOPS);
+}
+
+void xwin_setdesktop(struct gl_wcb* wcb, void* impl, unsigned long desktop) {
+    Window w = wcb->get_x11_window(impl);
+    Display* d = wcb->get_x11_display();
+    Atom wtype = XInternAtom(d, "_NET_WM_DESKTOP", false);
+    XChangeProperty(d, w, wtype, XA_CARDINAL, 32, PropModeReplace, (unsigned char*) &desktop, 1);
 }
 
 static Drawable get_drawable(Display* d, Window w) {

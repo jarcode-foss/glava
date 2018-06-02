@@ -74,7 +74,7 @@
    
    "modal", "sticky", "maximized_vert", "maximized_horz",
    "shaded", "skip_taskbar", "skip_pager", "hidden", "fullscreen",
-   "above", "below", "demands_attention", "focused"
+   "above", "below", "demands_attention", "focused", "pinned"
    
    This will add _NET_WM_STATE_(TYPE) atoms to _NET_WM_STATE,
    where (TYPE) is one of the window states listed (after being
@@ -89,6 +89,7 @@
 // #request addxwinstate "skip_taskbar"
 // #request addxwinstate "skip_pager"
 // #request addxwinstate "above"
+// #request addxwinstate "pinned"
 
 /* PulseAudio source. Can be a number or a name of an audio
    sink or device to record from. Set to "auto" to use the
