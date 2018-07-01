@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -8,6 +9,7 @@
 #include <pulse/pulseaudio.h>
 
 #include "fifo.h"
+#include "pcm.h"
 
 static pa_mainloop* m_pulseaudio_mainloop;
 
@@ -15,76 +17,76 @@ static void cb(__attribute__((unused)) pa_context* pulseaudio_context,
                const pa_server_info* i,
                void* userdata) {
 
-	/* Obtain default sink name */
+    /* Obtain default sink name */
     struct audio_data* audio = (struct audio_data*) userdata;
-	audio->source = malloc(sizeof(char) * 1024);
+    audio->source = malloc(sizeof(char) * 1024);
 
-	strcpy(audio->source,i->default_sink_name);
+    strcpy(audio->source, i->default_sink_name);
 
-	/* Append `.monitor` suffix */
-	audio->source = strcat(audio->source, ".monitor");
+    /* Append `.monitor` suffix */
+    audio->source = strcat(audio->source, ".monitor");
 
-	/* Quiting mainloop */
+    /* Quiting mainloop */
     pa_context_disconnect(pulseaudio_context);
     pa_context_unref(pulseaudio_context);
-	pa_mainloop_quit(m_pulseaudio_mainloop, 0);
+    pa_mainloop_quit(m_pulseaudio_mainloop, 0);
     pa_mainloop_free(m_pulseaudio_mainloop);
 }
 
 
 static void pulseaudio_context_state_callback(pa_context* pulseaudio_context, void* userdata) {
 
-	/* Ensure loop is ready	*/
-	switch (pa_context_get_state(pulseaudio_context))
-        {
-        case PA_CONTEXT_UNCONNECTED:
-            break;
-        case PA_CONTEXT_CONNECTING:
-            break;
-        case PA_CONTEXT_AUTHORIZING:
-            break;
-        case PA_CONTEXT_SETTING_NAME:
-            break;
-        case PA_CONTEXT_READY: /* extract default sink name */
-            pa_operation_unref(pa_context_get_server_info(pulseaudio_context, cb, userdata));
-            break;
-        case PA_CONTEXT_FAILED:
-            printf("failed to connect to pulseaudio server\n");
-            exit(EXIT_FAILURE);
-            break;
-        case PA_CONTEXT_TERMINATED:
-            pa_mainloop_quit(m_pulseaudio_mainloop, 0);
-            break;	  
-        }
+    /* Ensure loop is ready */
+    switch (pa_context_get_state(pulseaudio_context))
+    {
+    case PA_CONTEXT_UNCONNECTED:
+        break;
+    case PA_CONTEXT_CONNECTING:
+        break;
+    case PA_CONTEXT_AUTHORIZING:
+        break;
+    case PA_CONTEXT_SETTING_NAME:
+        break;
+    case PA_CONTEXT_READY: /* extract default sink name */
+        pa_operation_unref(pa_context_get_server_info(pulseaudio_context, cb, userdata));
+        break;
+    case PA_CONTEXT_FAILED:
+        printf("failed to connect to pulseaudio server\n");
+        exit(EXIT_FAILURE);
+        break;
+    case PA_CONTEXT_TERMINATED:
+        pa_mainloop_quit(m_pulseaudio_mainloop, 0);
+        break;
+    }
 }
 
 
 void get_pulse_default_sink(struct audio_data* audio) {
-    
-	pa_mainloop_api* mainloop_api;
-	pa_context* pulseaudio_context;
-	int ret;
 
-	/* Create a mainloop API and connection to the default server */
-	m_pulseaudio_mainloop = pa_mainloop_new();
+    pa_mainloop_api* mainloop_api;
+    pa_context* pulseaudio_context;
+    int ret;
 
-	mainloop_api = pa_mainloop_get_api(m_pulseaudio_mainloop);
-	pulseaudio_context = pa_context_new(mainloop_api, "glava device list");
+    /* Create a mainloop API and connection to the default server */
+    m_pulseaudio_mainloop = pa_mainloop_new();
+
+    mainloop_api = pa_mainloop_get_api(m_pulseaudio_mainloop);
+    pulseaudio_context = pa_context_new(mainloop_api, "glava device list");
 
 
-	/* Connect to the PA server */
-	pa_context_connect(pulseaudio_context, NULL, PA_CONTEXT_NOFLAGS,
+    /* Connect to the PA server */
+    pa_context_connect(pulseaudio_context, NULL, PA_CONTEXT_NOFLAGS,
                        NULL);
 
-	/* Define a callback so the server will tell us its state */
-	pa_context_set_state_callback(pulseaudio_context,
+    /* Define a callback so the server will tell us its state */
+    pa_context_set_state_callback(pulseaudio_context,
                                   pulseaudio_context_state_callback,
                                   (void*)audio);
 
-	/* Start mainloop to get default sink */
+    /* Start mainloop to get default sink */
 
-	/* Start with one non blocking iteration in case pulseaudio is not able to run */
-	if (!(ret = pa_mainloop_iterate(m_pulseaudio_mainloop, 0, &ret))){
+    /* Start with one non blocking iteration in case pulseaudio is not able to run */
+    if (!(ret = pa_mainloop_iterate(m_pulseaudio_mainloop, 0, &ret))) {
         printf("Could not open pulseaudio mainloop to "
                "find default device name: %d\n"
                "check if pulseaudio is running\n",
@@ -93,8 +95,8 @@ void get_pulse_default_sink(struct audio_data* audio) {
         exit(EXIT_FAILURE);
     }
 
-	pa_mainloop_run(m_pulseaudio_mainloop, &ret);
-	
+    pa_mainloop_run(m_pulseaudio_mainloop, &ret);
+
 
 }
 
@@ -115,77 +117,99 @@ void* input_pulse(void* data) {
     struct audio_data* audio = (struct audio_data*) data;
     int i, n;
     size_t ssz = audio->sample_sz;
-	float buf[ssz / 2];
-    
-	const pa_sample_spec ss = {
-		.format   = FSAMPLE_FORMAT,
-		.rate     = audio->rate,
-		.channels = 2
+    float buf[ssz / 2];
+
+    const pa_sample_spec ss = {
+        .format   = FSAMPLE_FORMAT,
+        .rate     = audio->rate,
+        .channels = 2
     };
-	const pa_buffer_attr pb = {
+    const pa_buffer_attr pb = {
         .maxlength = ssz * 2,
         .fragsize  = ssz
-	};
-    
-	pa_simple* s = NULL;
-	int error;
-    
-	if (!(s = pa_simple_new(NULL, "glava", PA_STREAM_RECORD,
+    };
+
+    pa_simple* s = NULL;
+    int error;
+
+    if (!(s = pa_simple_new(NULL, "glava", PA_STREAM_RECORD,
                             audio->source, "audio for glava",
                             &ss, NULL, &pb, &error))) {
-		fprintf(stderr, __FILE__ ": Could not open pulseaudio source: %s, %s. "
+        fprintf(stderr, __FILE__ ": Could not open pulseaudio source: %s, %s. "
                 "To find a list of your pulseaudio sources run 'pacmd list-sources'\n",
                 audio->source, pa_strerror(error));
-		exit(EXIT_FAILURE);
-	}
-    
-	n = 0;
-    
+        exit(EXIT_FAILURE);
+    }
+
+    n = 0;
+
     float* bl = (float*) audio->audio_out_l;
     float* br = (float*) audio->audio_out_r;
     size_t fsz = audio->audio_buf_sz;
-    
-	while (1) {
-        
+
+    int stateplay = 1;
+    int statenew = 0;
+    struct pcm_struct pcm = {
+        .stateplay        = stateplay
+    };
+    pthread_t thread;
+    pthread_create(&thread, NULL, pcm_main, (void*) &pcm);
+
+    while (1) {
+
+        pthread_mutex_lock(&pcm.mutex);
+        stateplay = pcm.stateplay;
+        pthread_mutex_unlock(&pcm.mutex);
+
         /* Record some data ... */
         if (pa_simple_read(s, buf, sizeof(buf), &error) < 0) {
             fprintf(stderr, __FILE__": pa_simple_read() failed: %s\n", pa_strerror(error));
-        	exit(EXIT_FAILURE);
-		}
+            exit(EXIT_FAILURE);
+        }
 
         pthread_mutex_lock(&audio->mutex);
 
         /* progressing the audio buffer, making space for new write */
 
         memmove(bl, &bl[ssz / 4], (fsz - (ssz / 4)) * sizeof(float));
-        memmove(br, &br[ssz / 4], (fsz - (ssz / 4)) * sizeof(float)); 
+        memmove(br, &br[ssz / 4], (fsz - (ssz / 4)) * sizeof(float));
 
         /* sorting out channels */
-        
-        for (n = 0, i = 0; i < ssz / 2; i += 2) {
+        if (stateplay > 0)
+        {
+            for (n = 0, i = 0; i < ssz / 2; i += 2) {
 
-            /* size_t idx = (i / 2) + (at * (BUFSIZE / 2)); */
+                /* size_t idx = (i / 2) + (at * (BUFSIZE / 2)); */
 
-            int idx = (fsz - (ssz / 4)) + n;
+                int idx = (fsz - (ssz / 4)) + n;
 
-            if (audio->channels == 1) bl[idx] = (buf[i] + buf[i + 1]) / 2;
+                if (audio->channels == 1) bl[idx] = (buf[i] + buf[i + 1]) / 2;
 
-            /* stereo storing channels in buffer */
-            if (audio->channels == 2) {
-                bl[idx] = buf[i];
-                br[idx] = buf[i + 1];
+                /* stereo storing channels in buffer */
+                if (audio->channels == 2) {
+                    bl[idx] = buf[i];
+                    br[idx] = buf[i + 1];
+                }
+
+                // if (bl[idx] != 0 || br[idx] != 0) took cpu from 7% to 15%
+                // {
+
+                // }
+                ++n;
             }
-            ++n;
+            audio->update = true;
+            audio->modified = true;
+        } else {
+            audio->update = false;
         }
-        audio->modified = true;
-        
+
         pthread_mutex_unlock(&audio->mutex);
-        
+
         if (audio->terminate == 1) {
             pa_simple_free(s);
             break;
         }
     }
-    
-	return 0;
+
+    return 0;
 }
