@@ -250,7 +250,8 @@ int main(int argc, char** argv) {
         .mutex        = PTHREAD_MUTEX_INITIALIZER,
         .audio_buf_sz = r->bufsize_request,
         .sample_sz    = r->samplesize_request,
-        .modified     = false
+        .modified     = false,
+        .update       = false
     };
     if (!audio.source) {
         get_pulse_default_sink(&audio);
@@ -266,10 +267,12 @@ int main(int argc, char** argv) {
         rd_time(r); /* update timer for this frame */
         
         bool modified; /* if the audio buffer has been updated by the streaming thread */
+        bool update; /* if the streaming thread detects no output */
 
         /* lock the audio mutex and read our data */
         pthread_mutex_lock(&audio.mutex);
         modified = audio.modified;
+        update = audio.update;
         if (modified) {
             /* create our own copies of the audio buffers, so the streaming
                thread can continue to append to it */
@@ -280,8 +283,11 @@ int main(int argc, char** argv) {
         pthread_mutex_unlock(&audio.mutex);
         
         /* Only render if needed (ie. stop rendering when fullscreen windows are focused) */
-        if (xwin_should_render(r)) {
+        if (xwin_should_render(r) && update) {
+            // if (modified) TODO: causes intense cpu usage???
+            // {
             rd_update(r, lb, rb, r->bufsize_request, modified);
+            // }
         } else {
             /* Sleep for 50ms and then attempt to render again */
             struct timespec tv = {

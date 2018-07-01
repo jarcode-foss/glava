@@ -5,6 +5,7 @@ struct audio_data {
     volatile float* audio_out_r;
     volatile float* audio_out_l;
     bool modified;
+    bool update;
     size_t audio_buf_sz, sample_sz;
     int format;
     unsigned int rate;
