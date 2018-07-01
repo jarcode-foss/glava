@@ -175,7 +175,7 @@ void* input_pulse(void* data) {
         memmove(br, &br[ssz / 4], (fsz - (ssz / 4)) * sizeof(float));
 
         /* sorting out channels */
-        if (stateplay == 1)
+        if (stateplay > 0)
         {
             for (n = 0, i = 0; i < ssz / 2; i += 2) {
 

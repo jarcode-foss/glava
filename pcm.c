@@ -28,7 +28,7 @@ void* pcm_main(void* data)
 	while (fgets(path, sizeof(path) - 1, fp) != NULL) {
 		// printf("\nnayeet%s", path);
 		state = atoi(path);
-		if (state==0 && stateold==1)
+		if (state==0 && stateold>0)
 		{
 			sleep(5);
 			printf("Audio Paused\n\n");
