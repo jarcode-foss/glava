@@ -74,7 +74,8 @@ void xwin_wait_for_wm(void) {
                     exists = true;
                     break;
                 }
-            } 
+            }
+            XFree(props);
         }
         if (!exists) nanosleep(&tv, NULL);
     } while (!exists);
