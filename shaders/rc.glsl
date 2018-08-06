@@ -42,7 +42,7 @@
 #request setopacity "native"
 
 /* Whether to mirror left and right audio input channels from PulseAudio.*/
-#request setmirror true
+#request setmirror false
 
 /* OpenGL context and GLSL shader versions, do not change unless
    you *absolutely* know what you are doing. */
