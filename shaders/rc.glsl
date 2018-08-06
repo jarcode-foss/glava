@@ -41,6 +41,9 @@
    "none"   - Disable window opacity completely. */
 #request setopacity "native"
 
+/* Whether to mirror left and right audio input channels from PulseAudio.*/
+#request setmirror true
+
 /* OpenGL context and GLSL shader versions, do not change unless
    you *absolutely* know what you are doing. */
 #request setversion 3 3

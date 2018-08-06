@@ -168,7 +168,11 @@ void* input_pulse(void* data) {
 
             int idx = (fsz - (ssz / 4)) + n;
 
-            if (audio->channels == 1) bl[idx] = (buf[i] + buf[i + 1]) / 2;
+            if (audio->channels == 1) {
+                float sample = (buf[i] + buf[i + 1]) / 2;
+                bl[idx] = sample;
+                br[idx] = sample;
+            }
 
             /* stereo storing channels in buffer */
             if (audio->channels == 2) {

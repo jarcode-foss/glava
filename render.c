@@ -685,6 +685,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
     renderer* r = malloc(sizeof(struct renderer));
     *r = (struct renderer) {
         .alive                = true,
+        .mirror_input         = false,
         .gl                   = malloc(sizeof(struct gl_data)),
         .bufsize_request      = 8192,
         .rate_request         = 22000,
@@ -815,6 +816,10 @@ struct renderer* rd_new(const char** paths, const char* entry,
                         exit(EXIT_FAILURE);
                     }
                 })
+        },
+        {
+            .name = "setmirror", .fmt = "b",
+            .handler = RHANDLER(name, args, { r->mirror_input = *(bool*) args[0]; })
         },
         {
             .name = "setbg", .fmt = "s",

@@ -299,7 +299,7 @@ static void* create_and_bind(const char* name, const char* class,
             XFree(xvi);
         }
     }
-
+    
     if (best == -1) {
         fprintf(stderr, "Could not find suitable format for FBConfig\n");
         abort();

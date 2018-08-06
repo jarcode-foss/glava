@@ -5,7 +5,7 @@
 struct gl_data;
 
 typedef struct renderer {
-    bool    alive;
+    bool    alive, mirror_input;
     size_t  bufsize_request, rate_request, samplesize_request;
     char*   audio_source_request;
     struct gl_data* gl;

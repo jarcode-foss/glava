@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
         .rate         = (unsigned int) r->rate_request,
         .format       = -1,
         .terminate    = 0,
-        .channels     = 2,
+        .channels     = r->mirror_input ? 1 : 2,
         .audio_out_r  = b0,
         .audio_out_l  = b1,
         .mutex        = PTHREAD_MUTEX_INITIALIZER,
