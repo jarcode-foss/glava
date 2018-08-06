@@ -681,6 +681,8 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
 
 struct renderer* rd_new(const char** paths, const char* entry,
                         const char* force_mod, const char* force_backend) {
+
+    xwin_wait_for_wm();
     
     renderer* r = malloc(sizeof(struct renderer));
     *r = (struct renderer) {

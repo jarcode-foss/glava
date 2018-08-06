@@ -8,6 +8,8 @@
 #include <limits.h>
 #include <errno.h>
 
+#include <time.h>
+
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
@@ -51,6 +53,33 @@ static Window find_desktop(struct renderer* r) {
         searched = true;
     }
     return desktop;
+}
+
+void xwin_wait_for_wm(void) {
+    Display* d = XOpenDisplay(0);
+
+    Atom check = None;
+    bool exists = false;
+    struct timespec tv = { .tv_sec = 0, .tv_nsec = 50 * 1000000 };
+    
+     do {
+        if (check == None) {
+            check = XInternAtom(d, "_NET_SUPPORTING_WM_CHECK", true);
+        }
+        if (check) {
+            int num_prop, idx;
+            Atom* props = XListProperties(d, DefaultRootWindow(d), &num_prop);
+            for (idx = 0; idx < num_prop; ++idx) {
+                if (props[idx] == check) {
+                    exists = true;
+                    break;
+                }
+            } 
+        }
+        if (!exists) nanosleep(&tv, NULL);
+    } while (!exists);
+
+    XCloseDisplay(d);
 }
 
 bool xwin_should_render(struct renderer* rd) {
