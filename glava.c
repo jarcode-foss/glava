@@ -279,10 +279,7 @@ int main(int argc, char** argv) {
         }
         pthread_mutex_unlock(&audio.mutex);
         
-        /* Only render if needed (ie. stop rendering when fullscreen windows are focused) */
-        if (xwin_should_render(r)) {
-            rd_update(r, lb, rb, r->bufsize_request, modified);
-        } else {
+        if (!rd_update(r, lb, rb, r->bufsize_request, modified)) {
             /* Sleep for 50ms and then attempt to render again */
             struct timespec tv = {
                 .tv_sec = 0, .tv_nsec = 50 * 1000000

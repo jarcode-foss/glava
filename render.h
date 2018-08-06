@@ -13,7 +13,7 @@ typedef struct renderer {
 
 struct renderer* rd_new            (const char** paths, const char* entry,
                                     const char* force_mod, const char* force_backend);
-void             rd_update         (struct renderer*, float* lb, float* rb,
+bool             rd_update         (struct renderer*, float* lb, float* rb,
                                     size_t bsz, bool modified);
 void             rd_destroy        (struct renderer*);
 void             rd_time           (struct renderer*);

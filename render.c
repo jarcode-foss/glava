@@ -109,7 +109,7 @@ struct gl_data {
     double tcounter;
     int fcounter, ucounter, kcounter;
     bool print_fps, avg_window, interpolate, force_geometry, copy_desktop,
-        smooth_pass, premultiply_alpha;
+        smooth_pass, premultiply_alpha, check_fullscreen;
     void** t_data;
     float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio,
         smooth_factor, fft_scale, fft_cutoff;
@@ -721,6 +721,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
         .sm_prog           = 0,
         .copy_desktop      = true,
         .premultiply_alpha = true,
+        .check_fullscreen  = true,
         .smooth_pass       = true,
         .fft_scale         = 10.2F,
         .fft_cutoff        = 0.3F,
@@ -822,6 +823,10 @@ struct renderer* rd_new(const char** paths, const char* entry,
         {
             .name = "setmirror", .fmt = "b",
             .handler = RHANDLER(name, args, { r->mirror_input = *(bool*) args[0]; })
+        },
+        {
+            .name = "setfullscreencheck", .fmt = "b",
+            .handler = RHANDLER(name, args, { gl->check_fullscreen = *(bool*) args[0]; })
         },
         {
             .name = "setbg", .fmt = "s",
@@ -1276,13 +1281,17 @@ void rd_time(struct renderer* r) {
     gl->wcb->set_time(gl->w, 0.0D); /* reset time for measuring this frame */
 }
 
-void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
+bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
     struct gl_data* gl = r->gl;
     size_t t, a, fbsz = bsz * sizeof(float);
     
     r->alive = !gl->wcb->should_close(gl->w);
     if (!r->alive)
-        return;
+        return true;
+    
+    /* Stop rendering when fullscreen windows are focused */
+    if (gl->check_fullscreen && !xwin_should_render(r))
+        return false;
 
     /* Force disable interpolation if the update rate is close to or higher than the frame rate */
     float uratio = (gl->ur / gl->fr); /* update : framerate ratio */
@@ -1628,6 +1637,8 @@ void rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
     /* Restore interpolation settings */
     gl->interpolate = old_interpolate;
+    
+    return true;
 }
 
 void*          rd_get_impl_window (struct renderer* r)  { return r->gl->w;   }
