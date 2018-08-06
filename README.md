@@ -51,7 +51,7 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | :---: | --- | --- |
 | Mutter (GNOME, Budgie) | ![-](https://placehold.it/15/118932/000000?text=+) | `"native"` (default) opacity should be used
 | Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
-| Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
+| Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Desktop windows need `#request addxwinstate "pinned"`
 | Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
 | IceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Bspwm | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
