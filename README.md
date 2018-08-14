@@ -30,7 +30,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
-sudo apt-get install libpulse0 libpulse-dev libglfw3 libglfw3-dev libxext6 libxext-dev python make gcc 
+sudo apt-get install libpulse0 libpulse-dev libglfw3 libglfw3-dev libxext6 libxext-dev libxcomposite-dev python make gcc 
 ```
 
 ## [Configuration](https://github.com/wacossusca34/glava/wiki)
