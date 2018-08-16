@@ -166,7 +166,7 @@ bool xwin_settype(struct gl_wcb* wcb, void* impl, const char* rtype) {
     S_UPPER(rtype, type);
     xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE",
                     "_NET_WM_WINDOW_TYPE_%s", PropModeReplace);
-    return !strcmp(type, "DESTKTOP");
+    return !strcmp(type, "DESKTOP");
 }
 
 void xwin_addstate(struct gl_wcb* wcb, void* impl, const char* rstate) {
