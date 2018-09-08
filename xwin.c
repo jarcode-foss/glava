@@ -25,11 +25,12 @@
 #include "render.h"
 #include "xwin.h"
 
-static Window find_desktop(struct renderer* r) {
+Window* xwin_get_desktop_layer(struct gl_wcb* wcb) {
     static Window desktop;
     static bool searched = false;
     if (!searched) {
-        Display* d = rd_get_wcb(r)->get_x11_display();
+        Display* d = wcb->get_x11_display();
+        Atom class = XInternAtom(d, "WM_CLASS", false);
         desktop = DefaultRootWindow(d);
         Window _ignored, * children;
         unsigned int nret;
@@ -41,18 +42,36 @@ static Window find_desktop(struct renderer* r) {
                 if (name) {
                     /* Mutter-based window managers */
                     if (!strcmp(name, "mutter guard window")) {
-                        printf("Using mutter guard window instead of root window\n");
-                        // desktop = children[t];
+                        printf("Reparenting to mutter guard window instead of root window\n");
+                        desktop = children[t];
                         t = nret; /* break after */
                     }
                     XFree(name);
+                }
+                unsigned long bytes;
+                XTextProperty text = {};
+                char** list;
+                int list_sz;
+                /* Get WM_CLASS property */
+                if (Success == XGetWindowProperty(d, children[t], class, 0, 512, false, AnyPropertyType,
+                                                  &text.encoding, &text.format, &text.nitems, &bytes,
+                                                  &text.value)) {
+                    /* decode string array */
+                    if (Success == XmbTextPropertyToTextList(d, &text, &list, &list_sz)) {
+                        if (list_sz >= 1 && !strcmp(list[0], "plasmashell")) {
+                            desktop = children[t];
+                            t = nret;
+                        }
+                        XFreeStringList(list);
+                    }
+                    XFree(text.value);
                 }
             }
             XFree(children);
         }
         searched = true;
     }
-    return desktop;
+    return &desktop;
 }
 
 void xwin_wait_for_wm(void) {
@@ -219,7 +238,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     rd_get_wcb(rd)->get_pos(rd_get_impl_window(rd), &x, &y);
     XColor c;
     Display* d = rd_get_wcb(rd)->get_x11_display();
-    Drawable src = get_drawable(d, find_desktop(rd));
+    Drawable src = get_drawable(d, DefaultRootWindow(d));
     bool use_shm = XShmQueryExtension(d);
 
     /* Obtain section of root pixmap */

@@ -132,6 +132,7 @@ static void     get_pos        (GLFWwindow* w, int* x, int* y) { glfwGetWindowPo
 static double   get_time       (GLFWwindow* w)                 { return glfwGetTime();            }
 static void     set_time       (GLFWwindow* w, double time)    { glfwSetTime(time);               }
 static void     set_swap       (int i)                         { glfwSwapInterval(i); }
+static void     raise          (GLFWwindow* w)                 { glfwShowWindow(w); }
 
 WCB_ATTACH("glfw", wcb_glfw);
 

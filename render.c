@@ -108,8 +108,8 @@ struct gl_data {
     int rate; /* framerate */
     double tcounter;
     int fcounter, ucounter, kcounter;
-    bool print_fps, avg_window, interpolate, force_geometry, copy_desktop,
-        smooth_pass, premultiply_alpha, check_fullscreen;
+    bool print_fps, avg_window, interpolate, force_geometry, force_raised,
+        copy_desktop, smooth_pass, premultiply_alpha, check_fullscreen;
     void** t_data;
     float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio,
         smooth_factor, fft_scale, fft_cutoff;
@@ -714,6 +714,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
         .gravity_step      = 4.2,
         .interpolate       = true,
         .force_geometry    = false,
+        .force_raised      = false,
         .smooth_factor     = 0.025,
         .smooth_distance   = 0.01,
         .smooth_ratio      = 4,
@@ -907,6 +908,8 @@ struct renderer* rd_new(const char** paths, const char* entry,
                     r->audio_source_request = strdup((char*) args[0]); })                    },
         {   .name = "setforcegeometry", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->force_geometry = *(bool*) args[0]; })      },
+        {   .name = "setforceraised", .fmt = "b",
+            .handler = RHANDLER(name, args, { gl->force_raised = *(bool*) args[0]; })        },
         {   .name = "setxwintype", .fmt = "s",
             .handler = RHANDLER(name, args, { xwintype = strdup((char*) args[0]); })         },
         {   .name = "setshaderversion", .fmt = "i",
@@ -1632,6 +1635,10 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             gl->wcb->set_geometry(gl->w,
                                   gl->geometry[0], gl->geometry[1],
                                   gl->geometry[2], gl->geometry[3]);
+        }
+        
+        if (gl->force_raised) {
+            gl->wcb->raise(gl->w);
         }
     }
 

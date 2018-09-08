@@ -176,6 +176,8 @@ struct glxwin {
     bool should_close;
 };
 
+static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM__NET_ACTIVE_WINDOW;
+
 static void init(void) {
     display = XOpenDisplay(NULL);
     if (!display) {
@@ -210,6 +212,8 @@ static void init(void) {
     }
 
     #define resolve(name) do { name = (typeof(name)) resolve_f(#name); } while (0)
+    #define intern(name, only_if_exists) \
+        do { ATOM_##name = XInternAtom(display, #name, only_if_exists); } while (0)
 
     resolve(glXChooseFBConfig);
     resolve(glXGetVisualFromFBConfig);
@@ -218,7 +222,13 @@ static void init(void) {
     resolve(glXGetCurrentDrawable);
     resolve(glXGetProcAddressARB);
     resolve(glXSwapBuffers);
-    
+
+    intern(_MOTIF_WM_HINTS,    false);
+    intern(WM_DELETE_WINDOW,   true);
+    intern(WM_PROTOCOLS,       true);
+    intern(_NET_ACTIVE_WINDOW, false);
+
+    #undef intern
     #undef resolve
 }
 
@@ -232,10 +242,8 @@ static void apply_decorations(Window w) {
 
         hints.flags       = 2;
         hints.decorations = 0;
-        
-        Atom motif = XInternAtom(display, "_MOTIF_WM_HINTS", false);
 
-        XChangeProperty(display, w, motif, motif, 32, PropModeReplace,
+        XChangeProperty(display, w, ATOM__MOTIF_WM_HINTS, ATOM__MOTIF_WM_HINTS, 32, PropModeReplace,
                         (unsigned char*) &hints, sizeof(hints) / sizeof(long));
     }
 }
@@ -311,11 +319,11 @@ static void* create_and_bind(const char* name, const char* class,
     vi = glXGetVisualFromFBConfig(display, config);
     
     attr.colormap          = XCreateColormap(display, DefaultRootWindow(display), vi->visual, AllocNone);
-    attr.event_mask        = ExposureMask | KeyPressMask | StructureNotifyMask;
+    attr.event_mask        = ExposureMask | KeyPressMask | StructureNotifyMask | PropertyChangeMask;
     attr.background_pixmap = None;
     attr.border_pixel      = 0;
     
-    if (!(w->w = XCreateWindow(display, DefaultRootWindow(display),
+    if (!(w->w = XCreateWindow(display, *xwin_get_desktop_layer(&wcb_glx),
                                x, y, d, h, 0,
                                vi->depth, InputOutput, vi->visual,
                                CWColormap | CWEventMask | CWBackPixmap | CWBorderPixel,
@@ -345,9 +353,8 @@ static void* create_and_bind(const char* name, const char* class,
     XFree(vi);
     
     XStoreName(display, w->w, name);
-
-    Atom dwin = XInternAtom(display, "WM_DELETE_WINDOW", false);
-    XSetWMProtocols(display, w->w, &dwin, 1);
+    
+    XSetWMProtocols(display, w->w, &ATOM_WM_DELETE_WINDOW, 1);
     
     // XReparentWindow(display, w->w, DefaultRootWindow(display), 0, 0);
     
@@ -389,7 +396,32 @@ static void* create_and_bind(const char* name, const char* class,
     
     if (glXSwapIntervalEXT) glXSwapIntervalEXT(display, drawable, swap);
 
+    // XSelectInput(display, DefaultRootWindow(display), VisibilityChangeMask | PropertyChangeMask);
+
     return w;
+}
+
+static void raise(struct glxwin* w) {
+    XClientMessageEvent ev = {
+        .type = ClientMessage,
+        .serial = 0,
+        .send_event = true,
+        .display = display,
+        .window = w->w,
+        .message_type = ATOM__NET_ACTIVE_WINDOW,
+        .format = 32,
+        .data = { .l = {
+                [0] = 1, /* source indication -- `1` when coming from an application */
+                [1] = 0, /* timestamp -- `0` to (attempt to) ignore */
+                [2] = w->w  /* requestor's currently active window -- `0` for none */
+            }
+        }
+    };
+    /* Send the client message as defined by EWMH standards (usually works) */
+    XSendEvent(display, DefaultRootWindow(display), false, StructureNotifyMask, (XEvent*) &ev);
+    /* Raise the client in the X11 stacking order (sometimes works, can be blocked by the WM) */
+    XRaiseWindow(display, w->w);
+    XFlush(display);
 }
 
 static void set_swap       (int  _swap)        { swap        = _swap;        }
@@ -420,10 +452,11 @@ static void swap_buffers(struct glxwin* w) {
         XNextEvent(display, &ev);
         switch (ev.type) {
         case ClientMessage:
-            if (ev.xclient.message_type  == XInternAtom(display, "WM_PROTOCOLS", 1)
-                && ev.xclient.data.l[0]  == XInternAtom(display, "WM_DELETE_WINDOW", 1)) {
+            if (ev.xclient.message_type  == ATOM_WM_PROTOCOLS
+                && ev.xclient.data.l[0]  == ATOM_WM_DELETE_WINDOW) {
                 w->should_close = true;
             }
+            break;
         default: break;
         }
     }

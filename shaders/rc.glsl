@@ -26,6 +26,10 @@
    embedding in the desktop. */
 #request setforcegeometry false
 
+/* Force window to be raised (focused in some WMs), useful for
+   WMs that have their own stacking order for desktop windows. */
+#request setforceraised false
+
 /* Set window background opacity mode. Possible values are:
    
    "native" - True transparency provided by the compositor. Can
