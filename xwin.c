@@ -135,7 +135,6 @@ const char* xwin_detect_wm(struct gl_wcb* wcb) {
     }
     
     XFree(wm_check);
-    printf("wm_name: \"%s\"\n", wm_name);
     
     return (const char*) wm_name;
     
