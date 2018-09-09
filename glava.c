@@ -159,6 +159,9 @@ static const char* help_str =
     "Available arguments:\n"
     "-h, --help              show this help and exit\n"
     "-v, --verbose           enables printing of detailed information about execution\n"
+    "-d, --desktop           enables running glava as a desktop window by detecting the\n"
+    "                          desktop environment and setting the appropriate properties\n"
+    "                          automatically. Can override properties in \"rc.glsl\".\n"
     "-m, --force-mod=NAME    forces the specified module to load instead, ignoring any\n"
     "                          `#request mod` instances in the entry point.\n"
     "-e, --entry=NAME        specifies the name of the file to look for when loading shaders,\n"
@@ -174,10 +177,11 @@ static const char* help_str =
     GLAVA_VERSION_STRING "\n"
     " -- Copyright (C) 2017 Levi Webb\n";
 
-static const char* opt_str = "hvVe:Cm:b:";
+static const char* opt_str = "dhvVe:Cm:b:";
 static struct option p_opts[] = {
     {"help",        no_argument,       0, 'h'},
     {"verbose",     no_argument,       0, 'v'},
+    {"desktop",     no_argument,       0, 'd'},
     {"entry",       required_argument, 0, 'e'},
     {"force-mod",   required_argument, 0, 'm'},
     {"copy-config", no_argument,       0, 'C'},
@@ -195,14 +199,14 @@ int main(int argc, char** argv) {
     const char* force        = NULL;
     const char* backend      = NULL;
     const char* system_shader_paths[] = { user_path, install_path, NULL };
-    bool verbose = false;
-    bool copy_mode = false;
+    bool verbose = false, copy_mode = false, desktop = false;
     
     int c, idx;
     while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
         switch (c) {
         case 'v': verbose   = true;   break;
         case 'C': copy_mode = true;   break;
+        case 'd': desktop   = true;   break;
         case 'e': entry     = optarg; break;
         case 'm': force     = optarg; break;
         case 'b': backend   = optarg; break;
@@ -224,7 +228,7 @@ int main(int argc, char** argv) {
         exit(EXIT_SUCCESS);
     }
 
-    renderer* r = rd_new(system_shader_paths, entry, force, backend);
+    renderer* r = rd_new(system_shader_paths, entry, force, backend, desktop);
 
     float b0[r->bufsize_request], b1[r->bufsize_request];
     size_t t;

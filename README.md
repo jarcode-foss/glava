@@ -19,7 +19,6 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 - X11
 - PulseAudio
-- GLFW 3.1+ (optional, disable with `DISABLE_GLFW=1`)
 - Linux or BSD
 
 **Additional compile time requirements:**
@@ -27,6 +26,10 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 - glad (included as a submodule)
 - python (required to generate bindings with glad)
 - GCC (this program uses GNU C features)
+
+**Optional requirements:**
+
+- GLFW 3.1+ (optional, enable with `ENABLE_GLFW=1`)
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
@@ -39,9 +42,9 @@ GLava will start by looking for an entry point in the user configuration folder 
 
 You should start by running `glava --copy-config`. This will copy over default configuration files and create symlinks to modules in your user config folder. GLava will either load system configuration files or the user provided ones, so it's not advised to copy these files selectively.
 
-To embed GLava in your desktop (for EWMH compliant window managers), use `#request setxwintype "desktop"` and then position it accordingly with `#request setgeometry x y width height`. You may want to also use `#request setforcegeometry true` for some window managers.
+To embed GLava in your desktop (for EWMH compliant window managers), run it with the `--desktop` flag and then position it accordingly with `#request setgeometry x y width height` in your `rc.glsl`.
 
-\* On an XDG compliant Linux or BSD system. OSX will use `/Library/glava` and `~/Library/Preferences/glava` instead.
+\* On an XDG compliant Linux or BSD system.
 
 ## Desktop window compatibility
 
@@ -50,20 +53,22 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | WM | ! | Details
 | :---: | --- | --- |
 | Mutter (GNOME, Budgie) | ![-](https://placehold.it/15/118932/000000?text=+) | `"native"` (default) opacity should be used
+| KWin (KDE) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
-| Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | Desktop windows need `#request addxwinstate "pinned"` and `#request addxwinstate "below"`
-| Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | Untested, but should work without issues
+| Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
+| Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | IceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Bspwm | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Herbstluftwm | ![-](https://placehold.it/15/118932/000000?text=+) | `hc rule windowtype~'_NET_WM_WINDOW_TYPE_DESKTOP' manage=off` can be used to unmanage desktop windows
 | Unity | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | AwesomeWM | ![-](https://placehold.it/15/f09c00/000000?text=+) | Can still be focused, may require other changes to config depending on layout
-| kwin (KDE) | ![-](https://placehold.it/15/f09c00/000000?text=+) | [Issues with workspaces and stacking](https://github.com/wacossusca34/glava/issues/4), needs further testing
 | i3 (and i3-gaps) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [i3 does not respect the `"desktop"` window type](https://github.com/wacossusca34/glava/issues/6)
 | EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
 | Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Any non EWMH-compliant WM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Window types and hints will not work if the window manager does not support the EWMH standards.
+
+Note that some WMs listed without issues have specific overrides when using the `--desktop` flag. See `shaders/env_*.glsl` files for details.
 
 ## Licensing
 
@@ -86,4 +91,4 @@ The below copyright applies for the modifications to the files listed above, and
 
 ## Porting
 
-GLava was built with GLFW, making the graphics frontend mostly compatible if it were to be ported to Windows, and I have taken all the Xlib-specific code and placed it into `xwin.c` if anyone decides they wish to attempt at a port.
+GLava was built with GLFW, making the graphics frontend mostly compatible if it were to be ported to Windows, and I have taken most of the Xlib-specific code and placed it into `xwin.c` if anyone decides they wish to attempt at a port.

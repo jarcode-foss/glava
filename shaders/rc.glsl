@@ -21,15 +21,6 @@
 #request setfocused   false
 #request setmaximized false
 
-/* Force window geometry (locking the window in place), useful
-   for some pesky WMs that try to reposition the window when
-   embedding in the desktop. */
-#request setforcegeometry false
-
-/* Force window to be raised (focused in some WMs), useful for
-   WMs that have their own stacking order for desktop windows. */
-#request setforceraised false
-
 /* Set window background opacity mode. Possible values are:
    
    "native" - True transparency provided by the compositor. Can
@@ -70,10 +61,7 @@
    
    This will set _NET_WM_WINDOW_TYPE to _NET_WM_WINDOW_TYPE_(TYPE),
    where (TYPE) is the one of the window types listed (after being
-   converted to uppercase). More information can be found at:
-   
-   https://standards.freedesktop.org/wm-spec/wm-spec-1.3.html#idm140130317606816
-*/
+   converted to uppercase). */
 #request setxwintype "normal"
 
 /* (X11 only) EWMH Window state atoms (multiple can be specified).
@@ -97,6 +85,12 @@
 // #request addxwinstate "skip_pager"
 // #request addxwinstate "above"
 // #request addxwinstate "pinned"
+
+/* (X11 only) Use the XShape extension to support clicking through
+   the GLava window. Useful when you want to interact with other
+   desktop windows (icons, menus, desktop shells). Enabled by
+   default when GLava itself is a desktop window. */
+#request setclickthrough false
 
 /* PulseAudio source. Can be a number or a name of an audio
    sink or device to record from. Set to "auto" to use the
@@ -188,6 +182,21 @@
    not using interpolation. It's generally OK to leave this
    value unless you have a strange PulseAudio configuration. */
 #request setsamplerate 22050
+
+/*                    ** DEPRECATED **
+   Force window geometry (locking the window in place), useful
+   for some pesky WMs that try to reposition the window when
+   embedding in the desktop.
+   
+   This routinely sends X11 events and should be avoided. */
+#request setforcegeometry false
+
+/*                    ** DEPRECATED **
+   Force window to be raised (focused in some WMs), useful for
+   WMs that have their own stacking order for desktop windows.
+   
+   This routinely sends X11 events and should be avoided. */
+#request setforceraised false
 
 /*                    ** DEPRECATED **
    Scale down the audio buffer before any operations are 

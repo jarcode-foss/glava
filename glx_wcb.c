@@ -253,7 +253,8 @@ static void* create_and_bind(const char* name, const char* class,
                              size_t states_sz,
                              int d, int h,
                              int x, int y,
-                             int version_major, int version_minor) {
+                             int version_major, int version_minor,
+                             bool clickthrough) {
     struct glxwin* w = malloc(sizeof(struct glxwin));
     w->time         = 0.0D;
     w->should_close = false;
@@ -323,7 +324,7 @@ static void* create_and_bind(const char* name, const char* class,
     attr.background_pixmap = None;
     attr.border_pixel      = 0;
     
-    if (!(w->w = XCreateWindow(display, *xwin_get_desktop_layer(&wcb_glx),
+    if (!(w->w = XCreateWindow(display, DefaultRootWindow(display)/**xwin_get_desktop_layer(&wcb_glx)*/,
                                x, y, d, h, 0,
                                vi->depth, InputOutput, vi->visual,
                                CWColormap | CWEventMask | CWBackPixmap | CWBorderPixel,
@@ -356,10 +357,8 @@ static void* create_and_bind(const char* name, const char* class,
     
     XSetWMProtocols(display, w->w, &ATOM_WM_DELETE_WINDOW, 1);
     
-    // XReparentWindow(display, w->w, DefaultRootWindow(display), 0, 0);
-    
     /* Eliminate the window's effective region */
-    if (desktop){
+    if (desktop || clickthrough) {
         int ignored;
         if (XShapeQueryExtension(display, &ignored, &ignored)) {
             Region region;
@@ -486,6 +485,8 @@ static double   get_time       (struct glxwin* w)              { return get_time
 static void     set_time       (struct glxwin* w, double time) { w->time = get_timert() - time; }
 static Display* get_x11_display(struct glxwin* w)              { return display; }
 static Window   get_x11_window (struct glxwin* w)              { return w->w;    }
+
+static const char* get_environment(void) { return xwin_detect_wm(&wcb_glx); }
 
 WCB_ATTACH("glx", wcb_glx);
 

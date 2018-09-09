@@ -70,7 +70,8 @@ static void* create_and_bind(const char* name, const char* class,
                              size_t states_sz,
                              int d, int h,
                              int x, int y,
-                             int version_major, int version_minor) {
+                             int version_major, int version_minor,
+                             bool clickthrough) {
 
     GLFWwindow* w;
     
@@ -123,7 +124,7 @@ static void swap_buffers(GLFWwindow* w) {
     glfwSwapBuffers(w);
     glfwPollEvents();
 }
-
+    
 static Display* get_x11_display(void)                          { return glfwGetX11Display();      }
 static Window   get_x11_window (GLFWwindow* w)                 { return glfwGetX11Window(w);      }
 static bool     should_close   (GLFWwindow* w)                 { return glfwWindowShouldClose(w); }
@@ -133,6 +134,8 @@ static double   get_time       (GLFWwindow* w)                 { return glfwGetT
 static void     set_time       (GLFWwindow* w, double time)    { glfwSetTime(time);               }
 static void     set_swap       (int i)                         { glfwSwapInterval(i); }
 static void     raise          (GLFWwindow* w)                 { glfwShowWindow(w); }
+
+static const char* get_environment(void) { return xwin_detect_wm(&wcb_glfw); }
 
 WCB_ATTACH("glfw", wcb_glfw);
 

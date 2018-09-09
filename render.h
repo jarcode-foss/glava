@@ -12,7 +12,8 @@ typedef struct renderer {
 } renderer;
 
 struct renderer* rd_new            (const char** paths, const char* entry,
-                                    const char* force_mod, const char* force_backend);
+                                    const char* force_mod, const char* force_backend,
+                                    bool auto_desktop);
 bool             rd_update         (struct renderer*, float* lb, float* rb,
                                     size_t bsz, bool modified);
 void             rd_destroy        (struct renderer*);
@@ -29,7 +30,8 @@ struct gl_wcb {
                                 size_t states_sz,
                                 int w, int h,
                                 int x, int y,
-                                int version_major, int version_minor);
+                                int version_major, int version_minor,
+                                bool clickthrough);
     bool     (*should_close)   (void* ptr);
     void     (*swap_buffers)   (void* ptr);
     void     (*raise)          (void* ptr);
@@ -45,6 +47,7 @@ struct gl_wcb {
     double   (*get_time)       (void* ptr);
     void     (*set_time)       (void* ptr, double time);
     void     (*set_visible)    (void* ptr, bool visible);
+    const char* (*get_environment) (void);
     #ifdef GLAVA_RDX11
     Display* (*get_x11_display)(void);
     Window   (*get_x11_window) (void* ptr);
@@ -77,6 +80,7 @@ struct gl_wcb {
         WCB_FUNC(set_time),                     \
         WCB_FUNC(get_time),                     \
         WCB_FUNC(set_visible),                  \
+        WCB_FUNC(get_environment),              \
         WCB_FUNC(get_x11_display),              \
         WCB_FUNC(get_x11_window)                \
     }

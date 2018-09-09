@@ -8,7 +8,7 @@ ifeq ($(BUILD),debug)
     GLAD_GEN = c-debug
 #    ASAN = -lasan
 else
-    CFLAGS_BUILD = -O2 -march=native
+    CFLAGS_BUILD = -O2 -march=native -Wstringop-overflow=0
     GLAD_GEN = c
 endif
 
@@ -38,7 +38,7 @@ ifeq ($(INSTALL),unix)
     endif
 endif
 
-ifndef DISABLE_GLFW
+ifdef ENABLE_GLFW
     CFLAGS_GLFW = -DGLAVA_GLFW
     LDFLAGS_GLFW = -lglfw
 endif

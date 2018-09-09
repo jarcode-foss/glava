@@ -109,7 +109,8 @@ struct gl_data {
     double tcounter;
     int fcounter, ucounter, kcounter;
     bool print_fps, avg_window, interpolate, force_geometry, force_raised,
-        copy_desktop, smooth_pass, premultiply_alpha, check_fullscreen;
+        copy_desktop, smooth_pass, premultiply_alpha, check_fullscreen,
+        clickthrough;
     void** t_data;
     float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio,
         smooth_factor, fft_scale, fft_cutoff;
@@ -680,7 +681,8 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
 }
 
 struct renderer* rd_new(const char** paths, const char* entry,
-                        const char* force_mod, const char* force_backend) {
+                        const char* force_mod, const char* force_backend,
+                        bool auto_desktop) {
 
     xwin_wait_for_wm();
     
@@ -727,7 +729,8 @@ struct renderer* rd_new(const char** paths, const char* entry,
         .fft_scale         = 10.2F,
         .fft_cutoff        = 0.3F,
         .geometry          = { 0, 0, 500, 400 },
-        .clear_color       = { 0.0F, 0.0F, 0.0F, 0.0F }
+        .clear_color       = { 0.0F, 0.0F, 0.0F, 0.0F },
+        .clickthrough      = false
     };
 
     bool forced = force_backend != NULL;
@@ -791,7 +794,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
     char* xwintype = NULL, * wintitle = "GLava";
     char** xwinstates = malloc(1);
     size_t xwinstates_sz = 0;
-    bool loading_module = true, loading_smooth_pass = false;
+    bool loading_module = true, loading_smooth_pass = false, loading_presets = false;;
     struct gl_sfbo* current = NULL;
     size_t t_count = 0;
 
@@ -858,7 +861,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
             .handler = RHANDLER(name, args, {
                     if (loading_module && !force_mod) {
                         size_t len = strlen((char*) args[0]);
-                        char* str = malloc(sizeof(char) * (strlen((char*) args[0]) + 1));
+                        char* str = malloc(sizeof(char) * (len + 1));
                         strncpy(str, (char*) args[0], len + 1);
                         module = str;
                     }
@@ -898,14 +901,18 @@ struct renderer* rd_new(const char** paths, const char* entry,
         {
             .name = "addxwinstate", .fmt = "s",
             .handler = RHANDLER(name, args, {
-                    ++xwinstates_sz;
-                    xwinstates = realloc(xwinstates, sizeof(*xwinstates) * xwinstates_sz);
-                    xwinstates[xwinstates_sz - 1] = strdup((char*) args[0]);
+                    if (!auto_desktop || loading_presets) {
+                        ++xwinstates_sz;
+                        xwinstates = realloc(xwinstates, sizeof(*xwinstates) * xwinstates_sz);
+                        xwinstates[xwinstates_sz - 1] = strdup((char*) args[0]);
+                    }
                 })
         },
         {   .name = "setsource", .fmt = "s",
             .handler = RHANDLER(name, args, {
                     r->audio_source_request = strdup((char*) args[0]); })                    },
+        {   .name = "setclickthrough", .fmt = "b",
+            .handler = RHANDLER(name, args, { gl->clickthrough = *(bool*) args[0]; })        },
         {   .name = "setforcegeometry", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->force_geometry = *(bool*) args[0]; })      },
         {   .name = "setforceraised", .fmt = "b",
@@ -1038,12 +1045,18 @@ struct renderer* rd_new(const char** paths, const char* entry,
        directories will be populated with symlinks to the installed modules. */
     
     const char* data;
-    size_t d_len;
+    const char* env = gl->wcb->get_environment();
+    size_t d_len, e_len;
     
     for (const char** i = paths; (data = *i) != NULL; ++i) {
         d_len = strlen(data);
+        e_len = env ? strlen(env) : 0;
         size_t se_len = strlen(entry);
-        size_t bsz = se_len + d_len + 2;
+        /* '/' + \0 + "env_" + ".glsl" = 11 char padding, min 7 for "default" */
+        size_t bsz = se_len + 11;
+        if (d_len > e_len && d_len >= 7) bsz += d_len;
+        else if (e_len >= 7) bsz += e_len;
+        else bsz += 7;
         char se_buf[bsz];
         snprintf(se_buf, bsz, "%s/%s", data, entry);
 
@@ -1055,7 +1068,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
             if (errno != ENOENT  &&
                 errno != ENOTDIR &&
                 errno != ELOOP     ) {
-                fprintf(stderr, "failed to load entry '%s': %s\n", se_buf, strerror(errno));
+                fprintf(stderr, "Failed to load entry '%s': %s\n", se_buf, strerror(errno));
                 exit(EXIT_FAILURE);
             } else continue;
         }
@@ -1073,6 +1086,42 @@ struct renderer* rd_new(const char** paths, const char* entry,
         ext_process(&ext, se_buf);
         
         munmap((void*) map, st.st_size);
+
+        if (auto_desktop) {
+            if (env) {
+                snprintf(se_buf, bsz, "%s/env_%s.glsl", data, env);
+                fd = open(se_buf, O_RDONLY);
+                if (fd == -1) {
+                    if (errno != ENOENT  &&
+                        errno != ENOTDIR &&
+                        errno != ELOOP) {
+                        fprintf(stderr, "Failed to load desktop environment specific presets at '%s': %s\n", se_buf, strerror(errno));
+                        exit(EXIT_FAILURE);
+                    } else {
+                        printf("No presets for current desktop environment (\"%s\"), using default presets for embedding\n", env);
+                        snprintf(se_buf, bsz, "%s/env_default.glsl", data);
+                        fd = open(se_buf, O_RDONLY);
+                        if (fd == -1) {
+                            fprintf(stderr, "Failed to load default presets at '%s': %s\n", se_buf, strerror(errno));
+                            exit(EXIT_FAILURE);
+                        }
+                    }
+                }
+                fstat(fd, &st);
+                map = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+                ext.source = map;
+                ext.source_len = st.st_size;
+
+                loading_presets = true;
+                ext_process(&ext, se_buf);
+                loading_presets = false;
+
+                munmap((void*) map, st.st_size);
+            } else {
+                fprintf(stderr, "Failed to detect the desktop environment! Is the window manager EWMH compliant?");
+            }
+        }
         
         break;
     }
@@ -1085,13 +1134,10 @@ struct renderer* rd_new(const char** paths, const char* entry,
         exit(EXIT_FAILURE);
     }
     
-    if (!(gl->w = gl->wcb->create_and_bind(wintitle, "GLava", xwintype,
-                                           (const char**) xwinstates, xwinstates_sz,
-                                           gl->geometry[2], gl->geometry[3],
-                                           gl->geometry[0], gl->geometry[1],
-                                           context_version_major, context_version_minor))) {
-        abort();
-    }
+    gl->w = gl->wcb->create_and_bind(wintitle, "GLava", xwintype, (const char**) xwinstates, xwinstates_sz,
+                                     gl->geometry[2], gl->geometry[3], gl->geometry[0], gl->geometry[1],
+                                     context_version_major, context_version_minor, gl->clickthrough);
+    if (!gl->w) abort();
     
     if (xwintype)   free(xwintype);
     if (xwinstates) free(xwinstates);

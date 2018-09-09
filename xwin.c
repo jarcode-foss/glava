@@ -25,6 +25,7 @@
 #include "render.h"
 #include "xwin.h"
 
+/* Note: currently unused */
 Window* xwin_get_desktop_layer(struct gl_wcb* wcb) {
     static Window desktop;
     static bool searched = false;
@@ -100,6 +101,44 @@ void xwin_wait_for_wm(void) {
     } while (!exists);
 
     XCloseDisplay(d);
+}
+
+const char* xwin_detect_wm(struct gl_wcb* wcb) {
+    Display* d = wcb->get_x11_display();
+    Atom check = XInternAtom(d, "_NET_SUPPORTING_WM_CHECK", false);
+    Atom name = XInternAtom(d, "_NET_WM_NAME", false);
+    Atom type = XInternAtom(d, "UTF8_STRING", false);
+    union {
+        Atom a;
+        int i;
+        long unsigned int lui;
+    } ignored;
+    
+    unsigned long nitems = 0;
+    unsigned char* wm_name = NULL;
+    Window* wm_check;
+    if (Success != XGetWindowProperty(d, DefaultRootWindow(d), check, 0, 1024, false, XA_WINDOW,
+                                      &ignored.a, &ignored.i, &nitems, &ignored.lui, (unsigned char**) &wm_check)) {
+        return NULL;
+    }
+    
+    if (nitems > 0 && Success == XGetWindowProperty(d, *wm_check, name, 0, 1024, false, type,
+                                                    &ignored.a, &ignored.i, &nitems, &ignored.lui, &wm_name)) {
+        if (nitems > 0) {
+            static const char* wm_name_store = NULL;
+            if (wm_name_store) XFree((unsigned char*) wm_name_store);
+            wm_name_store = (const char*) wm_name;
+        } else {
+            XFree(wm_name);
+            wm_name = NULL;
+        }
+    }
+    
+    XFree(wm_check);
+    printf("wm_name: \"%s\"\n", wm_name);
+    
+    return (const char*) wm_name;
+    
 }
 
 bool xwin_should_render(struct renderer* rd) {
