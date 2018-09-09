@@ -791,7 +791,8 @@ struct renderer* rd_new(const char** paths, const char* entry,
         context_version_major = 3,
         context_version_minor = 3;
     const char* module = force_mod;
-    char* xwintype = NULL, * wintitle = "GLava";
+    const char* wintitle_default = "GLava";
+    char* xwintype = NULL, * wintitle = (char*) wintitle_default;
     char** xwinstates = malloc(1);
     size_t xwinstates_sz = 0;
     bool loading_module = true, loading_smooth_pass = false, loading_presets = false;;
@@ -860,6 +861,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
             .name = "mod", .fmt = "s",
             .handler = RHANDLER(name, args, {
                     if (loading_module && !force_mod) {
+                        if (module != NULL && module != force_mod) free((char*) module);
                         size_t len = strlen((char*) args[0]);
                         char* str = malloc(sizeof(char) * (len + 1));
                         strncpy(str, (char*) args[0], len + 1);
@@ -910,6 +912,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
         },
         {   .name = "setsource", .fmt = "s",
             .handler = RHANDLER(name, args, {
+                    if (r->audio_source_request) free(r->audio_source_request);
                     r->audio_source_request = strdup((char*) args[0]); })                    },
         {   .name = "setclickthrough", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->clickthrough = *(bool*) args[0]; })        },
@@ -918,7 +921,9 @@ struct renderer* rd_new(const char** paths, const char* entry,
         {   .name = "setforceraised", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->force_raised = *(bool*) args[0]; })        },
         {   .name = "setxwintype", .fmt = "s",
-            .handler = RHANDLER(name, args, { xwintype = strdup((char*) args[0]); })         },
+            .handler = RHANDLER(name, args, {
+                    if (xwintype) free(xwintype);
+                    xwintype = strdup((char*) args[0]); })                                   },
         {   .name = "setshaderversion", .fmt = "i",
             .handler = RHANDLER(name, args, { shader_version = *(int*) args[0]; })           },
         {   .name = "setswap", .fmt = "i",
@@ -928,7 +933,9 @@ struct renderer* rd_new(const char** paths, const char* entry,
         {   .name = "setprintframes", .fmt = "b",
             .handler = RHANDLER(name, args, { gl->print_fps = *(bool*) args[0]; })           },
         {   .name = "settitle", .fmt = "s",
-            .handler = RHANDLER(name, args, { wintitle = strdup((char*) args[0]); })         },
+            .handler = RHANDLER(name, args, {
+                    if (wintitle && wintitle != wintitle_default) free((char*) wintitle);
+                    wintitle = strdup((char*) args[0]); })                                   },
         {   .name = "setbufsize", .fmt = "i",
             .handler = RHANDLER(name, args, { r->bufsize_request = *(int*) args[0]; })       },
         {   .name = "setbufscale", .fmt = "i",
@@ -1138,9 +1145,13 @@ struct renderer* rd_new(const char** paths, const char* entry,
                                      gl->geometry[2], gl->geometry[3], gl->geometry[0], gl->geometry[1],
                                      context_version_major, context_version_minor, gl->clickthrough);
     if (!gl->w) abort();
+
+    for (size_t t = 0; t < xwinstates_sz; ++t)
+        free(xwinstates[t]);
     
     if (xwintype)   free(xwintype);
     if (xwinstates) free(xwinstates);
+    if (wintitle && wintitle != wintitle_default) free(wintitle);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_DEPTH_CLAMP);
@@ -1698,7 +1709,24 @@ void*          rd_get_impl_window (struct renderer* r)  { return r->gl->w;   }
 struct gl_wcb* rd_get_wcb         (struct renderer* r)  { return r->gl->wcb; }
 
 void rd_destroy(struct renderer* r) {
-    /* TODO: delete everything else, not really needed though (as the application exits after here) */
+    r->gl->wcb->destroy(r->gl->w);
+    if (r->gl->interpolate) free(r->gl->interpolate_buf[0]);
+    if (r->gl->t_data)      free(r->gl->t_data);
+    size_t t, b;
+    for (t = 0; t < r->gl->stages_sz; ++t) {
+        struct gl_sfbo* stage = &r->gl->stages[t];
+        for (b = 0; b < stage->binds_sz; ++b) {
+            struct gl_bind* bind = &stage->binds[b];
+            free(bind->transformations);
+            free((char*) bind->name); /* strdup */
+        }
+        free(stage->binds);
+        free((char*) stage->name); /* strdup */
+    }
+    free(r->gl->stages);
+    r->gl->wcb->terminate();
     free(r->gl);
+    if (r->audio_source_request)
+        free(r->audio_source_request);
     free(r);
 }

@@ -160,6 +160,7 @@ Bool            (*glXMakeCurrent)          (Display* dpy, GLXDrawable drawable, 
 GLXDrawable     (*glXGetCurrentDrawable)   (void);
 __GLXextFuncPtr (*glXGetProcAddressARB)    (const GLubyte *);
 void            (*glXSwapBuffers)          (Display* dpy, GLXDrawable drawable);
+void            (*glXDestroyContext)       (Display* dpy, GLXContext ctx);
 
 extern struct gl_wcb wcb_glx;
 
@@ -222,6 +223,7 @@ static void init(void) {
     resolve(glXGetCurrentDrawable);
     resolve(glXGetProcAddressARB);
     resolve(glXSwapBuffers);
+    resolve(glXDestroyContext);
 
     intern(_MOTIF_WM_HINTS,    false);
     intern(WM_DELETE_WINDOW,   true);
@@ -479,6 +481,16 @@ static double get_timert(void) {
         fprintf(stderr, "clock_gettime(CLOCK_REALTIME, ...): %s\n", strerror(errno));
     }
     return (double) tv.tv_sec + ((double) tv.tv_nsec / 1000000000.0D);
+}
+
+static void destroy(struct glxwin* w) {
+    glXMakeCurrent(display, None, NULL); /* release context */
+    glXDestroyContext(display, w->context);
+    XDestroyWindow(display, w->w);
+}
+
+static void terminate(void) {
+    XCloseDisplay(display);
 }
 
 static double   get_time       (struct glxwin* w)              { return get_timert() - w->time; }

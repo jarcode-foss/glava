@@ -134,6 +134,8 @@ static double   get_time       (GLFWwindow* w)                 { return glfwGetT
 static void     set_time       (GLFWwindow* w, double time)    { glfwSetTime(time);               }
 static void     set_swap       (int i)                         { glfwSwapInterval(i); }
 static void     raise          (GLFWwindow* w)                 { glfwShowWindow(w); }
+static void     destroy        (GLFWwindow* w)                 { glfwDestroyWindow(w); }
+static void     terminate      (void)                          { glfwTerminate(); }
 
 static const char* get_environment(void) { return xwin_detect_wm(&wcb_glfw); }
 

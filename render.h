@@ -35,6 +35,8 @@ struct gl_wcb {
     bool     (*should_close)   (void* ptr);
     void     (*swap_buffers)   (void* ptr);
     void     (*raise)          (void* ptr);
+    void     (*destroy)        (void* ptr);
+    void     (*terminate)      (void);
     void     (*get_pos)        (void* ptr, int* x, int* y);
     void     (*get_fbsize)     (void* ptr, int* w, int* h);
     void     (*set_geometry)   (void* ptr, int x, int y, int w, int h);
@@ -68,6 +70,8 @@ struct gl_wcb {
         WCB_FUNC(should_close),                 \
         WCB_FUNC(swap_buffers),                 \
         WCB_FUNC(raise),                        \
+        WCB_FUNC(destroy),                      \
+        WCB_FUNC(terminate),                    \
         WCB_FUNC(set_swap),                     \
         WCB_FUNC(get_pos),                      \
         WCB_FUNC(get_fbsize),                   \

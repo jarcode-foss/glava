@@ -292,5 +292,12 @@ int main(int argc, char** argv) {
         }
     }
 
+    audio.terminate = 1;
+    int return_status;
+    if ((return_status = pthread_join(thread, NULL))) {
+        fprintf(stderr, "Failed to join with audio thread: %s\n", strerror(return_status));
+    }
+
+    free(audio.source);
     rd_destroy(r);
 }
