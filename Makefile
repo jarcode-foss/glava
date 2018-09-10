@@ -6,10 +6,12 @@ obj = $(src:.c=.o)
 ifeq ($(BUILD),debug)
     CFLAGS_BUILD = -O0 -ggdb -Wall #-fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls
     GLAD_GEN = c-debug
+	STRIP_CMD = $(info Skipping `strip` for debug builds)
 #    ASAN = -lasan
 else
     CFLAGS_BUILD = -O2 -march=native -Wstringop-overflow=0
     GLAD_GEN = c
+	STRIP_CMD = strip --strip-all glava
 endif
 
 # Detect OS if not specified (OSX, Linux, BSD are supported)
@@ -68,21 +70,31 @@ GLAD_ARGS = --generator=$(GLAD_GEN) --extensions=GL_EXT_framebuffer_multisample,
 CFLAGS_COMMON = -I glad/include -DGLAVA_VERSION="$(GLAVA_VERSION)"
 CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_GLX) $(CFLAGS_GLFW) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
 
+# Store relevant variables that may change depending on the environment or user input
+STATE = $(BUILD),$(INSTALL),$(ENABLE_GLFW),$(DISABLE_GLX),$(PYTHON),$(CC),$(CFLAGS_USE)
+# Only update the file if the contents changed, `make` just looks at the timestamp
+$(shell if [[ ! -e build_state ]]; then touch build_state; fi)
+$(shell if [ '$(STATE)' != "`cat build_state`" ]; then echo '$(STATE)' > build_state; fi)
+
 all: glava
 
-%.o: %.c glad.o
+%.o: %.c glad.o build_state
 	$(CC) $(CFLAGS_USE) -o $@ -c $(firstword $<)
 
 glava: $(obj)
 	$(CC) -o glava $(obj) glad.o $(LDFLAGS)
+	$(STRIP_CMD)
 
-glad.o:
+glad.o: build_state
 	cd $(GLAD_INSTALL_DIR) && $(PYTHON) -m glad $(GLAD_ARGS) --out-path=.
 	$(CC) $(CFLAGS_USE) -o glad.o $(GLAD_SRCFILE) -c
 
+# Empty build state goal, used to force some of the above rules to re-run if `build_state` was updated
+build_state: ;
+
 .PHONY: clean
 clean:
-	rm -f $(obj) glava glad.o
+	rm -f $(obj) glava glad.o build_state
 
 .PHONY: install
 install:

@@ -26,7 +26,7 @@
 #include "xwin.h"
 
 /* Note: currently unused */
-Window* xwin_get_desktop_layer(struct gl_wcb* wcb) {
+Window* __attribute__ ((unused)) xwin_get_desktop_layer(struct gl_wcb* wcb) {
     static Window desktop;
     static bool searched = false;
     if (!searched) {
