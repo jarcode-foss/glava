@@ -12,8 +12,14 @@
 #define BAR_OUTLINE_WIDTH 0
 /* Amplify magnitude of the results each bar displays */
 #define AMPLIFY 300
+/* Alpha channel for Bars color */
+#define ALPHA 0.7
+/* How strong the gradient changes */
+#define GRADIENT_POWER 60
+/* Bar color changes with height */
+#define GRADIENT (d / GRADIENT_POWER + 1)
 /* Bar color */
-#define COLOR (#3366b2 * ((d / 60) + 1))
+#define COLOR (#3366b2 * GRADIENT * ALPHA)
 /* Direction that the bars are facing, 0 for inward, 1 for outward */
 #define DIRECTION 0
 /* Whether to switch left/right audio buffers */
