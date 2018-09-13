@@ -5,6 +5,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <dirent.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <limits.h>
@@ -190,6 +191,15 @@ static struct option p_opts[] = {
     {0,             0,                 0,  0 }
 };
 
+static renderer* rd = NULL;
+
+void handle_term(int signum) {
+    if (rd->alive) {
+        puts("\nInterrupt recieved, closing...");
+        rd->alive = false;
+    }
+}
+
 int main(int argc, char** argv) {
 
     /* Evaluate these macros only once, since they allocate */
@@ -228,11 +238,15 @@ int main(int argc, char** argv) {
         exit(EXIT_SUCCESS);
     }
 
-    renderer* r = rd_new(system_shader_paths, entry, force, backend, desktop);
-
-    float b0[r->bufsize_request], b1[r->bufsize_request];
+    rd = rd_new(system_shader_paths, entry, force, backend, desktop);
+    
+    struct sigaction action = { .sa_handler = handle_term };
+    sigaction(SIGTERM, &action, NULL);
+    sigaction(SIGINT, &action, NULL);
+    
+    float b0[rd->bufsize_request], b1[rd->bufsize_request];
     size_t t;
-    for (t = 0; t < r->bufsize_request; ++t) {
+    for (t = 0; t < rd->bufsize_request; ++t) {
         b0[t] = 0.0F;
         b1[t] = 0.0F;
     }
@@ -240,20 +254,20 @@ int main(int argc, char** argv) {
     struct audio_data audio = {
         .source = ({
                 char* src = NULL;
-                if (r->audio_source_request && strcmp(r->audio_source_request, "auto") != 0) {
-                    src = strdup(r->audio_source_request);
+                if (rd->audio_source_request && strcmp(rd->audio_source_request, "auto") != 0) {
+                    src = strdup(rd->audio_source_request);
                 }
                 src;
             }),
-        .rate         = (unsigned int) r->rate_request,
+        .rate         = (unsigned int) rd->rate_request,
         .format       = -1,
         .terminate    = 0,
-        .channels     = r->mirror_input ? 1 : 2,
+        .channels     = rd->mirror_input ? 1 : 2,
         .audio_out_r  = b0,
         .audio_out_l  = b1,
         .mutex        = PTHREAD_MUTEX_INITIALIZER,
-        .audio_buf_sz = r->bufsize_request,
-        .sample_sz    = r->samplesize_request,
+        .audio_buf_sz = rd->bufsize_request,
+        .sample_sz    = rd->samplesize_request,
         .modified     = false
     };
     if (!audio.source) {
@@ -264,10 +278,10 @@ int main(int argc, char** argv) {
     pthread_t thread;
     pthread_create(&thread, NULL, input_pulse, (void*) &audio);
     
-    float lb[r->bufsize_request], rb[r->bufsize_request];
-    while (r->alive) {
+    float lb[rd->bufsize_request], rb[rd->bufsize_request];
+    while (rd->alive) {
 
-        rd_time(r); /* update timer for this frame */
+        rd_time(rd); /* update timer for this frame */
         
         bool modified; /* if the audio buffer has been updated by the streaming thread */
 
@@ -277,13 +291,13 @@ int main(int argc, char** argv) {
         if (modified) {
             /* create our own copies of the audio buffers, so the streaming
                thread can continue to append to it */
-            memcpy(lb, (void*) audio.audio_out_l, r->bufsize_request * sizeof(float));
-            memcpy(rb, (void*) audio.audio_out_r, r->bufsize_request * sizeof(float));
+            memcpy(lb, (void*) audio.audio_out_l, rd->bufsize_request * sizeof(float));
+            memcpy(rb, (void*) audio.audio_out_r, rd->bufsize_request * sizeof(float));
             audio.modified = false; /* set this flag to false until the next time we read */
         }
         pthread_mutex_unlock(&audio.mutex);
         
-        if (!rd_update(r, lb, rb, r->bufsize_request, modified)) {
+        if (!rd_update(rd, lb, rb, rd->bufsize_request, modified)) {
             /* Sleep for 50ms and then attempt to render again */
             struct timespec tv = {
                 .tv_sec = 0, .tv_nsec = 50 * 1000000
@@ -299,5 +313,5 @@ int main(int argc, char** argv) {
     }
 
     free(audio.source);
-    rd_destroy(r);
+    rd_destroy(rd);
 }

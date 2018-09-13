@@ -1345,9 +1345,10 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     struct gl_data* gl = r->gl;
     size_t t, a, fbsz = bsz * sizeof(float);
     
-    r->alive = !gl->wcb->should_close(gl->w);
-    if (!r->alive)
+    if (gl->wcb->should_close(gl->w)) {
+        r->alive = false;
         return true;
+    }
     
     /* Stop rendering when fullscreen windows are focused */
     if (gl->check_fullscreen && !xwin_should_render(r))
