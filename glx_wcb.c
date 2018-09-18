@@ -174,7 +174,7 @@ struct glxwin {
     Window w;
     GLXContext context;
     double time;
-    bool should_close;
+    bool should_close, clickthrough;
 };
 
 static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM__NET_ACTIVE_WINDOW;
@@ -250,6 +250,19 @@ static void apply_decorations(Window w) {
     }
 }
 
+static void apply_clickthrough(struct glxwin* w) {
+    if (w->clickthrough) {
+        int ignored;
+        if (XShapeQueryExtension(display, &ignored, &ignored)) {
+            Region region;
+            if ((region = XCreateRegion())) {
+                XShapeCombineRegion(display, w->w, ShapeInput, 0, 0, region, ShapeSet);
+                XDestroyRegion(region);
+            }
+        }
+    }
+}
+
 static void* create_and_bind(const char* name, const char* class,
                              const char* type, const char** states,
                              size_t states_sz,
@@ -260,6 +273,7 @@ static void* create_and_bind(const char* name, const char* class,
     struct glxwin* w = malloc(sizeof(struct glxwin));
     w->time         = 0.0D;
     w->should_close = false;
+    w->clickthrough = false;
 
     XVisualInfo* vi;
     XSetWindowAttributes attr;
@@ -360,34 +374,26 @@ static void* create_and_bind(const char* name, const char* class,
     XSetWMProtocols(display, w->w, &ATOM_WM_DELETE_WINDOW, 1);
     
     /* Eliminate the window's effective region */
-    if (desktop || clickthrough) {
-        int ignored;
-        if (XShapeQueryExtension(display, &ignored, &ignored)) {
-            Region region;
-            if ((region = XCreateRegion())) {
-                XShapeCombineRegion(display, w->w, ShapeInput, 0, 0, region, ShapeSet);
-                XDestroyRegion(region);
-            }
-        }
-    }
-
+    w->clickthrough = desktop || clickthrough;
+    apply_clickthrough(w);
+    
     glXCreateContextAttribsARBProc glXCreateContextAttribsARB = NULL;
     glXSwapIntervalEXTProc glXSwapIntervalEXT = NULL;
     glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
         glXGetProcAddressARB((const GLubyte*) "glXCreateContextAttribsARB");
     glXSwapIntervalEXT = (glXSwapIntervalEXTProc)
         glXGetProcAddressARB((const GLubyte*) "glXSwapIntervalEXT");
-
+    
     if (!glXCreateContextAttribsARB) {
         fprintf(stderr, "glXGetProcAddressARB(\"glXCreateContextAttribsARB\"): failed\n");
         abort();
     }
-
+    
     if (!(w->context = glXCreateContextAttribsARB(display, config, 0, True, context_attrs))) {
         fprintf(stderr, "glXCreateContextAttribsARB(): failed\n");
         abort();
     }
-
+    
     XSync(display, False);
     
     glXMakeCurrent(display, w->w, w->context);
@@ -437,7 +443,10 @@ static void set_geometry(struct glxwin* w, int x, int y, int d, int h) {
 }
 
 static void set_visible(struct glxwin* w, bool visible) {
-    if (visible) XMapWindow(display, w->w);
+    if (visible) {
+        XMapWindow(display, w->w);
+        apply_clickthrough(w);
+    }
     else XUnmapWindow(display, w->w);
 }
 
