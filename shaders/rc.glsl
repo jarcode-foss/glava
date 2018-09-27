@@ -119,7 +119,7 @@
 #request setinterpolate true
 
 /* Frame limiter, set to the frames per second (FPS) desired or
-   simple set to zero (or lower) to disable the frame limiter. */
+   simply set to zero (or lower) to disable the frame limiter. */
 #request setframerate 0
 
 /* Enable/disable fullscreen checks. This looks at the currently
