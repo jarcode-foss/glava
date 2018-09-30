@@ -123,7 +123,7 @@ void* input_pulse(void* data) {
 		.channels = 2
     };
 	const pa_buffer_attr pb = {
-        .maxlength = ssz * 2,
+        .maxlength = (uint32_t) -1,
         .fragsize  = ssz
 	};
     
