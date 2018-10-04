@@ -24,4 +24,6 @@
 #define DIRECTION 0
 /* Whether to switch left/right audio buffers */
 #define INVERT 0
+/* Whether to flip the output vertically */
+#define FLIP 0
 

@@ -29,9 +29,12 @@ out vec4 fragment;
 #define PI 3.14159265359
 
 void main() {
-    float /* (x, magnitude) of fragment */
-        dx = (gl_FragCoord.x - (screen.x / 2)),
-        d = gl_FragCoord.y;
+    float dx = (gl_FragCoord.x - (screen.x / 2));
+    #if FLIP == 0
+    float d = gl_FragCoord.y;
+    #else
+    float d = screen.y - gl_FragCoord.y;
+    #endif
     float nbars = floor((screen.x * 0.5F) / float(BAR_WIDTH + BAR_GAP)) * 2;
     float section = BAR_WIDTH + BAR_GAP;    /* size of section for each bar (including gap) */
     float center =  section / 2.0F;         /* half section, distance to center             */
