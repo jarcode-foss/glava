@@ -29,20 +29,33 @@ out vec4 fragment;
 #define PI 3.14159265359
 
 void main() {
-    float dx = (gl_FragCoord.x - (screen.x / 2));
-    #if FLIP == 0
-    float d = gl_FragCoord.y;
+
+    #if MIRROR_YX == 0
+    #define AREA_WIDTH screen.x
+    #define AREA_HEIGHT screen.y
+    #define AREA_X gl_FragCoord.x
+    #define AREA_Y gl_FragCoord.y
     #else
-    float d = screen.y - gl_FragCoord.y;
+    #define AREA_WIDTH screen.y
+    #define AREA_HEIGHT screen.x
+    #define AREA_X gl_FragCoord.y
+    #define AREA_Y gl_FragCoord.x
     #endif
-    float nbars = floor((screen.x * 0.5F) / float(BAR_WIDTH + BAR_GAP)) * 2;
+    
+    float dx = (AREA_X - (AREA_WIDTH / 2));
+    #if FLIP == 0
+    float d = AREA_Y;
+    #else
+    float d = AREA_HEIGHT - AREA_Y;
+    #endif
+    float nbars = floor((AREA_WIDTH * 0.5F) / float(BAR_WIDTH + BAR_GAP)) * 2;
     float section = BAR_WIDTH + BAR_GAP;    /* size of section for each bar (including gap) */
     float center =  section / 2.0F;         /* half section, distance to center             */
     float m = abs(mod(dx, section));        /* position in section                          */
     float md = m - center;                  /* position in section from center line         */
     if (md < ceil(float(BAR_WIDTH) / 2) && md >= -floor(float(BAR_WIDTH) / 2)) {  /* if not in gap */
         float p = int(dx / section) / float(nbars / 2); /* position, (-1.0F, 1.0F))     */
-        p += sign(p) * ((0.5F + center) / screen.x);    /* index center of bar position */
+        p += sign(p) * ((0.5F + center) / AREA_WIDTH);    /* index center of bar position */
         /* Apply smooth function and index texture */
         #define smooth_f(tex, p) smooth_audio(tex, audio_sz, p)
         float v;
