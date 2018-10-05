@@ -175,6 +175,7 @@ struct glxwin {
     GLXContext context;
     double time;
     bool should_close, clickthrough;
+    char override_state;
 };
 
 static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM__NET_ACTIVE_WINDOW;
@@ -271,12 +272,13 @@ static void* create_and_bind(const char* name, const char* class,
                              int version_major, int version_minor,
                              bool clickthrough) {
     struct glxwin* w = malloc(sizeof(struct glxwin));
+    w->override_state = '\0';
     w->time         = 0.0D;
     w->should_close = false;
     w->clickthrough = false;
 
     XVisualInfo* vi;
-    XSetWindowAttributes attr;
+    XSetWindowAttributes attr = {};
     GLXFBConfig* fbc;
     int fb_sz, best = -1, samp = -1;
 
@@ -339,12 +341,18 @@ static void* create_and_bind(const char* name, const char* class,
     attr.event_mask        = ExposureMask | KeyPressMask | StructureNotifyMask | PropertyChangeMask;
     attr.background_pixmap = None;
     attr.border_pixel      = 0;
+
+    unsigned long vmask = CWColormap | CWEventMask | CWBackPixmap | CWBorderPixel;
+    if (type[0] == '!') {
+        vmask |= CWOverrideRedirect;
+        attr.override_redirect = true;
+        w->override_state = type[1];
+    }
     
     if (!(w->w = XCreateWindow(display, DefaultRootWindow(display)/**xwin_get_desktop_layer(&wcb_glx)*/,
                                x, y, d, h, 0,
                                vi->depth, InputOutput, vi->visual,
-                               CWColormap | CWEventMask | CWBackPixmap | CWBorderPixel,
-                               &attr))) {
+                               vmask, &attr))) {
         fprintf(stderr, "XCreateWindow(): failed\n");
         abort();
     }
@@ -409,23 +417,25 @@ static void* create_and_bind(const char* name, const char* class,
 }
 
 static void raise(struct glxwin* w) {
-    XClientMessageEvent ev = {
-        .type = ClientMessage,
-        .serial = 0,
-        .send_event = true,
-        .display = display,
-        .window = w->w,
-        .message_type = ATOM__NET_ACTIVE_WINDOW,
-        .format = 32,
-        .data = { .l = {
-                [0] = 1, /* source indication -- `1` when coming from an application */
-                [1] = 0, /* timestamp -- `0` to (attempt to) ignore */
-                [2] = w->w  /* requestor's currently active window -- `0` for none */
+    if (w->override_state == '\0') {
+        XClientMessageEvent ev = {
+            .type = ClientMessage,
+            .serial = 0,
+            .send_event = true,
+            .display = display,
+            .window = w->w,
+            .message_type = ATOM__NET_ACTIVE_WINDOW,
+            .format = 32,
+            .data = { .l = {
+                    [0] = 1, /* source indication -- `1` when coming from an application */
+                    [1] = 0, /* timestamp -- `0` to (attempt to) ignore */
+                    [2] = w->w  /* requestor's currently active window -- `0` for none */
+                }
             }
-        }
-    };
-    /* Send the client message as defined by EWMH standards (usually works) */
-    XSendEvent(display, DefaultRootWindow(display), false, StructureNotifyMask, (XEvent*) &ev);
+        };
+        /* Send the client message as defined by EWMH standards (usually works) */
+        XSendEvent(display, DefaultRootWindow(display), false, StructureNotifyMask, (XEvent*) &ev);
+    }
     /* Raise the client in the X11 stacking order (sometimes works, can be blocked by the WM) */
     XRaiseWindow(display, w->w);
     XFlush(display);
@@ -446,6 +456,12 @@ static void set_visible(struct glxwin* w, bool visible) {
     if (visible) {
         XMapWindow(display, w->w);
         apply_clickthrough(w);
+        switch (w->override_state) {
+        case '+': XRaiseWindow(display, w->w); break;
+        case '-': XLowerWindow(display, w->w); break;
+        default: break;
+        }
+        XFlush(display);
     }
     else XUnmapWindow(display, w->w);
 }

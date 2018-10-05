@@ -221,8 +221,10 @@ static void xwin_changeatom(struct gl_wcb* wcb, void* impl, const char* type,
    -> "desktop", "dock", "toolbar", "menu", "utility", "splash", "dialog", "normal" */
 bool xwin_settype(struct gl_wcb* wcb, void* impl, const char* rtype) {
     S_UPPER(rtype, type);
-    xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE",
-                    "_NET_WM_WINDOW_TYPE_%s", PropModeReplace);
+    if (type[0] != '!') {
+        xwin_changeatom(wcb, impl, type, "_NET_WM_WINDOW_TYPE",
+                        "_NET_WM_WINDOW_TYPE_%s", PropModeReplace);
+    }
     return !strcmp(type, "DESKTOP");
 }
 

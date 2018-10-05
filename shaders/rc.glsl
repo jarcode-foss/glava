@@ -61,7 +61,13 @@
    
    This will set _NET_WM_WINDOW_TYPE to _NET_WM_WINDOW_TYPE_(TYPE),
    where (TYPE) is the one of the window types listed (after being
-   converted to uppercase). */
+   converted to uppercase).
+   
+   Alternatively, you can set this value to "!", which will cause
+   the window to be unmanaged. If this is set, then `addxwinstate`
+   will do nothing, but you can use "!+" and "!-" to stack on top
+   or below other windows.
+*/
 #request setxwintype "normal"
 
 /* (X11 only) EWMH Window state atoms (multiple can be specified).
