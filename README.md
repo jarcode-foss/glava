@@ -17,7 +17,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 **Requirements:**
 
-- X11
+- X11 (Xext, Xcomposite, & Xrender)
 - PulseAudio
 - Linux or BSD
 
