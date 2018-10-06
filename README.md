@@ -83,7 +83,7 @@ The below copyright notice applies for the original versions of these files:
 
 `Copyright (c) 2015 Karl Stavestrand <karl@stavestrand.no>`
 
-The modified files are relicensed under the terms of the GPLv3. The MIT license is included for your convience and to satisfy the requirements of the original license, although it (no longer) applies to any code in this repository. You will find the original copyright notice and MIT license in the `LICENSE_ORIGINAL` file.
+The modified files are relicensed under the terms of the GPLv3. The MIT license is included for your convience and to satisfy the requirements of the original license, although it no longer applies to any code in this repository. You will find the original copyright notice and MIT license in the `LICENSE_ORIGINAL` file.
 
 The below copyright applies for the modifications to the files listed above, and the remaining sources in the repository:
 
