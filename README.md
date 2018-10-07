@@ -53,7 +53,7 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | WM | ! | Details
 | :---: | --- | --- |
 | Mutter (GNOME, Budgie) | ![-](https://placehold.it/15/118932/000000?text=+) | `"native"` (default) opacity should be used
-| KWin (KDE) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
+| KWin (KDE) | ![-](https://placehold.it/15/118932/000000?text=+) | "Show Desktop" [temporarily hides GLava](https://github.com/wacossusca34/glava/issues/4#issuecomment-419729184)
 | Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
@@ -62,7 +62,7 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | Herbstluftwm | ![-](https://placehold.it/15/118932/000000?text=+) | `hc rule windowtype~'_NET_WM_WINDOW_TYPE_DESKTOP' manage=off` can be used to unmanage desktop windows
 | Unity | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | AwesomeWM | ![-](https://placehold.it/15/f09c00/000000?text=+) | Can still be focused, may require other changes to config depending on layout
-| i3 (and i3-gaps) | ![-](https://placehold.it/15/f03c15/000000?text=+) | [i3 does not respect the `"desktop"` window type](https://github.com/wacossusca34/glava/issues/6)
+| i3 (and i3-gaps) | ![-](https://placehold.it/15/f09c00/000000?text=+) | [i3 does not respect the `"desktop"` window type](https://github.com/wacossusca34/glava/issues/6), try `#request setxwintype "!-"`
 | EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
 | Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
