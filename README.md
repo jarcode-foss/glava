@@ -3,7 +3,7 @@
 
 **GLava** is an OpenGL audio spectrum visualizer. Its primary use case is for desktop windows or backgrounds. Displayed to the left is the `radial` shader module, and [here is a demonstration video](https://streamable.com/dgpj8). Development is active, and reporting issues is encouranged.
 
-**Compiling** (Or use the [`glava-git` AUR package](https://aur.archlinux.org/packages/glava-git/))**:**
+**Compiling** (Or use the Arch Linux [`glava` package](https://www.archlinux.org/packages/community/x86_64/glava/), or the [`glava-git` AUR package](https://aur.archlinux.org/packages/glava-git/))**:**
 
 ```bash
 $ git clone --recursive https://github.com/wacossusca34/glava
@@ -17,7 +17,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 **Requirements:**
 
-- X11
+- X11 (Xext, Xcomposite, & Xrender)
 - PulseAudio
 - Linux or BSD
 
@@ -83,7 +83,7 @@ The below copyright notice applies for the original versions of these files:
 
 `Copyright (c) 2015 Karl Stavestrand <karl@stavestrand.no>`
 
-The modified files are relicensed under the terms of the GPLv3. The MIT license is included for your convience and to satisfy the requirements of the original license, although it (no longer) applies to any code in this repository. You will find the original copyright notice and MIT license in the `LICENSE_ORIGINAL` file.
+The modified files are relicensed under the terms of the GPLv3. The MIT license is included for your convience and to satisfy the requirements of the original license, although it no longer applies to any code in this repository. You will find the original copyright notice and MIT license in the `LICENSE_ORIGINAL` file.
 
 The below copyright applies for the modifications to the files listed above, and the remaining sources in the repository:
 
