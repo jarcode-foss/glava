@@ -161,6 +161,7 @@ GLXDrawable     (*glXGetCurrentDrawable)   (void);
 __GLXextFuncPtr (*glXGetProcAddressARB)    (const GLubyte *);
 void            (*glXSwapBuffers)          (Display* dpy, GLXDrawable drawable);
 void            (*glXDestroyContext)       (Display* dpy, GLXContext ctx);
+Bool            (*glXQueryVersion)         (Display* dpy, int* major, int* minor);
 
 extern struct gl_wcb wcb_glx;
 
@@ -225,6 +226,7 @@ static void init(void) {
     resolve(glXGetProcAddressARB);
     resolve(glXSwapBuffers);
     resolve(glXDestroyContext);
+    resolve(glXQueryVersion);
 
     intern(_MOTIF_WM_HINTS,    false);
     intern(WM_DELETE_WINDOW,   true);
@@ -281,6 +283,16 @@ static void* create_and_bind(const char* name, const char* class,
     XSetWindowAttributes attr = {};
     GLXFBConfig* fbc;
     int fb_sz, best = -1, samp = -1;
+    
+    int glx_minor, glx_major;
+    glXQueryVersion(display, &glx_minor, &glx_major);
+    if (glx_major <= 1 && glx_minor < 4) {
+        fprintf(stderr,
+                "\nGLX extension version mismatch on the current display (1.4+ required, %d.%d available)\n"
+                "This is usually due to an outdated X server or graphics drivers.\n\n",
+                glx_minor, glx_major);
+        exit(EXIT_FAILURE);
+    }
 
     static int gl_attrs[] = {
         GLX_X_RENDERABLE,  True,
@@ -304,8 +316,13 @@ static void* create_and_bind(const char* name, const char* class,
     
     fbc = glXChooseFBConfig(display, DefaultScreen(display), gl_attrs, &fb_sz);
     if (!fbc) {
-        fprintf(stderr, "glXChooseFBConfig(): failed\n" );
-        abort();
+        fprintf(stderr,
+                "\nFailed to obtain a GLX frame buffer that supports OpenGL %d.%d.\n"
+                "This is usually due to running on very old hardware or not having appropriate drivers.\n\n"
+                "glXChooseFBConfig(): failed with attrs "
+                "(GLX_CONTEXT_MAJOR_VERSION_ARB, GLX_CONTEXT_MINOR_VERSION_ARB)\n\n",
+                version_major, version_minor);
+        exit(EXIT_FAILURE);
     }
     
     for (int t = 0; t < fb_sz; ++t) {
