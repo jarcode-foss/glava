@@ -1422,7 +1422,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     }
 
     /* Resize and grab new background data if needed */
-    if (gl->copy_desktop && (ww != gl->lww || wh != gl->lwh || wx != gl->lwx || wy != gl->lwy)) {
+    if (gl->copy_desktop && (gl->wcb->bg_changed(gl->w) || ww != gl->lww || wh != gl->lwh || wx != gl->lwx || wy != gl->lwy)) {
         gl->bg_tex = xwin_copyglbg(r, gl->bg_tex);
     }
 

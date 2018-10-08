@@ -175,11 +175,11 @@ struct glxwin {
     Window w;
     GLXContext context;
     double time;
-    bool should_close, should_render, clickthrough;
+    bool should_close, should_render, bg_changed, clickthrough;
     char override_state;
 };
 
-static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM__NET_ACTIVE_WINDOW;
+static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM__NET_ACTIVE_WINDOW, ATOM__XROOTPMAP_ID;
 
 static void init(void) {
     display = XOpenDisplay(NULL);
@@ -232,6 +232,7 @@ static void init(void) {
     intern(WM_DELETE_WINDOW,   true);
     intern(WM_PROTOCOLS,       true);
     intern(_NET_ACTIVE_WINDOW, false);
+    intern(_XROOTPMAP_ID,      false);
 
     #undef intern
     #undef resolve
@@ -279,6 +280,7 @@ static void* create_and_bind(const char* name, const char* class,
         .time           = 0.0D,
         .should_close   = false,
         .should_render  = true,
+        .bg_changed     = false,
         .clickthrough   = false
     };
 
@@ -432,7 +434,8 @@ static void* create_and_bind(const char* name, const char* class,
     
     if (glXSwapIntervalEXT) glXSwapIntervalEXT(display, drawable, swap);
 
-    // XSelectInput(display, DefaultRootWindow(display), VisibilityChangeMask | PropertyChangeMask);
+    if (!transparent)
+        XSelectInput(display, DefaultRootWindow(display), PropertyChangeMask);
 
     return w;
 }
@@ -488,6 +491,7 @@ static void set_visible(struct glxwin* w, bool visible) {
 }
 
 static bool should_close (struct glxwin* w) { return w->should_close; }
+static bool bg_changed   (struct glxwin* w) { return w->bg_changed; }
 static bool should_render(struct glxwin* w) {
     /* For nearly all window managers, windows are 'minimized' by unmapping parent windows.
        VisibilityNotify events are not sent in these instances, so we have to read window
@@ -523,6 +527,12 @@ static void swap_buffers(struct glxwin* w) {
                 fprintf(stderr, "Invalid VisibilityNotify event state (%d)\n", ev.xvisibility.state);
                 break;
             }
+            break;
+        case PropertyNotify:
+            if (ev.xproperty.atom == ATOM__XROOTPMAP_ID) {
+                w->bg_changed = true;
+            }
+            break;
         default: break;
         }
     }

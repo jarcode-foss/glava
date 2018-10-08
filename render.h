@@ -34,6 +34,7 @@ struct gl_wcb {
                                 bool clickthrough);
     bool     (*should_close)   (void* ptr);
     bool     (*should_render)  (void* ptr);
+    bool     (*bg_changed)     (void* ptr);
     void     (*swap_buffers)   (void* ptr);
     void     (*raise)          (void* ptr);
     void     (*destroy)        (void* ptr);
@@ -70,6 +71,7 @@ struct gl_wcb {
         WCB_FUNC(create_and_bind),              \
         WCB_FUNC(should_close),                 \
         WCB_FUNC(should_render),                \
+        WCB_FUNC(bg_changed),                   \
         WCB_FUNC(swap_buffers),                 \
         WCB_FUNC(raise),                        \
         WCB_FUNC(destroy),                      \

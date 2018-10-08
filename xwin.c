@@ -280,7 +280,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     Display* d = rd_get_wcb(rd)->get_x11_display();
     Drawable src = get_drawable(d, DefaultRootWindow(d));
     bool use_shm = XShmQueryExtension(d);
-
+    
     /* Obtain section of root pixmap */
     
     XShmSegmentInfo shminfo;
