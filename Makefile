@@ -9,7 +9,7 @@ ifeq ($(BUILD),debug)
 	STRIP_CMD = $(info Skipping `strip` for debug builds)
 #    ASAN = -lasan
 else
-    CFLAGS_BUILD = -O2 -march=native -Wstringop-overflow=0
+    CFLAGS_BUILD = -O2 -Wstringop-overflow=0
     GLAD_GEN = c
 	STRIP_CMD = strip --strip-all glava
 endif

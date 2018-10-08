@@ -8,7 +8,7 @@
 ```bash
 $ git clone --recursive https://github.com/wacossusca34/glava
 $ cd glava
-$ make
+$ CFLAGS="-march=native" make
 $ sudo make install
 $ glava
 ```
