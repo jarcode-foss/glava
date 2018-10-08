@@ -140,14 +140,14 @@ const char* xwin_detect_wm(struct gl_wcb* wcb) {
     
 }
 
-bool xwin_should_render(struct renderer* rd) {
+bool xwin_should_render(struct gl_wcb* wcb, void* impl) {
     bool ret = true, should_close = false;
-    Display* d = rd_get_wcb(rd)->get_x11_display();
+    Display* d = wcb->get_x11_display();
     if (!d) {
         d = XOpenDisplay(0);
         should_close = true;
     }
-
+    
     Atom prop       = XInternAtom(d, "_NET_ACTIVE_WINDOW", true);
     Atom fullscreen = XInternAtom(d, "_NET_WM_STATE_FULLSCREEN", true);
     

@@ -6,7 +6,7 @@
 
 typedef unsigned long int Window;
 
-bool xwin_should_render(struct renderer* rd);
+bool xwin_should_render(struct gl_wcb* wcb, void* impl);
 void xwin_wait_for_wm(void);
 bool xwin_settype(struct gl_wcb* wcb, void* impl, const char* type);
 void xwin_setdesktop(struct gl_wcb* wcb, void* impl, unsigned long desktop);

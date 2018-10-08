@@ -175,7 +175,7 @@ struct glxwin {
     Window w;
     GLXContext context;
     double time;
-    bool should_close, clickthrough;
+    bool should_close, should_render, clickthrough;
     char override_state;
 };
 
@@ -274,10 +274,13 @@ static void* create_and_bind(const char* name, const char* class,
                              int version_major, int version_minor,
                              bool clickthrough) {
     struct glxwin* w = malloc(sizeof(struct glxwin));
-    w->override_state = '\0';
-    w->time         = 0.0D;
-    w->should_close = false;
-    w->clickthrough = false;
+    *w = (struct glxwin) {
+        .override_state = '\0',
+        .time           = 0.0D,
+        .should_close   = false,
+        .should_render  = true,
+        .clickthrough   = false
+    };
 
     XVisualInfo* vi;
     XSetWindowAttributes attr = {};
@@ -355,10 +358,11 @@ static void* create_and_bind(const char* name, const char* class,
     vi = glXGetVisualFromFBConfig(display, config);
     
     attr.colormap          = XCreateColormap(display, DefaultRootWindow(display), vi->visual, AllocNone);
-    attr.event_mask        = ExposureMask | KeyPressMask | StructureNotifyMask | PropertyChangeMask;
+    attr.event_mask        = ExposureMask        | KeyPressMask       | StructureNotifyMask;
+    attr.event_mask       |= PropertyChangeMask  | VisibilityChangeMask;
     attr.background_pixmap = None;
     attr.border_pixel      = 0;
-
+    
     unsigned long vmask = CWColormap | CWEventMask | CWBackPixmap | CWBorderPixel;
     if (type[0] == '!') {
         vmask |= CWOverrideRedirect;
@@ -483,8 +487,14 @@ static void set_visible(struct glxwin* w, bool visible) {
     else XUnmapWindow(display, w->w);
 }
 
-static bool should_close(struct glxwin* w) {
-    return w->should_close;
+static bool should_close (struct glxwin* w) { return w->should_close; }
+static bool should_render(struct glxwin* w) {
+    /* For nearly all window managers, windows are 'minimized' by unmapping parent windows.
+       VisibilityNotify events are not sent in these instances, so we have to read window
+       attributes to see if our window isn't viewable. */
+    XWindowAttributes attrs;
+    XGetWindowAttributes(display, w->w, &attrs);
+    return w->should_render && attrs.map_state == IsViewable;
 }
 
 static void swap_buffers(struct glxwin* w) {
@@ -500,6 +510,19 @@ static void swap_buffers(struct glxwin* w) {
                 w->should_close = true;
             }
             break;
+        case VisibilityNotify:
+            switch (ev.xvisibility.state) {
+            case VisibilityFullyObscured:
+                w->should_render = false;
+                break;
+            case VisibilityUnobscured:
+            case VisibilityPartiallyObscured:
+                w->should_render = true;
+                break;
+            default:
+                fprintf(stderr, "Invalid VisibilityNotify event state (%d)\n", ev.xvisibility.state);
+                break;
+            }
         default: break;
         }
     }

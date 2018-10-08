@@ -724,7 +724,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
         .sm_prog           = 0,
         .copy_desktop      = true,
         .premultiply_alpha = true,
-        .check_fullscreen  = true,
+        .check_fullscreen  = false,
         .smooth_pass       = true,
         .fft_scale         = 10.2F,
         .fft_cutoff        = 0.3F,
@@ -1329,7 +1329,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
     overlay(&gl->overlay);
     
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
-
+    
     gl->wcb->set_visible(gl->w, true);
     
     return r;
@@ -1349,9 +1349,13 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         r->alive = false;
         return true;
     }
+
+    /* Stop rendering if the backend has some reason not to render (minimized, obscured) */
+    if (!gl->wcb->should_render(gl->w))
+        return false;
     
     /* Stop rendering when fullscreen windows are focused */
-    if (gl->check_fullscreen && !xwin_should_render(r))
+    if (gl->check_fullscreen && !xwin_should_render(gl->wcb, gl->w))
         return false;
 
     /* Force disable interpolation if the update rate is close to or higher than the frame rate */

@@ -128,6 +128,7 @@ static void swap_buffers(GLFWwindow* w) {
 static Display* get_x11_display(void)                          { return glfwGetX11Display();      }
 static Window   get_x11_window (GLFWwindow* w)                 { return glfwGetX11Window(w);      }
 static bool     should_close   (GLFWwindow* w)                 { return glfwWindowShouldClose(w); }
+static bool     should_render  (GLFWwindow* w)                 { return true; }
 static void     get_fbsize     (GLFWwindow* w, int* d, int* h) { glfwGetFramebufferSize(w, d, h); }
 static void     get_pos        (GLFWwindow* w, int* x, int* y) { glfwGetWindowPos(w, x, y);       }
 static double   get_time       (GLFWwindow* w)                 { return glfwGetTime();            }

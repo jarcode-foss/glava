@@ -128,11 +128,14 @@
    simply set to zero (or lower) to disable the frame limiter. */
 #request setframerate 0
 
-/* Enable/disable fullscreen checks. This looks at the currently
-   focused window and halts GLava's rendering if it is
-   fullscreen. This prevents rendering from interfering with
-   other graphically intensive tasks. */
-#request setfullscreencheck true
+/* Suspends rendering if a fullscreen window is focused while
+   GLava is still visible (ie. on another monitor). This prevents
+   rendering from interfering with other graphically intensive
+   tasks.
+
+   If GLava is minimized or completely obscured, it will not
+   render regardless of this option. */
+#request setfullscreencheck false
 
 /* Enable/disable printing framerate every second. 'FPS' stands
    for 'Frames Per Second', and 'UPS' stands for 'Updates Per
