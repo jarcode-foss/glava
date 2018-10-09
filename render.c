@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <glad/glad.h>
+#include "glad.h"
 
 #include "render.h"
 #include "xwin.h"

@@ -19,7 +19,7 @@
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/XShm.h>
 
-#include <glad/glad.h>
+#include "glad.h"
 
 #define GLAVA_RDX11
 #include "render.h"

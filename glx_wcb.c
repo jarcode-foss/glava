@@ -20,7 +20,7 @@
 #include <X11/extensions/shape.h>
 #include <X11/Xatom.h>
 
-#include <glad/glad.h>
+#include "glad.h"
 
 #include "render.h"
 #include "xwin.h"

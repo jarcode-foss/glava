@@ -6,7 +6,7 @@
 **Compiling** (Or use the Arch Linux [`glava` package](https://www.archlinux.org/packages/community/x86_64/glava/), or the [`glava-git` AUR package](https://aur.archlinux.org/packages/glava-git/))**:**
 
 ```bash
-$ git clone --recursive https://github.com/wacossusca34/glava
+$ git clone https://github.com/wacossusca34/glava
 $ cd glava
 $ CFLAGS="-march=native" make
 $ sudo make install
@@ -23,8 +23,6 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 **Additional compile time requirements:**
 
-- glad (included as a submodule)
-- python (required to generate bindings with glad)
 - GCC (this program uses GNU C features)
 
 **Optional requirements:**
@@ -72,7 +70,7 @@ Note that some WMs listed without issues have specific overrides when using the 
 
 ## Licensing
 
-GLava is licensed under the terms of the GPLv3. GLava includes some (heavily modified) source code that originated from [cava](https://github.com/karlstav/cava), which was initially provided under the MIT license. The source files that originated from cava are the following:
+GLava is licensed under the terms of the GPLv3, with the exemption of `khrplatform.h`, which is licensed under the terms in its header. GLava includes some (heavily modified) source code that originated from [cava](https://github.com/karlstav/cava), which was initially provided under the MIT license. The source files that originated from cava are the following:
 
 - `[cava]/input/fifo.c -> [glava]/fifo.c`
 - `[cava]/input/fifo.h -> [glava]/fifo.h`

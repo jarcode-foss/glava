@@ -55,11 +55,15 @@
 #define SHADER_USER_PATH "userconf"
 /* FHS compliant systems */
 #elif defined(__unix__) || defined(GLAVA_UNIX)
+#ifndef SHADER_INSTALL_PATH
 #define SHADER_INSTALL_PATH "/etc/xdg/glava"
+#endif
 #define SHADER_USER_PATH FORMAT("%s/glava", ENV("XDG_CONFIG_HOME", "%s/.config", ENV("HOME", "/home")))
 /* OSX */
 #elif (defined(__APPLE__) && defined(__MACH__)) || defined(GLAVA_OSX)
+#ifndef SHADER_INSTALL_PATH
 #define SHADER_INSTALL_PATH "/Library/glava"
+#endif
 #define SHADER_USER_PATH FORMAT("%s/Library/Preferences/glava", ENV("HOME", "/"))
 #else
 #error "Unsupported target system"
