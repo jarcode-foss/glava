@@ -267,6 +267,41 @@ static void apply_clickthrough(struct glxwin* w) {
     }
 }
 
+static void* process_events(struct glxwin* w) {
+    while (XPending(display) > 0) {
+        XEvent ev;
+        XNextEvent(display, &ev);
+        switch (ev.type) {
+        case ClientMessage:
+            if (ev.xclient.message_type  == ATOM_WM_PROTOCOLS
+                && ev.xclient.data.l[0]  == ATOM_WM_DELETE_WINDOW) {
+                w->should_close = true;
+            }
+            break;
+        case VisibilityNotify:
+            switch (ev.xvisibility.state) {
+            case VisibilityFullyObscured:
+                w->should_render = false;
+                break;
+            case VisibilityUnobscured:
+            case VisibilityPartiallyObscured:
+                w->should_render = true;
+                break;
+            default:
+                fprintf(stderr, "Invalid VisibilityNotify event state (%d)\n", ev.xvisibility.state);
+                break;
+            }
+            break;
+        case PropertyNotify:
+            if (ev.xproperty.atom == ATOM__XROOTPMAP_ID) {
+                w->bg_changed = true;
+            }
+            break;
+        default: break;
+        }
+    }
+}
+
 static void* create_and_bind(const char* name, const char* class,
                              const char* type, const char** states,
                              size_t states_sz,
@@ -360,7 +395,7 @@ static void* create_and_bind(const char* name, const char* class,
     vi = glXGetVisualFromFBConfig(display, config);
     
     attr.colormap          = XCreateColormap(display, DefaultRootWindow(display), vi->visual, AllocNone);
-    attr.event_mask        = ExposureMask        | KeyPressMask       | StructureNotifyMask;
+    attr.event_mask        = ExposureMask        | KeyPressMask         | StructureNotifyMask;
     attr.event_mask       |= PropertyChangeMask  | VisibilityChangeMask;
     attr.background_pixmap = None;
     attr.border_pixel      = 0;
@@ -498,44 +533,13 @@ static bool should_render(struct glxwin* w) {
        attributes to see if our window isn't viewable. */
     XWindowAttributes attrs;
     XGetWindowAttributes(display, w->w, &attrs);
+    process_events(w);
     return w->should_render && attrs.map_state == IsViewable;
 }
 
 static void swap_buffers(struct glxwin* w) {
     glXSwapBuffers(display, w->w);
-    
-    while (XPending(display) > 0) {
-        XEvent ev;
-        XNextEvent(display, &ev);
-        switch (ev.type) {
-        case ClientMessage:
-            if (ev.xclient.message_type  == ATOM_WM_PROTOCOLS
-                && ev.xclient.data.l[0]  == ATOM_WM_DELETE_WINDOW) {
-                w->should_close = true;
-            }
-            break;
-        case VisibilityNotify:
-            switch (ev.xvisibility.state) {
-            case VisibilityFullyObscured:
-                w->should_render = false;
-                break;
-            case VisibilityUnobscured:
-            case VisibilityPartiallyObscured:
-                w->should_render = true;
-                break;
-            default:
-                fprintf(stderr, "Invalid VisibilityNotify event state (%d)\n", ev.xvisibility.state);
-                break;
-            }
-            break;
-        case PropertyNotify:
-            if (ev.xproperty.atom == ATOM__XROOTPMAP_ID) {
-                w->bg_changed = true;
-            }
-            break;
-        default: break;
-        }
-    }
+    process_events(w);
 }
 
 static void get_fbsize(struct glxwin* w, int* d, int* h) {
