@@ -105,8 +105,21 @@ bool ext_parse_color(const char* str, size_t elem_sz, float** results) {
     return true;
 }
 
+static void free_after(struct glsl_ext* ext, void* ptr) {
+    ++ext->destruct_sz;
+    ext->destruct = realloc(ext->destruct, sizeof(void*) * ext->destruct_sz);
+    ext->destruct[ext->destruct_sz - 1] = ptr;
+}
+
+static void inherit(struct glsl_ext* parent, struct glsl_ext* child) {
+    free_after(parent, child->processed);
+    parent->destruct = realloc(parent->destruct, sizeof(void*) * (parent->destruct_sz + child->destruct_sz));
+    memcpy(parent->destruct + parent->destruct_sz, child->destruct, sizeof(void*) * child->destruct_sz);
+    parent->destruct_sz += child->destruct_sz;
+    free(child->destruct);
+}
+
 /* handle raw arguments for #include and #request directives */
-/* NOTE: munmap needs to be called on the result */
 static struct schar directive(struct glsl_ext* ext, char** args,
                              size_t args_sz, bool include,
                              size_t line, const char* f) {
@@ -144,21 +157,23 @@ static struct schar directive(struct glsl_ext* ext, char** args,
         }
 
         struct glsl_ext next = {
-            .source     = map,
-            .source_len = st.st_size,
-            .cd         = ext->cd,
-            .cfd        = ext->cfd,
-            .handlers   = ext->handlers
+            .source      = map,
+            .source_len  = st.st_size,
+            .cd          = ext->cd,
+            .cfd         = ext->cfd,
+            .handlers    = ext->handlers
         };
 
         /* recursively process */
         ext_process(&next, target);
+        inherit(ext, &next);
+        munmap(map, st.st_size);
         
         struct schar ret = {
             .buf = next.processed,
             .sz  = next.p_len
         };
-
+        
         return ret;
     } else {
 
@@ -251,6 +266,9 @@ static struct schar directive(struct glsl_ext* ext, char** args,
 /* state machine parser */
 void ext_process(struct glsl_ext* ext, const char* f) {
     
+    ext->destruct    = malloc(1);
+    ext->destruct_sz = 0;
+    
     #define LINE_START 0
     #define GLSL 1
     #define MACRO 2
@@ -272,7 +290,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     size_t line = 1;
     bool quoted = false, arg_start;
     char cbuf[9];
-    char** args = NULL;
+    char** args = malloc(sizeof(char*));
     size_t args_sz = 0;
 
     bool prev_slash = false, comment = false, comment_line = false, prev_asterix = false,
@@ -418,7 +436,6 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         {
                             arg_start_idx = t + 1;
                             arg_start = true;
-                            args = malloc(sizeof(char*));
                             args_sz = 0;
                             *args = NULL;
                         }
@@ -468,7 +485,6 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             n_append(&sbuf, r.sz, r.buf);
                             append(&sbuf, "\n");
                         }
-                        munmap(r.buf, r.sz);
                         state = LINE_START;
                     }
                     break;
@@ -497,10 +513,20 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     }
     ext->processed = sbuf.buf;
     ext->p_len = sbuf.at;
-
-    if (args)
+    
+    if (args) {
+        for (t = 0; t < args_sz; ++t) {
+            free(args[t]);
+        }
         free(args);
+    }
 }
+
 void ext_free(struct glsl_ext* ext) {
     free(ext->processed);
+    size_t t;
+    for (t = 0; t < ext->destruct_sz; ++t) {
+        free(ext->destruct[t]);
+    }
+    free(ext->destruct);
 }

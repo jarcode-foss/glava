@@ -21,12 +21,14 @@ struct request_handler {
 };
 
 struct glsl_ext {
-    char*        processed;  /* OUT: null terminated processed source                       */
-    size_t       p_len;      /* OUT: length of processed buffer, excluding null char        */
-    const char*  source;     /* IN: raw data passed via ext_process                         */
-    size_t source_len;       /* IN: raw source len */
-    const char*  cd;         /* IN: current directory                                       */
-    const char*  cfd;        /* IN: config directory, if NULL it is assumed to cd           */
+    char*        processed;   /* OUT: null terminated processed source                       */
+    size_t       p_len;       /* OUT: length of processed buffer, excluding null char        */
+    const char*  source;      /* IN: raw data passed via ext_process                         */
+    size_t source_len;        /* IN: raw source len */
+    const char*  cd;          /* IN: current directory                                       */
+    const char*  cfd;         /* IN: config directory, if NULL it is assumed to cd           */
+    void** destruct;          /* internal */
+    size_t       destruct_sz; /* internal */
 
     /* IN: NULL (where the last element's 'name' member is NULL) terminated
        array of request handlers */

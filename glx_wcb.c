@@ -267,7 +267,7 @@ static void apply_clickthrough(struct glxwin* w) {
     }
 }
 
-static void* process_events(struct glxwin* w) {
+static void process_events(struct glxwin* w) {
     while (XPending(display) > 0) {
         XEvent ev;
         XNextEvent(display, &ev);
@@ -566,6 +566,7 @@ static void destroy(struct glxwin* w) {
     glXMakeCurrent(display, None, NULL); /* release context */
     glXDestroyContext(display, w->context);
     XDestroyWindow(display, w->w);
+    free(w);
 }
 
 static void terminate(void) {

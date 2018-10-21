@@ -69,6 +69,12 @@ struct gl_sampler_data {
     size_t sz;
 };
 
+/* per-bind data containing the framebuffer and 1D texture to render for smoothing. */
+
+struct sm_fb {
+    GLuint fbo, tex;
+};
+
 /* GLSL uniform bind */
 
 struct gl_bind {
@@ -78,7 +84,7 @@ struct gl_bind {
     int src_type;
     void (**transformations)(struct gl_data*, void**, void* data);
     size_t t_sz;
-    void* udata;
+    struct sm_fb sm;
 };
 
 /* GL screen framebuffer object */
@@ -112,6 +118,7 @@ struct gl_data {
         copy_desktop, smooth_pass, premultiply_alpha, check_fullscreen,
         clickthrough;
     void** t_data;
+    size_t t_count;
     float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio,
         smooth_factor, fft_scale, fft_cutoff;
     struct {
@@ -465,10 +472,9 @@ static struct gl_bind_src bind_sources[] = {
 };
 
 #define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * (double) t  / (double)(sz - 1))))
-#define ALLOC_ONCE(u, udata, ...)                    \
+#define ALLOC_ONCE(u, udata, sz)                \
     if (*udata == NULL) {                       \
-        u = malloc(sizeof(*u));                 \
-        *u = (typeof(*u)) __VA_ARGS__;          \
+        u = calloc(sz, sizeof(typeof(*u)));     \
         *udata = u;                             \
     } else u = (typeof(u)) *udata;
 
@@ -529,18 +535,16 @@ void transform_gravity(struct gl_data* d, void** udata, void* data) {
     float* b = s->buf;
     size_t sz = s->sz, t;
     
-    struct {
-        float* applied;
-    }* u;
-    ALLOC_ONCE(u, udata, { .applied = calloc(sz, sizeof(float)) });
+    float* applied;
+    ALLOC_ONCE(applied, udata, sz);
 
     float g = d->gravity_step * (1.0F / d->ur);
     
     for (t = 0; t < sz; ++t) {
-        if (b[t] >= u->applied[t]) {
-            u->applied[t] = b[t] - g;
-        } else u->applied[t] -= g;
-        b[t] = u->applied[t];
+        if (b[t] >= applied[t]) {
+            applied[t] = b[t] - g;
+        } else applied[t] -= g;
+        b[t] = applied[t];
     }
 }
 
@@ -553,20 +557,18 @@ void transform_average(struct gl_data* d, void** udata, void* data) {
     float v;
     bool use_window = d->avg_window;
     
-    struct {
-        float* bufs;
-    }* u;
-    ALLOC_ONCE(u, udata, { .bufs = calloc(tsz, sizeof(float)) });
+    float* bufs;
+    ALLOC_ONCE(bufs, udata, tsz);
     
-    memmove(u->bufs, &u->bufs[sz], (tsz - sz) * sizeof(float));
-    memcpy(&u->bufs[tsz - sz], b, sz * sizeof(float));
+    memmove(bufs, &bufs[sz], (tsz - sz) * sizeof(float));
+    memcpy(&bufs[tsz - sz], b, sz * sizeof(float));
     
     #define DO_AVG(w)                                   \
         do {                                            \
             for (t = 0; t < sz; ++t) {                  \
                 v = 0.0F;                               \
                 for (f = 0; f < d->avg_frames; ++f) {   \
-                    v += w * u->bufs[(f * sz) + t];     \
+                    v += w * bufs[(f * sz) + t];     \
                 }                                       \
                 b[t] = v / d->avg_frames;               \
             }                                           \
@@ -1038,7 +1040,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
                         .src_type        = src->src_type,
                         .transformations = malloc(1),
                         .t_sz            = 0,
-                        .udata           = NULL
+                        .sm              = {}
                     };
                 })
         },
@@ -1091,6 +1093,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
         };
         
         ext_process(&ext, se_buf);
+        ext_free(&ext);
         
         munmap((void*) map, st.st_size);
 
@@ -1122,6 +1125,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
 
                 loading_presets = true;
                 ext_process(&ext, se_buf);
+                ext_free(&ext);
                 loading_presets = false;
 
                 munmap((void*) map, st.st_size);
@@ -1319,7 +1323,8 @@ struct renderer* rd_new(const char** paths, const char* entry,
     }
 
     {
-        gl->t_data = malloc(sizeof(void*) * t_count);
+        gl->t_data  = malloc(sizeof(void*) * t_count);
+        gl->t_count = t_count;
         size_t t;
         for (t = 0; t < t_count; ++t) {
             gl->t_data[t] = NULL;
@@ -1544,20 +1549,10 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                         setup = true;
                     }
 
-                    /* Per-bind data containing the framebuffer and 1D texture to render to for
-                       this smoothing step. */
-
-                    struct sm_fb {
-                        GLuint fbo, tex;
-                    };
-
                     /* Allocate and setup our per-bind data, if needed */
 
-                    struct sm_fb* sm;
-                    if (!bind->udata) {
-                        sm = malloc(sizeof(struct sm_fb));
-                        bind->udata = sm;
-                        
+                    struct sm_fb* sm = &bind->sm;
+                    if (sm->tex == 0) {
                         glGenTextures(1, &sm->tex);
                         glGenFramebuffers(1, &sm->fbo);
 
@@ -1582,7 +1577,6 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                         }
                     } else {
                         /* Just bind our data if it was already allocated and setup */
-                        sm = (struct sm_fb*) bind->udata;
                         glBindFramebuffer(GL_FRAMEBUFFER, sm->fbo);
                         glBindTexture(GL_TEXTURE_1D, sm->tex);
                     }
@@ -1716,8 +1710,14 @@ struct gl_wcb* rd_get_wcb         (struct renderer* r)  { return r->gl->wcb; }
 void rd_destroy(struct renderer* r) {
     r->gl->wcb->destroy(r->gl->w);
     if (r->gl->interpolate) free(r->gl->interpolate_buf[0]);
-    if (r->gl->t_data)      free(r->gl->t_data);
     size_t t, b;
+    if (r->gl->t_data) {
+        for (t = 0; t < r->gl->t_count; ++t) {
+            if (r->gl->t_data[t])
+                free(r->gl->t_data[t]);
+        }
+        free(r->gl->t_data);
+    }
     for (t = 0; t < r->gl->stages_sz; ++t) {
         struct gl_sfbo* stage = &r->gl->stages[t];
         for (b = 0; b < stage->binds_sz; ++b) {
