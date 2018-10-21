@@ -1,4 +1,4 @@
-layout(pixel_center_integer) in vec4 gl_FragCoord;
+in vec4 gl_FragCoord;
 
 #request uniform "screen" screen
 uniform ivec2 screen;
