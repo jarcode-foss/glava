@@ -27,6 +27,10 @@
    the background. */
 #define BAR_ALIAS_FACTOR 1.2
 #define C_ALIAS_FACTOR 1.8
+/* Offset (Y) of the visualization */
+#define CENTER_OFFSET_Y 0
+/* Offset (X) of the visualization */
+#define CENTER_OFFSET_X 0
 
 /* Gravity step, overrude frin `smooth_parameters.glsl` */
 #request setgravitystep 5.0
