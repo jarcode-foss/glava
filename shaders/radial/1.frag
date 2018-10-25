@@ -41,8 +41,8 @@ void main() {
        Alpha layer blending is only applied when `xroot` transparency is enabled. */
     
     float /* translate (x, y) to use (0, 0) as the center of the screen */
-        dx = gl_FragCoord.x - (screen.x / 2),
-        dy = gl_FragCoord.y - (screen.y / 2);
+        dx = gl_FragCoord.x - (screen.x / 2) + CENTER_OFFSET_X,
+        dy = gl_FragCoord.y - (screen.y / 2) + CENTER_OFFSET_Y;
     float theta = atan(dy, dx); /* fragment angle with the center of the screen as the origin */
     float d = sqrt((dx * dx) + (dy * dy)); /* distance */
     if (d > C_RADIUS - (float(C_LINE) / 2.0F) && d < C_RADIUS + (float(C_LINE) / 2.0F)) {
