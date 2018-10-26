@@ -51,7 +51,7 @@
 #endif
 
 /* Direction that the bars are facing, 0 for inward, 1 for outward */
-#ifndef BAR_WIDTH)
+#ifndef DIRECTION
     #define DIRECTION 0
 #endif
 
