@@ -32,7 +32,7 @@
 
 /* Only a single vertex shader is needed for GLava, since all rendering is done in the fragment shader
    over a fullscreen quad */
-#define VERTEX_SHADER_SRC \
+#define VERTEX_SHADER_SRC                                               \
     "layout(location = 0) in vec3 pos; void main() { gl_Position = vec4(pos.x, pos.y, 0.0F, 1.0F); }"
 
 struct gl_wcb* wcbs[2] = {};
@@ -205,10 +205,10 @@ static GLuint shaderload(const char*             rpath,
     GLint sl = (GLint) (ext.p_len + written);
     glShaderSource(s, 1, (const GLchar* const*) &buf, &sl);
     switch (glGetError()) {
-    case GL_INVALID_VALUE:
-    case GL_INVALID_OPERATION:
-        fprintf(stderr, "invalid operation while loading shader source\n");
-        return 0;
+        case GL_INVALID_VALUE:
+        case GL_INVALID_OPERATION:
+            fprintf(stderr, "invalid operation while loading shader source\n");
+            return 0;
     }
     glCompileShader(s);
     GLint ret, ilen;
@@ -247,13 +247,13 @@ static GLuint shaderlink_f(GLuint* arr) {
     while ((f = arr[i++]) != 0) {
         glAttachShader(p, f);
         switch (glGetError()) {
-        case GL_INVALID_VALUE:
-            fprintf(stderr, "tried to pass invalid value to glAttachShader\n");
-            return 0;
-        case GL_INVALID_OPERATION:
-            fprintf(stderr, "shader is already attached, or argument types "
-                    "were invalid when calling glAttachShader\n");
-            return 0;
+            case GL_INVALID_VALUE:
+                fprintf(stderr, "tried to pass invalid value to glAttachShader\n");
+                return 0;
+            case GL_INVALID_OPERATION:
+                fprintf(stderr, "shader is already attached, or argument types "
+                        "were invalid when calling glAttachShader\n");
+                return 0;
         }
     }
     glLinkProgram(p);
@@ -276,7 +276,7 @@ static GLuint shaderlink_f(GLuint* arr) {
 }
 
 /* load shaders */
-#define shaderbuild(gl, shader_path, c, r, v, ...)                       \
+#define shaderbuild(gl, shader_path, c, r, v, ...)                      \
     shaderbuild_f(gl, shader_path, c, r, v, (const char*[]) {__VA_ARGS__, 0})
 static GLuint shaderbuild_f(struct gl_data* gl,
                             const char* shader_path,
@@ -302,9 +302,9 @@ static GLuint shaderbuild_f(struct gl_data* gl,
                     }
                 } else if (!strcmp(path + t + 1, "vert")) {
                     /*
-                    if (!(shaders[i] = shaderload(path, GL_VERTEX_SHADER, shader_path))) {
-                        return 0;
-                    }
+                      if (!(shaders[i] = shaderload(path, GL_VERTEX_SHADER, shader_path))) {
+                      return 0;
+                      }
                     */
                     fprintf(stderr, "shaderbuild(): vertex shaders not allowed: %s\n", path);
                     abort();
@@ -365,10 +365,10 @@ static void setup_sfbo(struct gl_sfbo* s, int w, int h) {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
     switch (glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
-    case GL_FRAMEBUFFER_COMPLETE: break;
-    default:
-        fprintf(stderr, "error in frambuffer state\n");
-        abort();
+        case GL_FRAMEBUFFER_COMPLETE: break;
+        default:
+            fprintf(stderr, "error in frambuffer state\n");
+            abort();
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -568,7 +568,7 @@ void transform_average(struct gl_data* d, void** udata, void* data) {
             for (t = 0; t < sz; ++t) {                  \
                 v = 0.0F;                               \
                 for (f = 0; f < d->avg_frames; ++f) {   \
-                    v += w * bufs[(f * sz) + t];     \
+                    v += w * bufs[(f * sz) + t];        \
                 }                                       \
                 b[t] = v / d->avg_frames;               \
             }                                           \
@@ -1570,10 +1570,10 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                                                GL_TEXTURE_1D, sm->tex, 0);
                         
                         switch (glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
-                        case GL_FRAMEBUFFER_COMPLETE: break;
-                        default:
-                            fprintf(stderr, "error in frambuffer state\n");
-                            abort();
+                            case GL_FRAMEBUFFER_COMPLETE: break;
+                            default:
+                                fprintf(stderr, "error in frambuffer state\n");
+                                abort();
                         }
                     } else {
                         /* Just bind our data if it was already allocated and setup */
@@ -1614,20 +1614,20 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                (currently) exists. */
             
             switch (bind->src_type) {
-            case SRC_PREV:
-                /* bind texture and pass it to the shader uniform if we need to pass
-                   the sampler from the previous pass */
-                if (!prev_bound && prev != NULL) {
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, prev->tex);
-                    prev_bound = true;
-                }
-                glUniform1i(bind->uniform, 0);
-                break;
-            case SRC_AUDIO_L:  handle_1d_tex(gl->audio_tex_l, lb, ilb, bsz, 1, true); break;
-            case SRC_AUDIO_R:  handle_1d_tex(gl->audio_tex_r, rb, irb, bsz, 2, true); break;
-            case SRC_AUDIO_SZ: glUniform1i(bind->uniform, bsz);                       break;
-            case SRC_SCREEN:   glUniform2i(bind->uniform, (GLint) ww, (GLint) wh);    break;
+                case SRC_PREV:
+                    /* bind texture and pass it to the shader uniform if we need to pass
+                       the sampler from the previous pass */
+                    if (!prev_bound && prev != NULL) {
+                        glActiveTexture(GL_TEXTURE0);
+                        glBindTexture(GL_TEXTURE_2D, prev->tex);
+                        prev_bound = true;
+                    }
+                    glUniform1i(bind->uniform, 0);
+                    break;
+                case SRC_AUDIO_L:  handle_1d_tex(gl->audio_tex_l, lb, ilb, bsz, 1, true); break;
+                case SRC_AUDIO_R:  handle_1d_tex(gl->audio_tex_r, rb, irb, bsz, 2, true); break;
+                case SRC_AUDIO_SZ: glUniform1i(bind->uniform, bsz);                       break;
+                case SRC_SCREEN:   glUniform2i(bind->uniform, (GLint) ww, (GLint) wh);    break;
             }
         }
         

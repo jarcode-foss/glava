@@ -113,8 +113,7 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
         }
         
         switch (type) {
-        case 1:
-            {
+            case 1: {
                 int source = -1, dest = -1;
                 uint8_t buf[pgsz];
                 ssize_t r, t, w, a;
@@ -144,12 +143,12 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
                 if (dest > 0) close(dest);
             }
             break;
-        case 2:
-            if (symlink(p, f) && errno != EEXIST)
-                fprintf(stderr, "failed to symlink '%s' -> '%s': %s\n", p, f, strerror(errno));
-            else if (verbose)
-                printf("symlink '%s' -> '%s'\n", p, f);
-            break;
+            case 2:
+                if (symlink(p, f) && errno != EEXIST)
+                    fprintf(stderr, "failed to symlink '%s' -> '%s': %s\n", p, f, strerror(errno));
+                else if (verbose)
+                    printf("symlink '%s' -> '%s'\n", p, f);
+                break;
         }
     }
     closedir(dir);
@@ -218,22 +217,22 @@ int main(int argc, char** argv) {
     int c, idx;
     while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
         switch (c) {
-        case 'v': verbose   = true;   break;
-        case 'C': copy_mode = true;   break;
-        case 'd': desktop   = true;   break;
-        case 'e': entry     = optarg; break;
-        case 'm': force     = optarg; break;
-        case 'b': backend   = optarg; break;
-        case '?': exit(EXIT_FAILURE); break;
-        case 'V':
-            puts(GLAVA_VERSION_STRING);
-            exit(EXIT_SUCCESS);
-            break;
-        default:
-        case 'h':
-            printf(help_str, argc > 0 ? argv[0] : "glava");
-            exit(EXIT_SUCCESS);
-            break;
+            case 'v': verbose   = true;   break;
+            case 'C': copy_mode = true;   break;
+            case 'd': desktop   = true;   break;
+            case 'e': entry     = optarg; break;
+            case 'm': force     = optarg; break;
+            case 'b': backend   = optarg; break;
+            case '?': exit(EXIT_FAILURE); break;
+            case 'V':
+                puts(GLAVA_VERSION_STRING);
+                exit(EXIT_SUCCESS);
+                break;
+            default:
+            case 'h':
+                printf(help_str, argc > 0 ? argv[0] : "glava");
+                exit(EXIT_SUCCESS);
+                break;
         }
     }
 

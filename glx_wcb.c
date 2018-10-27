@@ -215,7 +215,7 @@ static void init(void) {
     }
 
     #define resolve(name) do { name = (typeof(name)) resolve_f(#name); } while (0)
-    #define intern(name, only_if_exists) \
+    #define intern(name, only_if_exists)                                \
         do { ATOM_##name = XInternAtom(display, #name, only_if_exists); } while (0)
 
     resolve(glXChooseFBConfig);
@@ -272,32 +272,32 @@ static void process_events(struct glxwin* w) {
         XEvent ev;
         XNextEvent(display, &ev);
         switch (ev.type) {
-        case ClientMessage:
-            if (ev.xclient.message_type  == ATOM_WM_PROTOCOLS
-                && ev.xclient.data.l[0]  == ATOM_WM_DELETE_WINDOW) {
-                w->should_close = true;
-            }
-            break;
-        case VisibilityNotify:
-            switch (ev.xvisibility.state) {
-            case VisibilityFullyObscured:
-                w->should_render = false;
+            case ClientMessage:
+                if (ev.xclient.message_type  == ATOM_WM_PROTOCOLS
+                    && ev.xclient.data.l[0]  == ATOM_WM_DELETE_WINDOW) {
+                    w->should_close = true;
+                }
                 break;
-            case VisibilityUnobscured:
-            case VisibilityPartiallyObscured:
-                w->should_render = true;
+            case VisibilityNotify:
+                switch (ev.xvisibility.state) {
+                    case VisibilityFullyObscured:
+                        w->should_render = false;
+                        break;
+                    case VisibilityUnobscured:
+                    case VisibilityPartiallyObscured:
+                        w->should_render = true;
+                        break;
+                    default:
+                        fprintf(stderr, "Invalid VisibilityNotify event state (%d)\n", ev.xvisibility.state);
+                        break;
+                }
                 break;
-            default:
-                fprintf(stderr, "Invalid VisibilityNotify event state (%d)\n", ev.xvisibility.state);
+            case PropertyNotify:
+                if (ev.xproperty.atom == ATOM__XROOTPMAP_ID) {
+                    w->bg_changed = true;
+                }
                 break;
-            }
-            break;
-        case PropertyNotify:
-            if (ev.xproperty.atom == ATOM__XROOTPMAP_ID) {
-                w->bg_changed = true;
-            }
-            break;
-        default: break;
+            default: break;
         }
     }
 }
@@ -516,9 +516,9 @@ static void set_visible(struct glxwin* w, bool visible) {
         XMapWindow(display, w->w);
         apply_clickthrough(w);
         switch (w->override_state) {
-        case '+': XRaiseWindow(display, w->w); break;
-        case '-': XLowerWindow(display, w->w); break;
-        default: break;
+            case '+': XRaiseWindow(display, w->w); break;
+            case '-': XLowerWindow(display, w->w); break;
+            default: break;
         }
         XFlush(display);
     }

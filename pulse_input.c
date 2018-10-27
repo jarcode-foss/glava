@@ -35,16 +35,11 @@ static void cb(__attribute__((unused)) pa_context* pulseaudio_context,
 static void pulseaudio_context_state_callback(pa_context* pulseaudio_context, void* userdata) {
 
 	/* Ensure loop is ready	*/
-	switch (pa_context_get_state(pulseaudio_context))
-        {
-        case PA_CONTEXT_UNCONNECTED:
-            break;
-        case PA_CONTEXT_CONNECTING:
-            break;
-        case PA_CONTEXT_AUTHORIZING:
-            break;
-        case PA_CONTEXT_SETTING_NAME:
-            break;
+	switch (pa_context_get_state(pulseaudio_context)) {
+        case PA_CONTEXT_UNCONNECTED:  break;
+        case PA_CONTEXT_CONNECTING:   break;
+        case PA_CONTEXT_AUTHORIZING:  break;
+        case PA_CONTEXT_SETTING_NAME: break;
         case PA_CONTEXT_READY: /* extract default sink name */
             pa_operation_unref(pa_context_get_server_info(pulseaudio_context, cb, userdata));
             break;
@@ -55,7 +50,7 @@ static void pulseaudio_context_state_callback(pa_context* pulseaudio_context, vo
         case PA_CONTEXT_TERMINATED:
             pa_mainloop_quit(m_pulseaudio_mainloop, 0);
             break;	  
-        }
+    }
 }
 
 

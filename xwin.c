@@ -82,7 +82,7 @@ void xwin_wait_for_wm(void) {
     bool exists = false;
     struct timespec tv = { .tv_sec = 0, .tv_nsec = 50 * 1000000 };
     
-     do {
+    do {
         if (check == None) {
             check = XInternAtom(d, "_NET_SUPPORTING_WM_CHECK", true);
         }
@@ -161,7 +161,7 @@ bool xwin_should_render(struct gl_wcb* wcb, void* impl) {
     XSetErrorHandler(handler); /* dummy error handler */
           
     if (Success != XGetWindowProperty(d, DefaultRootWindow(d), prop, 0, 1, false, AnyPropertyType,
-                                     &actual_type, &actual_format, &nitems, &bytes_after, &data)) {
+                                      &actual_type, &actual_format, &nitems, &bytes_after, &data)) {
         goto close; /* if an error occurs here, the WM probably isn't EWMH compliant */
     }
     
@@ -186,7 +186,7 @@ bool xwin_should_render(struct gl_wcb* wcb, void* impl) {
             ret = false;
         }
     }
- close:
+close:
     if (data)
         XFree(data);
     if (should_close)
@@ -200,8 +200,8 @@ bool xwin_should_render(struct gl_wcb* wcb, void* impl) {
         for (size_t t = 0; t < sizeof(out) / sizeof(char); ++t) {   \
             char c = in[t];                                         \
             switch (c) {                                            \
-            case 'a' ... 'z': c -= 'a' - 'A';                       \
-            default:          out[t] = c;                           \
+                case 'a' ... 'z': c -= 'a' - 'A';                   \
+                default:          out[t] = c;                       \
             }                                                       \
         }                                                           \
     } while (0)
@@ -316,35 +316,35 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
         bool invalid = false, aligned = false;
         GLenum type;
         switch (image->bits_per_pixel) {
-        case 16:
-            switch (image->depth) {
-            case 12: type = GL_UNSIGNED_SHORT_4_4_4_4; break; /* 12-bit (rare)    */
-            case 15: type = GL_UNSIGNED_SHORT_5_5_5_1; break; /* 15-bit, hi-color */
-            case 16:                                          /* 16-bit, hi-color */
-                type    = GL_UNSIGNED_SHORT_5_6_5;
-                aligned = true;
+            case 16:
+                switch (image->depth) {
+                    case 12: type = GL_UNSIGNED_SHORT_4_4_4_4; break; /* 12-bit (rare)    */
+                    case 15: type = GL_UNSIGNED_SHORT_5_5_5_1; break; /* 15-bit, hi-color */
+                    case 16:                                          /* 16-bit, hi-color */
+                        type    = GL_UNSIGNED_SHORT_5_6_5;
+                        aligned = true;
+                        break;
+                }
                 break;
-            }
-            break;
-        case 32:
-            switch (image->depth) {
-            case 24: type = GL_UNSIGNED_BYTE;           break; /* 24-bit, true color */
-            case 30: type = GL_UNSIGNED_INT_10_10_10_2; break; /* 30-bit, deep color */
-            }
-            break;
-        case 64: 
-            if (image->depth == 48) /* 48-bit deep color */
-                type = GL_UNSIGNED_SHORT;
-            else goto invalid;
-            break;
-            /* >64-bit formats */
-        case 128:
-            if (image->depth == 96)
-                type = GL_UNSIGNED_INT;
-            else goto invalid;
-            break;
-        default:
-        invalid: invalid = true;
+            case 32:
+                switch (image->depth) {
+                    case 24: type = GL_UNSIGNED_BYTE;           break; /* 24-bit, true color */
+                    case 30: type = GL_UNSIGNED_INT_10_10_10_2; break; /* 30-bit, deep color */
+                }
+                break;
+            case 64: 
+                if (image->depth == 48) /* 48-bit deep color */
+                    type = GL_UNSIGNED_SHORT;
+                else goto invalid;
+                break;
+                /* >64-bit formats */
+            case 128:
+                if (image->depth == 96)
+                    type = GL_UNSIGNED_INT;
+                else goto invalid;
+                break;
+            default:
+            invalid: invalid = true;
         }
     
         uint8_t* buf;
