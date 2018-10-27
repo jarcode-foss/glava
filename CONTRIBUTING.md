@@ -1,7 +1,7 @@
 
 ## Code Style
 
-GLava uses a very relaxed version of the [linux kernel style](https://blog.github.com/2012-09-17-contributing-guidelines/), with a few changes:
+GLava uses a bastardized version of the [linux kernel style](https://www.kernel.org/doc/html/v4.10/process/coding-style.html), with a few changes:
 
 * Opening braces are _always_ on the same line as the token it is associated with (`if`, `while`, labels, functions). The only time this is not honoured is when a set of braces has no associated token (ie. scope usage).
 
