@@ -40,6 +40,7 @@ uniform int audio_sz;
 */
 
 #include ":util/smooth.glsl"
+#include "@graph.glsl"
 #include ":graph.glsl"
 
 #request uniform "audio_l" audio_l

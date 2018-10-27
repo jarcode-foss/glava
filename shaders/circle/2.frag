@@ -6,6 +6,7 @@ uniform sampler2D tex;    /* screen texture    */
 
 out vec4 fragment; /* output */
 
+#include "@circle.glsl"
 #include ":circle.glsl"
 
 void main() {

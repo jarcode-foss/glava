@@ -4,7 +4,7 @@ obj = $(src:.c=.o)
 # Build type parameter
 
 ifeq ($(BUILD),debug)
-    CFLAGS_BUILD = -O0 -ggdb -Wall
+    CFLAGS_BUILD = -O0 -ggdb -Wall -DGLAVA_DEBUG
     GLAD_GEN = c-debug
 	STRIP_CMD = $(info Skipping `strip` for debug builds)
 else

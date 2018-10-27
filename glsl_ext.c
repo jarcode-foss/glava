@@ -21,6 +21,7 @@
 #define REQUEST 3
 #define INCLUDE 4
 #define COLOR 5
+#define DEFINE 6
 
 struct sbuf {
     char* buf;
@@ -131,6 +132,22 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                               size_t args_sz, int state,
                               size_t line, const char* f) {
     switch (state) {
+        case DEFINE: {
+            /* Workaround for re-defining macros in GLSL. By default this is generally an error in most
+               compilers/drivers, but we would prefer to override (non-function) definitions instead.
+            
+               Due to how this directive is parsed, the macro itself is still emitted afterwards. */
+            if (args_sz == 0) {
+                parse_error_s(line, f, "No arguments provided to #define directive!");
+            }
+            size_t bsz = (strlen(args[0]) * 3) + 64;
+            struct schar ret = { .buf = malloc(bsz) };
+            int r = snprintf(ret.buf, bsz, "#ifdef %1$s\n#undef %1$s\n#endif\n", args[0]);
+            if (r < 0) abort();
+            ret.sz = r;
+            free_after(ext, ret.buf);
+            return ret;
+        }
         case INCLUDE: {
             if (args_sz == 0) {
                 parse_error_s(line, f, "No arguments provided to #include directive!");
@@ -142,6 +159,15 @@ static struct schar directive(struct glsl_ext* ext, char** args,
             if (tsz && target[0] == ':' && ext->cfd) {
                 target = &target[1];
                 ext->cd = ext->cfd;
+            }
+            /* Handle `@` default specifier */
+            if (tsz && target[0] == '@') {
+                if (!ext->dd) {
+                    parse_error_s(line, f, "encountered '@' path specifier while no default "
+                                "directory is available in the current context");
+                }
+                target = &target[1];
+                ext->cd = ext->dd;
             }
         
             char path[strlen(ext->cd) + tsz + 2];
@@ -169,6 +195,7 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                 .source_len  = st.st_size,
                 .cd          = ext->cd,
                 .cfd         = ext->cfd,
+                .dd          = ext->dd,
                 .handlers    = ext->handlers
             };
 
@@ -258,14 +285,8 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                     parse_error(line, f, "unknown request type '%s'", request);
                 }
             }
-        
-            struct schar ret = {
-                .buf = NULL,
-                .sz  = 0
-            };
-
-            return ret;
         }
+        default: return (struct schar) { .buf = NULL, .sz  = 0 };
     }
 }
 
@@ -405,28 +426,34 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         else goto copy; /* copy character if it ended the sequence */
                 }
             }
+                /* emit contents from start of macro to current index and resume regular parsing*/
+                #define skip_macro()                                    \
+                    do {                                                \
+                        n_append(&sbuf, t - macro_start_idx, &ext->source[macro_start_idx]); \
+                        state = at == '\n' ? LINE_START : GLSL;         \
+                        goto copy;                                      \
+                    } while (0)
             case MACRO: { /* processing start of macro */
                 switch (at) {
                     case '\n':
                     case ' ':
                     case '\t':
-                    case '\0': {
-                        /* end parsing directive */
-                        if (!strncmp("#request", &ext->source[macro_start_idx], t - macro_start_idx)
-                            || !strncmp("#REQUEST", &ext->source[macro_start_idx], t - macro_start_idx)) {
-                            state = REQUEST;
-                            goto prepare_arg_parse;
-                        } else if (!strncmp("#include", &ext->source[macro_start_idx],
-                                            t - macro_start_idx)
-                                   || !strncmp("#INCLUDE", &ext->source[macro_start_idx],
-                                               t - macro_start_idx)) {
-                            state = INCLUDE;
-                            goto prepare_arg_parse;
-                        } else {
-                            n_append(&sbuf, t - macro_start_idx, &ext->source[macro_start_idx]);
-                            state = at == '\n' ? LINE_START : GLSL;
-                            goto copy;
-                        }
+                    case '\0': { /* end parsing directive */
+                        
+                        #define DIRECTIVE_CMP(lower, upper)             \
+                            (!strncmp("#" lower, &ext->source[macro_start_idx], t - macro_start_idx) \
+                                || !strncmp("#" upper, &ext->source[macro_start_idx], t - macro_start_idx))
+                        #define DIRECTIVE_CASE(lower, upper)            \
+                            do { if (state == MACRO && DIRECTIVE_CMP(#lower, #upper)) { state = upper; goto prepare_arg_parse; } } while (0)
+                        
+                        DIRECTIVE_CASE(request, REQUEST);
+                        DIRECTIVE_CASE(include, INCLUDE);
+                        DIRECTIVE_CASE(define,  DEFINE);
+
+                        /* no match */
+                        if (state == MACRO) skip_macro();
+                        #undef DIRECTIVE_CMP
+                        #undef DIRECTIVE_CASE
                     prepare_arg_parse:
                         {
                             arg_start_idx = t + 1;
@@ -443,17 +470,18 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         parse_error(line, f, "Unexpected character '%c' while parsing GLSL directive", at);
                 }
             }
-            /* scope-violating macro to copy the result of the currently parsed argument */
-            #define copy_arg(end)                                       \
-                do { if (end - arg_start_idx > 0) {                     \
-                        ++args_sz;                                      \
-                        args = realloc(args, sizeof(char*) * args_sz);  \
-                        args[args_sz - 1] = malloc((end - arg_start_idx) + 1); \
-                        memcpy(args[args_sz - 1], &ext->source[arg_start_idx], end - arg_start_idx); \
-                        args[args_sz - 1][end - arg_start_idx] = '\0';  \
-                    } } while (0)
+                /* scope-violating macro to copy the result of the currently parsed argument */
+                #define copy_arg(end)                                   \
+                    do { if (end - arg_start_idx > 0) {                 \
+                            ++args_sz;                                  \
+                            args = realloc(args, sizeof(char*) * args_sz); \
+                            args[args_sz - 1] = malloc((end - arg_start_idx) + 1); \
+                            memcpy(args[args_sz - 1], &ext->source[arg_start_idx], end - arg_start_idx); \
+                            args[args_sz - 1][end - arg_start_idx] = '\0'; \
+                        } } while (0)
             case REQUEST:
-            case INCLUDE: {
+            case INCLUDE:
+            case DEFINE: {
                 switch (at) {
                     case ' ':
                     case '\t':
@@ -465,8 +493,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             arg_start = true;
                             arg_start_idx = t + 1;
                         } else arg_start = false;
-                    
-                        if (at == '\n') {
+                        
+                        if (at == '\n' || state == DEFINE) {
                             /* end directive */
                             size_t a;
                             struct schar r = directive(ext, args, args_sz, state, line, f);
@@ -479,10 +507,15 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                                 n_append(&sbuf, r.sz, r.buf);
                                 append(&sbuf, "\n");
                             }
-                            state = LINE_START;
+                            if (state == DEFINE) skip_macro();
+                            else state = LINE_START;
                         }
                         break;
+                    case '(':
+                        if (state != DEFINE || args_sz != 0) goto arg; /* only handle first arg of #define */
+                        skip_macro();                                  /* ignore macro functions */
                     case '"':
+                        if (state == DEFINE) goto arg; /* do not handle quoting for #define */
                         if (quoted) {
                             /* end arg */
                             copy_arg(t);
@@ -494,12 +527,14 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             quoted = true;
                         } else arg_start = false;
                         break;
-                    default:
-                        arg_start = false;
+                    default: {
+                        arg: arg_start = false;
+                    }
                 }
                 
                 continue;
             }
+                #undef copy_arg
         }
     copy:
         if (at != '\0')

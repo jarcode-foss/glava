@@ -7,6 +7,7 @@ uniform ivec2 screen;
 uniform int audio_sz;
 
 #include ":util/smooth.glsl"
+#include "@radial.glsl"
 #include ":radial.glsl"
 
 #request uniform "audio_l" audio_l

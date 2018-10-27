@@ -135,6 +135,7 @@ static GLuint shaderload(const char*             rpath,
                          GLenum                  type,
                          const char*             shader,
                          const char*             config,
+                         const char*             defaults,
                          struct request_handler* handlers,
                          int                     shader_version,
                          bool                    raw,
@@ -181,6 +182,7 @@ static GLuint shaderload(const char*             rpath,
         .source_len = raw ? 0 : st.st_size,
         .cd         = shader,
         .cfd        = config,
+        .dd         = defaults,
         .handlers   = handlers,
         .processed  = (char*) (raw ? shader : NULL),
         .p_len      = raw ? s_len : 0
@@ -216,10 +218,14 @@ static GLuint shaderload(const char*             rpath,
     if (ret == GL_FALSE) {
         glGetShaderiv(s, GL_INFO_LOG_LENGTH, &ilen);
         if (ilen) {
-            GLchar buf[ilen];
-            glGetShaderInfoLog(s, ilen, NULL, buf);
+            GLchar ebuf[ilen];
+            glGetShaderInfoLog(s, ilen, NULL, ebuf);
             fprintf(stderr, "Shader compilation failed for '%s':\n", path);
-            fwrite(buf, sizeof(GLchar), ilen - 1, stderr);
+            fwrite(ebuf, sizeof(GLchar), ilen - 1, stderr);
+            #ifdef GLAVA_DEBUG
+            fprintf(stderr, "Processed shader source for '%s':\n", path);
+            fwrite(buf, sizeof(GLchar), sl, stderr);
+            #endif
             return 0;
         } else {
             fprintf(stderr, "Shader compilation failed for '%s', but no info was available\n", path);
@@ -276,11 +282,11 @@ static GLuint shaderlink_f(GLuint* arr) {
 }
 
 /* load shaders */
-#define shaderbuild(gl, shader_path, c, r, v, ...)                      \
-    shaderbuild_f(gl, shader_path, c, r, v, (const char*[]) {__VA_ARGS__, 0})
+#define shaderbuild(gl, shader_path, c, d, r, v, ...)                    \
+    shaderbuild_f(gl, shader_path, c, d, r, v, (const char*[]) {__VA_ARGS__, 0})
 static GLuint shaderbuild_f(struct gl_data* gl,
                             const char* shader_path,
-                            const char* config,
+                            const char* config, const char* defaults,
                             struct request_handler* handlers,
                             int shader_version,
                             const char** arr) {
@@ -296,7 +302,7 @@ static GLuint shaderbuild_f(struct gl_data* gl,
             if (path[t] == '.') {
                 if (!strcmp(path + t + 1, "frag") || !strcmp(path + t + 1, "glsl")) {
                     if (!(shaders[i] = shaderload(path, GL_FRAGMENT_SHADER,
-                                                  shader_path, config, handlers,
+                                                  shader_path, config, defaults, handlers,
                                                   shader_version, false, gl))) {
                         return 0;
                     }
@@ -317,7 +323,7 @@ static GLuint shaderbuild_f(struct gl_data* gl,
         }
     }
     /* load builtin vertex shader */
-    shaders[sz] = shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC, NULL, handlers, shader_version, true, gl);
+    shaders[sz] = shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC, NULL, NULL, handlers, shader_version, true, gl);
     fflush(stdout);
     return shaderlink_f(shaders);
 }
@@ -1054,9 +1060,11 @@ struct renderer* rd_new(const char** paths, const char* entry,
        directories will be populated with symlinks to the installed modules. */
     
     const char* data;
+    const char* dd; /* defaults dir (system) */
     const char* env = gl->wcb->get_environment();
     size_t d_len, e_len;
-    
+
+    for (const char** i = paths; (data = *i) != NULL; ++i) dd = data;
     for (const char** i = paths; (data = *i) != NULL; ++i) {
         d_len = strlen(data);
         e_len = env ? strlen(env) : 0;
@@ -1237,7 +1245,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
                             };
 
                             current = s;
-                            GLuint id = shaderbuild(gl, shaders, data, handlers, shader_version, d->d_name);
+                            GLuint id = shaderbuild(gl, shaders, data, dd, handlers, shader_version, d->d_name);
                             if (!id) {
                                 abort();
                             }
@@ -1298,7 +1306,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
         char util[usz]; /* module pack path to use */
         snprintf(util, usz, "%s/%s", data, util_folder);
         loading_smooth_pass = true;
-        if (!(gl->sm_prog = shaderbuild(gl, util, data, handlers, shader_version, "smooth_pass.frag")))
+        if (!(gl->sm_prog = shaderbuild(gl, util, data, dd, handlers, shader_version, "smooth_pass.frag")))
             abort();
         loading_smooth_pass = false;
     }
@@ -1475,9 +1483,9 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 "}"                                                                                  "\n";
             if (!setup) {
                 bg_prog = shaderlink(shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC,
-                                                NULL, NULL, 330, true, gl),
+                                                NULL, NULL, NULL, 330, true, gl),
                                      shaderload(NULL, GL_FRAGMENT_SHADER, frag_shader,
-                                                NULL, NULL, 330, true, gl));
+                                                NULL, NULL, NULL, 330, true, gl));
                 bg_utex   = glGetUniformLocation(bg_prog, "tex");
                 bg_screen = glGetUniformLocation(bg_prog, "screen");
                 glBindFragDataLocation(bg_prog, 1, "fragment");

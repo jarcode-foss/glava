@@ -6,6 +6,7 @@ uniform ivec2 screen;
 #request uniform "audio_sz" audio_sz
 uniform int audio_sz;
 
+#include "@bars.glsl"
 #include ":bars.glsl"
 
 #request uniform "audio_l" audio_l

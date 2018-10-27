@@ -8,6 +8,7 @@ uniform ivec2     screen; /* screen dimensions */
 
 out vec4 fragment; /* output */
 
+#include "@wave.glsl"
 #include ":wave.glsl"
 
 void main() {

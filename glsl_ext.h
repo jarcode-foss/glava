@@ -27,6 +27,7 @@ struct glsl_ext {
     size_t source_len;        /* IN: raw source len */
     const char*  cd;          /* IN: current directory                                       */
     const char*  cfd;         /* IN: config directory, if NULL it is assumed to cd           */
+    const char*  dd;          /* IN: default directory */
     void** destruct;          /* internal */
     size_t       destruct_sz; /* internal */
 
