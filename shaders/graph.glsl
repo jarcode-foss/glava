@@ -4,18 +4,15 @@
 /* Rendering direction, either -1 (outwards) or 1 (inwards). */
 #define DIRECTION 1
 
-/* The `RCOL_OFF`, `LCOL_OFF` AND `LSTEP` definitions are used to calculate
-   the `COLOR` macro definition for output. You can remove all these values
-   any simply define the `COLOR` macro yourself. */
-
-/* right color offset */
-#define RCOL_OFF (gl_FragCoord.x / 3000)
-/* left color offset */
-#define LCOL_OFF ((screen.x - gl_FragCoord.x) / 3000)
-/* vertical color step */
-#define LSTEP (pos / 170)
-/* actual color definition */
-#define COLOR vec4((0.3 + RCOL_OFF) + LSTEP, 0.6 - LSTEP, (0.3 + LCOL_OFF) + LSTEP, 1)
+/* Color gradient scale, (optionally) used in `COLOR` macro */
+#define GRADIENT_SCALE 75
+/* Color definition. By default this is a gradient formed by mixing two colors.
+   `pos` represents the pixel position relative to the visualizer baseline. */
+#define COLOR mix(#802A2A, #4F4F92, clamp(pos / GRADIENT_SCALE, 0, 1))
+/* 1 to draw outline, 0 to disable */
+#define DRAW_OUTLINE 0
+/* 1 to draw edge highlight, 0 to disable */
+#define DRAW_HIGHLIGHT 1
 /* outline color */
 #define OUTLINE #262626
 /* 1 to invert (vertically), 0 otherwise */

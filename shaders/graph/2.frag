@@ -1,10 +1,8 @@
 
-layout(pixel_center_integer) in vec4 gl_FragCoord;
+in vec4 gl_FragCoord;
 
 #request uniform "prev" tex
 uniform sampler2D tex;    /* screen texture    */
-#request uniform "screen" screen
-uniform ivec2     screen; /* screen dimensions */
 
 out vec4 fragment; /* output */
 
@@ -12,34 +10,31 @@ out vec4 fragment; /* output */
 #include ":graph.glsl"
 
 void main() {
-    fragment = texture(tex, vec2(gl_FragCoord.x / screen.x, gl_FragCoord.y / screen.y));
+    fragment = texelFetch(tex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);
     
     vec4
-        a0 = texture(tex, vec2((gl_FragCoord.x + 1) / screen.x, (gl_FragCoord.y + 0) / screen.y)),
-        a1 = texture(tex, vec2((gl_FragCoord.x + 1) / screen.x, (gl_FragCoord.y + 1) / screen.y)),
-        a2 = texture(tex, vec2((gl_FragCoord.x + 0) / screen.x, (gl_FragCoord.y + 1) / screen.y)),
-        a3 = texture(tex, vec2((gl_FragCoord.x + 1) / screen.x, (gl_FragCoord.y + 0) / screen.y)),
+        a0 = texelFetch(tex, ivec2((gl_FragCoord.x + 1), (gl_FragCoord.y + 0)), 0),
+        a1 = texelFetch(tex, ivec2((gl_FragCoord.x + 1), (gl_FragCoord.y + 1)), 0),
+        a2 = texelFetch(tex, ivec2((gl_FragCoord.x + 0), (gl_FragCoord.y + 1)), 0),
+        a3 = texelFetch(tex, ivec2((gl_FragCoord.x + 1), (gl_FragCoord.y + 0)), 0),
     
-        a4 = texture(tex, vec2((gl_FragCoord.x - 1) / screen.x, (gl_FragCoord.y - 0) / screen.y)),
-        a5 = texture(tex, vec2((gl_FragCoord.x - 1) / screen.x, (gl_FragCoord.y - 1) / screen.y)),
-        a6 = texture(tex, vec2((gl_FragCoord.x - 0) / screen.x, (gl_FragCoord.y - 1) / screen.y)),
-        a7 = texture(tex, vec2((gl_FragCoord.x - 1) / screen.x, (gl_FragCoord.y - 0) / screen.y));
+        a4 = texelFetch(tex, ivec2((gl_FragCoord.x - 1), (gl_FragCoord.y - 0)), 0),
+        a5 = texelFetch(tex, ivec2((gl_FragCoord.x - 1), (gl_FragCoord.y - 1)), 0),
+        a6 = texelFetch(tex, ivec2((gl_FragCoord.x - 0), (gl_FragCoord.y - 1)), 0),
+        a7 = texelFetch(tex, ivec2((gl_FragCoord.x - 1), (gl_FragCoord.y - 0)), 0);
 
     vec4 avg = (a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7) / 8.0;
     if (avg.a > 0){
-        #if INVERT > 0
-        #define EDGE_CHECK (gl_FragCoord.y != 0)
-        #define TEDGE_CHECK (gl_FragCoord.y != screen.y - 1)
-        #else
-        #define EDGE_CHECK (gl_FragCoord.y != screen.y - 1)
-        #define TEDGE_CHECK (gl_FragCoord.y != 0)
-        #endif
-        if (fragment.a <= 0 && EDGE_CHECK) {
+        if (fragment.a <= 0) {
             /* outline */
+            #if DRAW_OUTLINE > 0
             fragment = OUTLINE;
-        } else if (avg.a < 1 && TEDGE_CHECK) {
-            /* creates a nice 'glint' along the edge of the spectrum */
+            #endif
+        } else if (avg.a < 1) {
+            /* creates a highlight along the edge of the spectrum */
+            #if DRAW_HIGHLIGHT > 0
             fragment.rgb *= avg.a * 2;
+            #endif
         }
     }
 }
