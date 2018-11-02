@@ -45,6 +45,11 @@ ifeq ($(INSTALL),unix)
     endif
 endif
 
+ifdef ENABLE_JACK
+    CFLAGS_GLFW += -DGLAVA_JACK_SUPPORT
+    LDFLAGS_GLFW += -ljack
+endif
+
 ifdef ENABLE_GLFW
     CFLAGS_GLFW = -DGLAVA_GLFW
     LDFLAGS_GLFW = -lglfw
@@ -109,7 +114,7 @@ build_state: ;
 
 .PHONY: clean
 clean:
-	rm -f $(obj) glava glad.o build_state
+	rm -f $(obj) glava glad.o build_stateq
 
 EXECTARGET = $(shell readlink -m "$(DESTDIR)$(EXECDIR)/glava")
 SHADERTARGET = $(shell readlink -m "$(DESTDIR)$(SHADERDIR)")

@@ -18,7 +18,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 **Requirements:**
 
 - X11 (Xext, Xcomposite, & Xrender)
-- PulseAudio
+- PulseAudio / JACK (optional, enable with `ENABLE_JACK=1`, `glava -a jack`)
 - Linux or BSD
 
 **Additional compile time requirements:**

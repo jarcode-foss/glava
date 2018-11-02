@@ -18,6 +18,7 @@
 #include "pulse_input.h"
 #include "render.h"
 #include "xwin.h"
+#include "jack_input.h"
 
 #ifdef GLAD_DEBUG
 #define GLAVA_RELEASE_TYPE_PREFIX "debug, "
@@ -176,22 +177,25 @@ static const char* help_str =
     "-b, --backend           specifies a window creation backend to use. By default, the most\n"
     "                          appropriate backend will be used for the underlying windowing\n"
     "                          system.\n"
+    "-a, --audio-backend     specifies the audio backend to use: jack, pulseaudio.\n"
+    "                          Default: pulseaudio.\n"
     "-V, --version           print application version and exit\n"
     "\n"
     GLAVA_VERSION_STRING "\n"
     " -- Copyright (C) 2017 Levi Webb\n";
 
-static const char* opt_str = "dhvVe:Cm:b:";
+static const char* opt_str = "dhvVe:Cm:b:a:";
 static struct option p_opts[] = {
-    {"help",        no_argument,       0, 'h'},
-    {"verbose",     no_argument,       0, 'v'},
-    {"desktop",     no_argument,       0, 'd'},
-    {"entry",       required_argument, 0, 'e'},
-    {"force-mod",   required_argument, 0, 'm'},
-    {"copy-config", no_argument,       0, 'C'},
-    {"backend",     required_argument, 0, 'b'},
-    {"version",     no_argument,       0, 'V'},
-    {0,             0,                 0,  0 }
+    {"help",         no_argument,       0, 'h'},
+    {"verbose",      no_argument,       0, 'v'},
+    {"desktop",      no_argument,       0, 'd'},
+    {"entry",        required_argument, 0, 'e'},
+    {"force-mod",    required_argument, 0, 'm'},
+    {"copy-config",  no_argument,       0, 'C'},
+    {"backend",      required_argument, 0, 'b'},
+    {"audio-backend",required_argument, 0, 'a'},
+    {"version",      no_argument,       0, 'V'},
+    {0,              0,                 0,  0 }
 };
 
 static renderer* rd = NULL;
@@ -203,6 +207,12 @@ void handle_term(int signum) {
     }
 }
 
+enum AudioBackend
+{
+    PULSEAUDIO = 0,
+    JACK
+};
+
 int main(int argc, char** argv) {
 
     /* Evaluate these macros only once, since they allocate */
@@ -211,18 +221,20 @@ int main(int argc, char** argv) {
     const char* entry        = "rc.glsl";
     const char* force        = NULL;
     const char* backend      = NULL;
+    const char* audio_backend = "pulseaudio";
     const char* system_shader_paths[] = { user_path, install_path, NULL };
     bool verbose = false, copy_mode = false, desktop = false;
     
     int c, idx;
     while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
         switch (c) {
-            case 'v': verbose   = true;   break;
-            case 'C': copy_mode = true;   break;
-            case 'd': desktop   = true;   break;
-            case 'e': entry     = optarg; break;
-            case 'm': force     = optarg; break;
-            case 'b': backend   = optarg; break;
+            case 'v': verbose       = true;   break;
+            case 'C': copy_mode     = true;   break;
+            case 'd': desktop       = true;   break;
+            case 'e': entry         = optarg; break;
+            case 'm': force         = optarg; break;
+            case 'b': backend       = optarg; break;
+            case 'a': audio_backend = optarg; break;
             case '?': exit(EXIT_FAILURE); break;
             case 'V':
                 puts(GLAVA_VERSION_STRING);
@@ -235,6 +247,27 @@ int main(int argc, char** argv) {
                 break;
         }
     }
+
+    enum AudioBackend a_back;
+    if (strcmp(audio_backend, "pulseaudio") == 0)
+        {
+            a_back = PULSEAUDIO;
+        }
+    else if(strcmp(audio_backend, "jack") == 0)
+        {
+#ifdef GLAVA_JACK_SUPPORT
+            a_back = JACK;
+#else
+            printf("ERROR: Current build don't support jack audio backend.\n");
+            exit(EXIT_SUCCESS);
+#endif
+        }
+    else
+        {
+            printf("ERROR: Unknown audio backend: %s\n\n", audio_backend);
+            printf(help_str, argc > 0 ? argv[0] : "glava");
+            exit(EXIT_SUCCESS);
+        }
 
     if (copy_mode) {
         copy_cfg(install_path, user_path, verbose);
@@ -273,14 +306,23 @@ int main(int argc, char** argv) {
         .sample_sz    = rd->samplesize_request,
         .modified     = false
     };
-    if (!audio.source) {
-        get_pulse_default_sink(&audio);
-        printf("Using default PulseAudio sink: %s\n", audio.source);
-    }
-    
+
     pthread_t thread;
-    pthread_create(&thread, NULL, input_pulse, (void*) &audio);
-    
+    switch (a_back)
+        {
+            case PULSEAUDIO:
+                if (!audio.source)
+                    {
+                        get_pulse_default_sink(&audio);
+                        printf("Using default PulseAudio sink: %s\n", audio.source);
+                    }
+                    pthread_create(&thread, NULL, input_pulse, (void*) &audio);
+                break;
+#ifdef GLAVA_JACK_SUPPORT
+            case JACK: init_jack_client(&audio); break;
+#endif
+        }
+
     float lb[rd->bufsize_request], rb[rd->bufsize_request];
     while (rd->alive) {
 
@@ -309,11 +351,19 @@ int main(int argc, char** argv) {
         }
     }
 
-    audio.terminate = 1;
-    int return_status;
-    if ((return_status = pthread_join(thread, NULL))) {
-        fprintf(stderr, "Failed to join with audio thread: %s\n", strerror(return_status));
-    }
+    switch (a_back)
+        {
+            case PULSEAUDIO:
+                audio.terminate = 1;
+                int return_status;
+                if ((return_status = pthread_join(thread, NULL))) {
+                    fprintf(stderr, "Failed to join with audio thread: %s\n", strerror(return_status));
+                }
+                break;
+#ifdef GLAVA_JACK_SUPPORT
+            case JACK: close_jack_client(); break;
+#endif
+        }
 
     free(audio.source);
     rd_destroy(rd);
