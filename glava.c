@@ -166,9 +166,10 @@ static const char* help_str =
     "-d, --desktop           enables running glava as a desktop window by detecting the\n"
     "                          desktop environment and setting the appropriate properties\n"
     "                          automatically. Can override properties in \"rc.glsl\".\n"
+    "-r, --request=REQUEST   evaluates the specified request after loading \"rc.glsl\".\n"
     "-m, --force-mod=NAME    forces the specified module to load instead, ignoring any\n"
     "                          `#request mod` instances in the entry point.\n"
-    "-e, --entry=NAME        specifies the name of the file to look for when loading shaders,\n"
+    "-e, --entry=FILE        specifies the name of the file to look for when loading shaders,\n"
     "                          by default this is \"rc.glsl\".\n"
     "-C, --copy-config       creates copies and symbolic links in the user configuration\n"
     "                          directory for glava, copying any files in the root directory\n"
@@ -178,14 +179,23 @@ static const char* help_str =
     "                          system.\n"
     "-V, --version           print application version and exit\n"
     "\n"
-    GLAVA_VERSION_STRING "\n"
-    " -- Copyright (C) 2017 Levi Webb\n";
+    "The REQUEST argument is evaluated identically to the \'#request\' preprocessor directive\n"
+    "in GLSL files.\n"
+    "\n"
+    "The DEFINE argument is appended to the associated file before it is processed. It is\n"
+    "evaluated identically to the \'#define' preprocessor directive.\n"
+    "\n"
+    "The FILE argument may be any file path. All specified file paths are relative to the\n"
+    "active configuration root (usually ~/.config/glava if present).\n"
+    "\n"
+    GLAVA_VERSION_STRING "\n";
 
-static const char* opt_str = "dhvVe:Cm:b:";
+static const char* opt_str = "dhvVe:Cm:b:r:";
 static struct option p_opts[] = {
     {"help",        no_argument,       0, 'h'},
     {"verbose",     no_argument,       0, 'v'},
     {"desktop",     no_argument,       0, 'd'},
+    {"request",     required_argument, 0, 'r'},
     {"entry",       required_argument, 0, 'e'},
     {"force-mod",   required_argument, 0, 'm'},
     {"copy-config", no_argument,       0, 'C'},
@@ -196,22 +206,32 @@ static struct option p_opts[] = {
 
 static renderer* rd = NULL;
 
-void handle_term(int signum) {
+static void handle_term(int signum) {
     if (rd->alive) {
         puts("\nInterrupt recieved, closing...");
         rd->alive = false;
     }
 }
 
+static inline void append_buf(char** buf, size_t* sz_store, char* str) {
+    buf = realloc(buf, ++(*sz_store) * sizeof(char*));
+    buf[*sz_store - 1] = str;
+}
+
 int main(int argc, char** argv) {
 
     /* Evaluate these macros only once, since they allocate */
-    const char* install_path = SHADER_INSTALL_PATH;
-    const char* user_path    = SHADER_USER_PATH;
-    const char* entry        = "rc.glsl";
-    const char* force        = NULL;
-    const char* backend      = NULL;
+    const char
+        * install_path = SHADER_INSTALL_PATH,
+        * user_path    = SHADER_USER_PATH,
+        * entry        = "rc.glsl",
+        * force        = NULL,
+        * backend      = NULL;
     const char* system_shader_paths[] = { user_path, install_path, NULL };
+    
+    char** requests    = malloc(1);
+    size_t requests_sz = 0;
+    
     bool verbose = false, copy_mode = false, desktop = false;
     
     int c, idx;
@@ -220,6 +240,7 @@ int main(int argc, char** argv) {
             case 'v': verbose   = true;   break;
             case 'C': copy_mode = true;   break;
             case 'd': desktop   = true;   break;
+            case 'r': append_buf(requests, &requests_sz, optarg); break;
             case 'e': entry     = optarg; break;
             case 'm': force     = optarg; break;
             case 'b': backend   = optarg; break;
@@ -241,7 +262,19 @@ int main(int argc, char** argv) {
         exit(EXIT_SUCCESS);
     }
 
-    rd = rd_new(system_shader_paths, entry, force, backend, desktop);
+    /* Handle `--force` argument as a request override */
+    if (force) {
+        const size_t bsz = 5 + strlen(force);
+        char* force_req_buf = malloc(bsz);
+        snprintf(force_req_buf, bsz, "mod %s", force);
+        append_buf(requests, &requests_sz, force_req_buf);
+    }
+
+    /* Null terminate array arguments */
+    append_buf(requests, &requests_sz, NULL);
+
+    rd = rd_new(system_shader_paths, entry, (const char**) requests,
+                backend, desktop, verbose);
     
     struct sigaction action = { .sa_handler = handle_term };
     sigaction(SIGTERM, &action, NULL);
@@ -275,7 +308,7 @@ int main(int argc, char** argv) {
     };
     if (!audio.source) {
         get_pulse_default_sink(&audio);
-        printf("Using default PulseAudio sink: %s\n", audio.source);
+        if (verbose) printf("Using default PulseAudio sink: %s\n", audio.source);
     }
     
     pthread_t thread;

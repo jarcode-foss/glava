@@ -688,9 +688,9 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
     return NULL;
 }
 
-struct renderer* rd_new(const char** paths, const char* entry,
-                        const char* force_mod, const char* force_backend,
-                        bool auto_desktop) {
+struct renderer* rd_new(const char** paths,        const char* entry,
+                        const char** requests,     const char* force_backend,
+                        bool         auto_desktop, bool        verbose) {
 
     xwin_wait_for_wm();
     
@@ -770,7 +770,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
         exit(EXIT_FAILURE);
     }
 
-    printf("Using backend: '%s'\n", backend);
+    if (verbose) printf("Using backend: '%s'\n", backend);
 
     for (size_t t = 0; t < wcbs_idx; ++t) {
         if (wcbs[t]->name && !strcmp(wcbs[t]->name, backend)) {
@@ -785,7 +785,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
     }
     
     #ifdef GLAD_DEBUG
-    printf("Assigning debug callback\n");
+    if (verbose) printf("Assigning debug callback\n");
     static bool assigned_debug_cb = false;
     if (!assigned_debug_cb) {
         glad_set_post_callback(glad_debugcb);
@@ -798,7 +798,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
     int shader_version        = 330,
         context_version_major = 3,
         context_version_minor = 3;
-    const char* module = force_mod;
+    const char* module = NULL;
     const char* wintitle_default = "GLava";
     char* xwintype = NULL, * wintitle = (char*) wintitle_default;
     char** xwinstates = malloc(1);
@@ -868,8 +868,8 @@ struct renderer* rd_new(const char** paths, const char* entry,
         {
             .name = "mod", .fmt = "s",
             .handler = RHANDLER(name, args, {
-                    if (loading_module && !force_mod) {
-                        if (module != NULL && module != force_mod) free((char*) module);
+                    if (loading_module) {
+                        if (module != NULL) free((char*) module);
                         size_t len = strlen((char*) args[0]);
                         char* str = malloc(sizeof(char) * (len + 1));
                         strncpy(str, (char*) args[0], len + 1);
@@ -1113,14 +1113,17 @@ struct renderer* rd_new(const char** paths, const char* entry,
                     if (errno != ENOENT  &&
                         errno != ENOTDIR &&
                         errno != ELOOP) {
-                        fprintf(stderr, "Failed to load desktop environment specific presets at '%s': %s\n", se_buf, strerror(errno));
+                        fprintf(stderr, "Failed to load desktop environment specific presets "
+                                "at '%s': %s\n", se_buf, strerror(errno));
                         exit(EXIT_FAILURE);
                     } else {
-                        printf("No presets for current desktop environment (\"%s\"), using default presets for embedding\n", env);
+                        printf("No presets for current desktop environment (\"%s\"), "
+                               "using default presets for embedding\n", env);
                         snprintf(se_buf, bsz, "%s/env_default.glsl", data);
                         fd = open(se_buf, O_RDONLY);
                         if (fd == -1) {
-                            fprintf(stderr, "Failed to load default presets at '%s': %s\n", se_buf, strerror(errno));
+                            fprintf(stderr, "Failed to load default presets at '%s': %s\n",
+                                    se_buf, strerror(errno));
                             exit(EXIT_FAILURE);
                         }
                     }
@@ -1128,7 +1131,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
                 fstat(fd, &st);
                 map = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
-                ext.source = map;
+                ext.source     = map;
                 ext.source_len = st.st_size;
 
                 loading_presets = true;
@@ -1138,11 +1141,34 @@ struct renderer* rd_new(const char** paths, const char* entry,
 
                 munmap((void*) map, st.st_size);
             } else {
-                fprintf(stderr, "Failed to detect the desktop environment! Is the window manager EWMH compliant?");
+                fprintf(stderr, "Failed to detect the desktop environment! "
+                        "Is the window manager EWMH compliant?");
             }
         }
         
         break;
+    }
+
+    {
+        struct glsl_ext ext = {
+            .cd         = data,
+            .handlers   = handlers
+        };
+        
+        const char* req;
+        char fbuf[64];
+        int idx = 1;
+        for (const char** i = requests; (req = *i) != NULL; ++i) {
+            size_t rlen = strlen(req) + 16;
+            char* rbuf = malloc(rlen);
+            rlen = snprintf(rbuf, rlen, "#request %s", req);
+            snprintf(fbuf, sizeof(fbuf), "[request arg %d]", idx);
+            ext.source     = rbuf;
+            ext.source_len = rlen;
+            ext_process(&ext, fbuf);
+            ext_free(&ext);
+            ++idx;
+        }
     }
     
     if (!module) {
@@ -1182,9 +1208,9 @@ struct renderer* rd_new(const char** paths, const char* entry,
     char shaders[bsz]; /* module pack path to use */
     snprintf(shaders, bsz, "%s/%s", data, module);
 
-    printf("Loading module: '%s'\n", module);
+    if (verbose) printf("Loading module: '%s'\n", module);
 
-    if (!force_mod) free((void*) module);
+    free((void*) module);
     loading_module = false;
 
     /* Iterate through shader passes in the shader directory and build textures, framebuffers, and
@@ -1211,7 +1237,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
                     if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
                         snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, (int) idx);
                         if (!strcmp(buf, d->d_name)) {
-                            printf("found GLSL stage: '%s'\n", d->d_name);
+                            if (verbose) printf("found GLSL stage: '%s'\n", d->d_name);
                             ++count;
                             found = true;
                         }
@@ -1232,7 +1258,7 @@ struct renderer* rd_new(const char** paths, const char* entry,
                     if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
                         snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, (int) idx);
                         if (!strcmp(buf, d->d_name)) {
-                            printf("compiling: '%s'\n", d->d_name);
+                            if (verbose) printf("compiling: '%s'\n", d->d_name);
                         
                             struct gl_sfbo* s = &stages[idx - 1];
                             *s = (struct gl_sfbo) {

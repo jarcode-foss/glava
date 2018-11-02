@@ -11,9 +11,9 @@ typedef struct renderer {
     struct gl_data* gl;
 } renderer;
 
-struct renderer* rd_new            (const char** paths, const char* entry,
-                                    const char* force_mod, const char* force_backend,
-                                    bool auto_desktop);
+struct renderer* rd_new            (const char** paths,        const char* entry,
+                                    const char** requests,     const char* force_backend,
+                                    bool         auto_desktop, bool        verbose);
 bool             rd_update         (struct renderer*, float* lb, float* rb,
                                     size_t bsz, bool modified);
 void             rd_destroy        (struct renderer*);
