@@ -389,6 +389,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     }
 
     if (image) XDestroyImage(image);
+    XFree(info);
     
     return texture;
 }
