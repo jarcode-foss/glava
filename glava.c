@@ -374,8 +374,7 @@ int main(int argc, char** argv) {
     pthread_t thread;
     switch (a_back) {
         case PULSEAUDIO:
-            if (!audio.source)
-            {
+            if (!audio.source) {
                 get_pulse_default_sink(&audio);
                 printf("Using default PulseAudio sink: %s\n", audio.source);
             }
@@ -384,6 +383,7 @@ int main(int argc, char** argv) {
             #ifdef GLAVA_JACK_SUPPORT
         case JACK: init_jack_client(&audio); break;
             #endif
+        default: break;
     }
 
     float lb[rd->bufsize_request], rb[rd->bufsize_request];
