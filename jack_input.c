@@ -79,8 +79,8 @@ void init_jack_client(struct audio_data* audio) {
     audio->rate = jack_get_sample_rate(client);
     audio->sample_sz = jack_get_buffer_size(client) * 4;
 
-    printf("Jack backend: sample rate was overwritten, new value: %i\n", audio->rate);
-    printf("Jack backend: sample size was overwritten, new value: %i\n", audio->sample_sz);
+    printf("JACK: sample rate/size was overwritten, new values: %i, %i\n",
+           (int) audio->rate, (int) audio->sample_sz);
 
     if (audio->sample_sz / 4 > audio->audio_buf_sz) {
         printf("ERROR: audio buffer is too small: %i\n", audio->audio_buf_sz);
