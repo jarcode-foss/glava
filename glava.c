@@ -143,7 +143,7 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
                 if (source > 0) close(source);
                 if (dest > 0) close(dest);
             }
-            break;
+                break;
             case 2:
                 if (symlink(p, f) && errno != EEXIST)
                     fprintf(stderr, "failed to symlink '%s' -> '%s': %s\n", p, f, strerror(errno));
@@ -206,228 +206,223 @@ static struct option p_opts[] = {
     {"audio-backend",required_argument, 0, 'a'},
     {"version",      no_argument,       0, 'V'},
     {0,              0,                 0,  0 }
-=======
-static const char* opt_str = "dhvVe:Cm:b:r:";
-static struct option p_opts[] = {
-    {"help",        no_argument,       0, 'h'},
-    {"verbose",     no_argument,       0, 'v'},
-    {"desktop",     no_argument,       0, 'd'},
-    {"request",     required_argument, 0, 'r'},
-    {"entry",       required_argument, 0, 'e'},
-    {"force-mod",   required_argument, 0, 'm'},
-    {"copy-config", no_argument,       0, 'C'},
-    {"backend",     required_argument, 0, 'b'},
-    {"version",     no_argument,       0, 'V'},
-    {0,             0,                 0,  0 }
->>>>>>> origin/master
-};
+    =======
+    static const char* opt_str = "dhvVe:Cm:b:r:";
+    static struct option p_opts[] = {
+        {"help",        no_argument,       0, 'h'},
+        {"verbose",     no_argument,       0, 'v'},
+        {"desktop",     no_argument,       0, 'd'},
+        {"request",     required_argument, 0, 'r'},
+        {"entry",       required_argument, 0, 'e'},
+        {"force-mod",   required_argument, 0, 'm'},
+        {"copy-config", no_argument,       0, 'C'},
+        {"backend",     required_argument, 0, 'b'},
+        {"version",     no_argument,       0, 'V'},
+        {0,             0,                 0,  0 }
+        >>>>>>> origin/master
+    };
 
-static renderer* rd = NULL;
+    static renderer* rd = NULL;
 
-static void handle_term(int signum) {
-    if (rd->alive) {
-        puts("\nInterrupt recieved, closing...");
-        rd->alive = false;
+    static void handle_term(int signum) {
+        if (rd->alive) {
+            puts("\nInterrupt recieved, closing...");
+            rd->alive = false;
+        }
     }
-}
 
-<<<<<<< HEAD
-enum audio_impl {
-    PULSEAUDIO = 0,
-    JACK
-};
-=======
-static inline void append_buf(char** buf, size_t* sz_store, char* str) {
-    buf = realloc(buf, ++(*sz_store) * sizeof(char*));
-    buf[*sz_store - 1] = str;
-}
->>>>>>> origin/master
+    <<<<<<< HEAD
+    enum audio_impl {
+        PULSEAUDIO = 0,
+        JACK
+    };
+    =======
+    static inline void append_buf(char** buf, size_t* sz_store, char* str) {
+        buf = realloc(buf, ++(*sz_store) * sizeof(char*));
+        buf[*sz_store - 1] = str;
+    }
+    >>>>>>> origin/master
 
-int main(int argc, char** argv) {
+    int main(int argc, char** argv) {
 
-    /* Evaluate these macros only once, since they allocate */
-<<<<<<< HEAD
-    const char* install_path = SHADER_INSTALL_PATH;
-    const char* user_path    = SHADER_USER_PATH;
-    const char* entry        = "rc.glsl";
-    const char* force        = NULL;
-    const char* backend      = NULL;
-    const char* audio_backend = "pulseaudio";
-=======
-    const char
+        /* Evaluate these macros only once, since they allocate */
+        <<<<<<< HEAD
+        const char* install_path = SHADER_INSTALL_PATH;
+        const char* user_path    = SHADER_USER_PATH;
+        const char* entry        = "rc.glsl";
+        const char* force        = NULL;
+        const char* backend      = NULL;
+        const char* audio_backend = "pulseaudio";
+        =======
+        const char
         * install_path = SHADER_INSTALL_PATH,
         * user_path    = SHADER_USER_PATH,
         * entry        = "rc.glsl",
         * force        = NULL,
         * backend      = NULL;
->>>>>>> origin/master
-    const char* system_shader_paths[] = { user_path, install_path, NULL };
+        >>>>>>> origin/master
+        const char* system_shader_paths[] = { user_path, install_path, NULL };
     
-    char** requests    = malloc(1);
-    size_t requests_sz = 0;
+        char** requests    = malloc(1);
+        size_t requests_sz = 0;
     
-    bool verbose = false, copy_mode = false, desktop = false;
+        bool verbose = false, copy_mode = false, desktop = false;
     
-    int c, idx;
-    while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
-        switch (c) {
-<<<<<<< HEAD
-            case 'v': verbose       = true;   break;
-            case 'C': copy_mode     = true;   break;
-            case 'd': desktop       = true;   break;
-            case 'e': entry         = optarg; break;
-            case 'm': force         = optarg; break;
-            case 'b': backend       = optarg; break;
-            case 'a': audio_backend = optarg; break;
-=======
-            case 'v': verbose   = true;   break;
-            case 'C': copy_mode = true;   break;
-            case 'd': desktop   = true;   break;
-            case 'r': append_buf(requests, &requests_sz, optarg); break;
-            case 'e': entry     = optarg; break;
-            case 'm': force     = optarg; break;
-            case 'b': backend   = optarg; break;
->>>>>>> origin/master
-            case '?': exit(EXIT_FAILURE); break;
-            case 'V':
-                puts(GLAVA_VERSION_STRING);
-                exit(EXIT_SUCCESS);
-                break;
-            default:
-            case 'h':
-                printf(help_str, argc > 0 ? argv[0] : "glava");
-                exit(EXIT_SUCCESS);
-                break;
+        int c, idx;
+        while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
+            switch (c) {
+                <<<<<<< HEAD
+                case 'v': verbose       = true;   break;
+                case 'C': copy_mode     = true;   break;
+                case 'd': desktop       = true;   break;
+                case 'e': entry         = optarg; break;
+                case 'm': force         = optarg; break;
+                case 'b': backend       = optarg; break;
+                case 'a': audio_backend = optarg; break;
+                    =======
+                case 'v': verbose   = true;   break;
+                case 'C': copy_mode = true;   break;
+                case 'd': desktop   = true;   break;
+                case 'r': append_buf(requests, &requests_sz, optarg); break;
+                case 'e': entry     = optarg; break;
+                case 'm': force     = optarg; break;
+                case 'b': backend   = optarg; break;
+                    >>>>>>> origin/master
+                case '?': exit(EXIT_FAILURE); break;
+                case 'V':
+                    puts(GLAVA_VERSION_STRING);
+                    exit(EXIT_SUCCESS);
+                    break;
+                default:
+                case 'h':
+                    printf(help_str, argc > 0 ? argv[0] : "glava");
+                    exit(EXIT_SUCCESS);
+                    break;
+            }
         }
-    }
 
-    enum audio_impl a_back;
-    if (strcmp(audio_backend, "pulseaudio") == 0) {
-        a_back = PULSEAUDIO;
-    } else if(strcmp(audio_backend, "jack") == 0) {
+        enum audio_impl a_back;
+        if (strcmp(audio_backend, "pulseaudio") == 0) {
+            a_back = PULSEAUDIO;
+        } else if(strcmp(audio_backend, "jack") == 0) {
             #ifdef GLAVA_JACK_SUPPORT
             a_back = JACK;
             #else
             printf("ERROR: Current build does not support jack audio backend.\n");
             exit(EXIT_SUCCESS);
             #endif
-    } else {
-        printf("ERROR: Unknown audio backend: %s\n", audio_backend);
-        exit(EXIT_FAILURE);
-    }
+        } else {
+            printf("ERROR: Unknown audio backend: %s\n", audio_backend);
+            exit(EXIT_FAILURE);
+        }
 
-    if (copy_mode) {
-        copy_cfg(install_path, user_path, verbose);
-        exit(EXIT_SUCCESS);
-    }
+        if (copy_mode) {
+            copy_cfg(install_path, user_path, verbose);
+            exit(EXIT_SUCCESS);
+        }
 
-    /* Handle `--force` argument as a request override */
-    if (force) {
-        const size_t bsz = 5 + strlen(force);
-        char* force_req_buf = malloc(bsz);
-        snprintf(force_req_buf, bsz, "mod %s", force);
-        append_buf(requests, &requests_sz, force_req_buf);
-    }
+        /* Handle `--force` argument as a request override */
+        if (force) {
+            const size_t bsz = 5 + strlen(force);
+            char* force_req_buf = malloc(bsz);
+            snprintf(force_req_buf, bsz, "mod %s", force);
+            append_buf(requests, &requests_sz, force_req_buf);
+        }
 
-    /* Null terminate array arguments */
-    append_buf(requests, &requests_sz, NULL);
+        /* Null terminate array arguments */
+        append_buf(requests, &requests_sz, NULL);
 
-    rd = rd_new(system_shader_paths, entry, (const char**) requests,
-                backend, desktop, verbose);
+        rd = rd_new(system_shader_paths, entry, (const char**) requests,
+                    backend, desktop, verbose);
     
-    struct sigaction action = { .sa_handler = handle_term };
-    sigaction(SIGTERM, &action, NULL);
-    sigaction(SIGINT, &action, NULL);
+        struct sigaction action = { .sa_handler = handle_term };
+        sigaction(SIGTERM, &action, NULL);
+        sigaction(SIGINT, &action, NULL);
     
-    float b0[rd->bufsize_request], b1[rd->bufsize_request];
-    size_t t;
-    for (t = 0; t < rd->bufsize_request; ++t) {
-        b0[t] = 0.0F;
-        b1[t] = 0.0F;
-    }
+        float b0[rd->bufsize_request], b1[rd->bufsize_request];
+        size_t t;
+        for (t = 0; t < rd->bufsize_request; ++t) {
+            b0[t] = 0.0F;
+            b1[t] = 0.0F;
+        }
     
-    struct audio_data audio = {
-        .source = ({
-                char* src = NULL;
-                if (rd->audio_source_request && strcmp(rd->audio_source_request, "auto") != 0) {
-                    src = strdup(rd->audio_source_request);
+        struct audio_data audio = {
+            .source = ({
+                    char* src = NULL;
+                    if (rd->audio_source_request && strcmp(rd->audio_source_request, "auto") != 0) {
+                        src = strdup(rd->audio_source_request);
+                    }
+                    src;
+                }),
+            .rate         = (unsigned int) rd->rate_request,
+            .format       = -1,
+            .terminate    = 0,
+            .channels     = rd->mirror_input ? 1 : 2,
+            .audio_out_r  = b0,
+            .audio_out_l  = b1,
+            .mutex        = PTHREAD_MUTEX_INITIALIZER,
+            .audio_buf_sz = rd->bufsize_request,
+            .sample_sz    = rd->samplesize_request,
+            .modified     = false
+        };
+    
+        pthread_t thread;
+        switch (a_back) {
+            case PULSEAUDIO:
+                if (!audio.source) {
+                    get_pulse_default_sink(&audio);
+                    if (verbose) printf("Using default PulseAudio sink: %s\n", audio.source);
                 }
-                src;
-            }),
-        .rate         = (unsigned int) rd->rate_request,
-        .format       = -1,
-        .terminate    = 0,
-        .channels     = rd->mirror_input ? 1 : 2,
-        .audio_out_r  = b0,
-        .audio_out_l  = b1,
-        .mutex        = PTHREAD_MUTEX_INITIALIZER,
-        .audio_buf_sz = rd->bufsize_request,
-        .sample_sz    = rd->samplesize_request,
-        .modified     = false
-    };
-
-    if (!audio.source) {
-        get_pulse_default_sink(&audio);
-        if (verbose) printf("Using default PulseAudio sink: %s\n", audio.source);
-    }
-    
-    pthread_t thread;
-    switch (a_back) {
-        case PULSEAUDIO:
-            if (!audio.source) {
-                get_pulse_default_sink(&audio);
-                printf("Using default PulseAudio sink: %s\n", audio.source);
-            }
-            pthread_create(&thread, NULL, input_pulse, (void*) &audio);
-            break;
-            #ifdef GLAVA_JACK_SUPPORT
-        case JACK: init_jack_client(&audio); break;
-            #endif
-        default: break;
-    }
-
-    float lb[rd->bufsize_request], rb[rd->bufsize_request];
-    while (rd->alive) {
-
-        rd_time(rd); /* update timer for this frame */
-        
-        bool modified; /* if the audio buffer has been updated by the streaming thread */
-
-        /* lock the audio mutex and read our data */
-        pthread_mutex_lock(&audio.mutex);
-        modified = audio.modified;
-        if (modified) {
-            /* create our own copies of the audio buffers, so the streaming
-               thread can continue to append to it */
-            memcpy(lb, (void*) audio.audio_out_l, rd->bufsize_request * sizeof(float));
-            memcpy(rb, (void*) audio.audio_out_r, rd->bufsize_request * sizeof(float));
-            audio.modified = false; /* set this flag to false until the next time we read */
+                pthread_create(&thread, NULL, input_pulse, (void*) &audio);
+                break;
+                #ifdef GLAVA_JACK_SUPPORT
+            case JACK: init_jack_client(&audio); break;
+                #endif
+            default: break;
         }
-        pthread_mutex_unlock(&audio.mutex);
+
+        float lb[rd->bufsize_request], rb[rd->bufsize_request];
+        while (rd->alive) {
         
-        if (!rd_update(rd, lb, rb, rd->bufsize_request, modified)) {
-            /* Sleep for 50ms and then attempt to render again */
-            struct timespec tv = {
-                .tv_sec = 0, .tv_nsec = 50 * 1000000
-            };
-            nanosleep(&tv, NULL);
-        }
-    }
-
-    switch (a_back) {
-        case PULSEAUDIO:
-            audio.terminate = 1;
-            int return_status;
-            if ((return_status = pthread_join(thread, NULL))) {
-                fprintf(stderr, "Failed to join with audio thread: %s\n", strerror(return_status));
+            rd_time(rd); /* update timer for this frame */
+        
+            bool modified; /* if the audio buffer has been updated by the streaming thread */
+        
+            /* lock the audio mutex and read our data */
+            pthread_mutex_lock(&audio.mutex);
+            modified = audio.modified;
+            if (modified) {
+                /* create our own copies of the audio buffers, so the streaming
+                   thread can continue to append to it */
+                memcpy(lb, (void*) audio.audio_out_l, rd->bufsize_request * sizeof(float));
+                memcpy(rb, (void*) audio.audio_out_r, rd->bufsize_request * sizeof(float));
+                audio.modified = false; /* set this flag to false until the next time we read */
             }
-            break;
-            #ifdef GLAVA_JACK_SUPPORT
-        case JACK: close_jack_client(); break;
-            #endif
-        default: break;
+            pthread_mutex_unlock(&audio.mutex);
+        
+            if (!rd_update(rd, lb, rb, rd->bufsize_request, modified)) {
+                /* Sleep for 50ms and then attempt to render again */
+                struct timespec tv = {
+                    .tv_sec = 0, .tv_nsec = 50 * 1000000
+                };
+                nanosleep(&tv, NULL);
+            }
+        }
+        
+        switch (a_back) {
+            case PULSEAUDIO:
+                audio.terminate = 1;
+                int return_status;
+                if ((return_status = pthread_join(thread, NULL))) {
+                    fprintf(stderr, "Failed to join with audio thread: %s\n", strerror(return_status));
+                }
+                break;
+                #ifdef GLAVA_JACK_SUPPORT
+            case JACK: close_jack_client(); break;
+                #endif
+            default: break;
+        }
+        
+        free(audio.source);
+        rd_destroy(rd);
     }
-
-    free(audio.source);
-    rd_destroy(rd);
-}
