@@ -28,9 +28,9 @@ int process(jack_nframes_t nframes, void *arg) {
 
     jack_default_audio_sample_t *left_in, *right_in;
 
-    left_in = (jack_default_audio_sample_t *)jack_port_get_buffer (left_input_port, nframes);
+    left_in = (jack_default_audio_sample_t*) jack_port_get_buffer (left_input_port, nframes);
     if (right_input_port) {
-        right_in = (jack_default_audio_sample_t *)jack_port_get_buffer (right_input_port, nframes);
+        right_in = (jack_default_audio_sample_t*) jack_port_get_buffer (right_input_port, nframes);
     }
 
     for (unsigned int i = 0; i < nframes; ++i) {
@@ -98,7 +98,7 @@ void init_jack_client(struct audio_data* audio) {
     }
 
     if (jack_activate(client)) {
-        fprintf (stderr, "Cannot activate jack client\n");
+        fprintf(stderr, "Cannot activate jack client\n");
         exit(EXIT_FAILURE);
     }
 }
