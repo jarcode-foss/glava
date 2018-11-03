@@ -207,8 +207,7 @@ void handle_term(int signum) {
     }
 }
 
-enum AudioBackend
-{
+enum audio_impl {
     PULSEAUDIO = 0,
     JACK
 };
@@ -248,26 +247,20 @@ int main(int argc, char** argv) {
         }
     }
 
-    enum AudioBackend a_back;
-    if (strcmp(audio_backend, "pulseaudio") == 0)
-        {
-            a_back = PULSEAUDIO;
-        }
-    else if(strcmp(audio_backend, "jack") == 0)
-        {
-#ifdef GLAVA_JACK_SUPPORT
+    enum audio_impl a_back;
+    if (strcmp(audio_backend, "pulseaudio") == 0) {
+        a_back = PULSEAUDIO;
+    } else if(strcmp(audio_backend, "jack") == 0) {
+            #ifdef GLAVA_JACK_SUPPORT
             a_back = JACK;
-#else
-            printf("ERROR: Current build don't support jack audio backend.\n");
+            #else
+            printf("ERROR: Current build does not support jack audio backend.\n");
             exit(EXIT_SUCCESS);
-#endif
-        }
-    else
-        {
-            printf("ERROR: Unknown audio backend: %s\n\n", audio_backend);
-            printf(help_str, argc > 0 ? argv[0] : "glava");
-            exit(EXIT_SUCCESS);
-        }
+            #endif
+    } else {
+        printf("ERROR: Unknown audio backend: %s\n", audio_backend);
+        exit(EXIT_FAILURE);
+    }
 
     if (copy_mode) {
         copy_cfg(install_path, user_path, verbose);
@@ -306,22 +299,21 @@ int main(int argc, char** argv) {
         .sample_sz    = rd->samplesize_request,
         .modified     = false
     };
-
+    
     pthread_t thread;
-    switch (a_back)
-        {
-            case PULSEAUDIO:
-                if (!audio.source)
-                    {
-                        get_pulse_default_sink(&audio);
-                        printf("Using default PulseAudio sink: %s\n", audio.source);
-                    }
-                    pthread_create(&thread, NULL, input_pulse, (void*) &audio);
-                break;
-#ifdef GLAVA_JACK_SUPPORT
-            case JACK: init_jack_client(&audio); break;
-#endif
-        }
+    switch (a_back) {
+        case PULSEAUDIO:
+            if (!audio.source)
+            {
+                get_pulse_default_sink(&audio);
+                printf("Using default PulseAudio sink: %s\n", audio.source);
+            }
+            pthread_create(&thread, NULL, input_pulse, (void*) &audio);
+            break;
+            #ifdef GLAVA_JACK_SUPPORT
+        case JACK: init_jack_client(&audio); break;
+            #endif
+    }
 
     float lb[rd->bufsize_request], rb[rd->bufsize_request];
     while (rd->alive) {
@@ -351,19 +343,19 @@ int main(int argc, char** argv) {
         }
     }
 
-    switch (a_back)
-        {
-            case PULSEAUDIO:
-                audio.terminate = 1;
-                int return_status;
-                if ((return_status = pthread_join(thread, NULL))) {
-                    fprintf(stderr, "Failed to join with audio thread: %s\n", strerror(return_status));
-                }
-                break;
-#ifdef GLAVA_JACK_SUPPORT
-            case JACK: close_jack_client(); break;
-#endif
-        }
+    switch (a_back) {
+        case PULSEAUDIO:
+            audio.terminate = 1;
+            int return_status;
+            if ((return_status = pthread_join(thread, NULL))) {
+                fprintf(stderr, "Failed to join with audio thread: %s\n", strerror(return_status));
+            }
+            break;
+            #ifdef GLAVA_JACK_SUPPORT
+        case JACK: close_jack_client(); break;
+            #endif
+        default: break;
+    }
 
     free(audio.source);
     rd_destroy(rd);

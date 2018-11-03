@@ -46,8 +46,8 @@ ifeq ($(INSTALL),unix)
 endif
 
 ifdef ENABLE_JACK
-    CFLAGS_GLFW += -DGLAVA_JACK_SUPPORT
-    LDFLAGS_GLFW += -ljack
+    CFLAGS_JACK += -DGLAVA_JACK_SUPPORT
+    LDFLAGS_JACK += -ljack
 endif
 
 ifdef ENABLE_GLFW
@@ -67,7 +67,7 @@ ifeq ($(INSTALL),osx)
     endif
 endif
 
-LDFLAGS += $(ASAN) -lpulse -lpulse-simple -pthread $(LDFLAGS_GLFW) -ldl -lm -lX11 -lXext $(LDFLAGS_GLX)
+LDFLAGS += $(ASAN) -lpulse -lpulse-simple -pthread $(LDFLAGS_GLFW) $(LDFLAGS_JACK) -ldl -lm -lX11 -lXext $(LDFLAGS_GLX)
 
 PYTHON = python
 
@@ -84,10 +84,10 @@ GLAD_INSTALL_DIR = glad
 GLAD_SRCFILE = glad.c
 GLAD_ARGS = --generator=$(GLAD_GEN) --extensions=GL_EXT_framebuffer_multisample,GL_EXT_texture_filter_anisotropic
 CFLAGS_COMMON = -DGLAVA_VERSION="$(GLAVA_VERSION)" -DSHADER_INSTALL_PATH="\"$(SHADERDIR)\""
-CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_GLX) $(CFLAGS_GLFW) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
+CFLAGS_USE = $(CFLAGS_COMMON) $(CFLAGS_GLX) $(CFLAGS_GLFW) $(CFLAGS_JACK) $(CFLAGS_BUILD) $(CFLAGS_INSTALL) $(CFLAGS)
 
 # Store relevant variables that may change depending on the environment or user input
-STATE = $(BUILD),$(INSTALL),$(PREFIX),$(ENABLE_GLFW),$(DISABLE_GLX),$(PYTHON),$(CC),$(CFLAGS_USE)
+STATE = $(BUILD),$(INSTALL),$(PREFIX),$(ENABLE_GLFW),$(ENABLE_JACK),$(DISABLE_GLX),$(PYTHON),$(CC),$(CFLAGS_USE)
 # Only update the file if the contents changed, `make` just looks at the timestamp
 $(shell if [[ ! -e build_state ]]; then touch build_state; fi)
 $(shell if [ '$(STATE)' != "`cat build_state`" ]; then echo '$(STATE)' > build_state; fi)
@@ -114,7 +114,7 @@ build_state: ;
 
 .PHONY: clean
 clean:
-	rm -f $(obj) glava glad.o build_stateq
+	rm -f $(obj) glava glad.o build_state
 
 EXECTARGET = $(shell readlink -m "$(DESTDIR)$(EXECDIR)/glava")
 SHADERTARGET = $(shell readlink -m "$(DESTDIR)$(SHADERDIR)")
