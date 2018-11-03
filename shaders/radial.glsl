@@ -32,7 +32,7 @@
 /* Offset (X) of the visualization */
 #define CENTER_OFFSET_X 0
 
-/* Gravity step, overrude frin `smooth_parameters.glsl` */
+/* Gravity step, override from `smooth_parameters.glsl` */
 #request setgravitystep 5.0
 
 /* Smoothing factor, override from `smooth_parameters.glsl` */

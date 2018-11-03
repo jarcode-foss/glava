@@ -494,7 +494,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             arg_start_idx = t + 1;
                         } else arg_start = false;
                         
-                        if (at == '\n' || state == DEFINE) {
+                        if (at == '\n' || at == '\0' || state == DEFINE) {
                             /* end directive */
                             size_t a;
                             struct schar r = directive(ext, args, args_sz, state, line, f);

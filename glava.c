@@ -167,9 +167,10 @@ static const char* help_str =
     "-d, --desktop           enables running glava as a desktop window by detecting the\n"
     "                          desktop environment and setting the appropriate properties\n"
     "                          automatically. Can override properties in \"rc.glsl\".\n"
+    "-r, --request=REQUEST   evaluates the specified request after loading \"rc.glsl\".\n"
     "-m, --force-mod=NAME    forces the specified module to load instead, ignoring any\n"
     "                          `#request mod` instances in the entry point.\n"
-    "-e, --entry=NAME        specifies the name of the file to look for when loading shaders,\n"
+    "-e, --entry=FILE        specifies the name of the file to look for when loading shaders,\n"
     "                          by default this is \"rc.glsl\".\n"
     "-C, --copy-config       creates copies and symbolic links in the user configuration\n"
     "                          directory for glava, copying any files in the root directory\n"
@@ -181,9 +182,18 @@ static const char* help_str =
     "                          Default: pulseaudio.\n"
     "-V, --version           print application version and exit\n"
     "\n"
-    GLAVA_VERSION_STRING "\n"
-    " -- Copyright (C) 2017 Levi Webb\n";
+    "The REQUEST argument is evaluated identically to the \'#request\' preprocessor directive\n"
+    "in GLSL files.\n"
+    "\n"
+    "The DEFINE argument is appended to the associated file before it is processed. It is\n"
+    "evaluated identically to the \'#define' preprocessor directive.\n"
+    "\n"
+    "The FILE argument may be any file path. All specified file paths are relative to the\n"
+    "active configuration root (usually ~/.config/glava if present).\n"
+    "\n"
+    GLAVA_VERSION_STRING "\n";
 
+<<<<<<< HEAD
 static const char* opt_str = "dhvVe:Cm:b:a:";
 static struct option p_opts[] = {
     {"help",         no_argument,       0, 'h'},
@@ -196,37 +206,72 @@ static struct option p_opts[] = {
     {"audio-backend",required_argument, 0, 'a'},
     {"version",      no_argument,       0, 'V'},
     {0,              0,                 0,  0 }
+=======
+static const char* opt_str = "dhvVe:Cm:b:r:";
+static struct option p_opts[] = {
+    {"help",        no_argument,       0, 'h'},
+    {"verbose",     no_argument,       0, 'v'},
+    {"desktop",     no_argument,       0, 'd'},
+    {"request",     required_argument, 0, 'r'},
+    {"entry",       required_argument, 0, 'e'},
+    {"force-mod",   required_argument, 0, 'm'},
+    {"copy-config", no_argument,       0, 'C'},
+    {"backend",     required_argument, 0, 'b'},
+    {"version",     no_argument,       0, 'V'},
+    {0,             0,                 0,  0 }
+>>>>>>> origin/master
 };
 
 static renderer* rd = NULL;
 
-void handle_term(int signum) {
+static void handle_term(int signum) {
     if (rd->alive) {
         puts("\nInterrupt recieved, closing...");
         rd->alive = false;
     }
 }
 
+<<<<<<< HEAD
 enum audio_impl {
     PULSEAUDIO = 0,
     JACK
 };
+=======
+static inline void append_buf(char** buf, size_t* sz_store, char* str) {
+    buf = realloc(buf, ++(*sz_store) * sizeof(char*));
+    buf[*sz_store - 1] = str;
+}
+>>>>>>> origin/master
 
 int main(int argc, char** argv) {
 
     /* Evaluate these macros only once, since they allocate */
+<<<<<<< HEAD
     const char* install_path = SHADER_INSTALL_PATH;
     const char* user_path    = SHADER_USER_PATH;
     const char* entry        = "rc.glsl";
     const char* force        = NULL;
     const char* backend      = NULL;
     const char* audio_backend = "pulseaudio";
+=======
+    const char
+        * install_path = SHADER_INSTALL_PATH,
+        * user_path    = SHADER_USER_PATH,
+        * entry        = "rc.glsl",
+        * force        = NULL,
+        * backend      = NULL;
+>>>>>>> origin/master
     const char* system_shader_paths[] = { user_path, install_path, NULL };
+    
+    char** requests    = malloc(1);
+    size_t requests_sz = 0;
+    
     bool verbose = false, copy_mode = false, desktop = false;
     
     int c, idx;
     while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
         switch (c) {
+<<<<<<< HEAD
             case 'v': verbose       = true;   break;
             case 'C': copy_mode     = true;   break;
             case 'd': desktop       = true;   break;
@@ -234,6 +279,15 @@ int main(int argc, char** argv) {
             case 'm': force         = optarg; break;
             case 'b': backend       = optarg; break;
             case 'a': audio_backend = optarg; break;
+=======
+            case 'v': verbose   = true;   break;
+            case 'C': copy_mode = true;   break;
+            case 'd': desktop   = true;   break;
+            case 'r': append_buf(requests, &requests_sz, optarg); break;
+            case 'e': entry     = optarg; break;
+            case 'm': force     = optarg; break;
+            case 'b': backend   = optarg; break;
+>>>>>>> origin/master
             case '?': exit(EXIT_FAILURE); break;
             case 'V':
                 puts(GLAVA_VERSION_STRING);
@@ -267,7 +321,19 @@ int main(int argc, char** argv) {
         exit(EXIT_SUCCESS);
     }
 
-    rd = rd_new(system_shader_paths, entry, force, backend, desktop);
+    /* Handle `--force` argument as a request override */
+    if (force) {
+        const size_t bsz = 5 + strlen(force);
+        char* force_req_buf = malloc(bsz);
+        snprintf(force_req_buf, bsz, "mod %s", force);
+        append_buf(requests, &requests_sz, force_req_buf);
+    }
+
+    /* Null terminate array arguments */
+    append_buf(requests, &requests_sz, NULL);
+
+    rd = rd_new(system_shader_paths, entry, (const char**) requests,
+                backend, desktop, verbose);
     
     struct sigaction action = { .sa_handler = handle_term };
     sigaction(SIGTERM, &action, NULL);
@@ -299,6 +365,11 @@ int main(int argc, char** argv) {
         .sample_sz    = rd->samplesize_request,
         .modified     = false
     };
+
+    if (!audio.source) {
+        get_pulse_default_sink(&audio);
+        if (verbose) printf("Using default PulseAudio sink: %s\n", audio.source);
+    }
     
     pthread_t thread;
     switch (a_back) {
