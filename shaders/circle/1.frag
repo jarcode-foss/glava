@@ -32,6 +32,8 @@ out vec4 fragment;
 /* This shader is based on radial.glsl, refer to it for more commentary */
 
 float apply_smooth(float theta) {
+
+    fragment = vec4(0, 0, 0, 0);
     
     float idx = theta + ROTATE;
     float dir = mod(abs(idx), TWOPI);
