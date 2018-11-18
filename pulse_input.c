@@ -54,7 +54,9 @@ static void pulseaudio_context_state_callback(pa_context* pulseaudio_context, vo
 }
 
 
-void get_pulse_default_sink(struct audio_data* audio) {
+static void init(struct audio_data* audio) {
+
+    if (audio->source) return;
     
 	pa_mainloop_api* mainloop_api;
 	pa_context* pulseaudio_context;
@@ -106,7 +108,7 @@ void get_pulse_default_sink(struct audio_data* audio) {
 #error "Unsupported float format (requires 32 bit IEEE (little or big endian) floating point support)"
 #endif
 
-void* input_pulse(void* data) {
+static void* entry(void* data) {
     struct audio_data* audio = (struct audio_data*) data;
     int i, n;
     size_t ssz = audio->sample_sz;
@@ -188,3 +190,5 @@ void* input_pulse(void* data) {
     
 	return 0;
 }
+
+AUDIO_ATTACH(pulseaudio);

@@ -98,9 +98,14 @@
    default when GLava itself is a desktop window. */
 #request setclickthrough false
 
-/* PulseAudio source. Can be a number or a name of an audio
-   sink or device to record from. Set to "auto" to use the
-   default output device. */
+/* Audio source
+
+   When the "pulseaudio" backend is set, this can be a number or
+   a name of an audio sink or device to record from. Set to "auto"
+   to use the default output device.
+   
+   When the "fifo" backend is set, "auto" is interpreted as
+   "/tmp/mpd.fifo". Otherwise, a valid path should be provided. */
 #request setsource "auto"
 
 /* Buffer swap interval (vsync), set to '0' to prevent
@@ -189,7 +194,11 @@
    
    Lower sample rates also can make output more choppy, when
    not using interpolation. It's generally OK to leave this
-   value unless you have a strange PulseAudio configuration. */
+   value unless you have a strange PulseAudio configuration.
+
+   This option does nothing when using the "fifo" audio
+   backend. Instead, an ideal rate should be be configured
+   in the application generating the output. */
 #request setsamplerate 22050
 
 /*                    ** DEPRECATED **

@@ -177,6 +177,7 @@ static const char* help_str =
     "-b, --backend           specifies a window creation backend to use. By default, the most\n"
     "                          appropriate backend will be used for the underlying windowing\n"
     "                          system.\n"
+    "-a, --audio=BACKEND     specifies an audio input backend to use.\n"
     "-V, --version           print application version and exit\n"
     "\n"
     "The REQUEST argument is evaluated identically to the \'#request\' preprocessor directive\n"
@@ -188,13 +189,17 @@ static const char* help_str =
     "The FILE argument may be any file path. All specified file paths are relative to the\n"
     "active configuration root (usually ~/.config/glava if present).\n"
     "\n"
+    "The BACKEND argument may be any of the following strings (for this particular build):\n"
+    "%s"
+    "\n"
     GLAVA_VERSION_STRING "\n";
 
-static const char* opt_str = "dhvVe:Cm:b:r:";
+static const char* opt_str = "dhvVe:Cm:b:r:a:";
 static struct option p_opts[] = {
     {"help",        no_argument,       0, 'h'},
     {"verbose",     no_argument,       0, 'v'},
     {"desktop",     no_argument,       0, 'd'},
+    {"audio",       required_argument, 0, 'a'},
     {"request",     required_argument, 0, 'r'},
     {"entry",       required_argument, 0, 'e'},
     {"force-mod",   required_argument, 0, 'm'},
@@ -222,11 +227,12 @@ int main(int argc, char** argv) {
 
     /* Evaluate these macros only once, since they allocate */
     const char
-        * install_path = SHADER_INSTALL_PATH,
-        * user_path    = SHADER_USER_PATH,
-        * entry        = "rc.glsl",
-        * force        = NULL,
-        * backend      = NULL;
+        * install_path  = SHADER_INSTALL_PATH,
+        * user_path     = SHADER_USER_PATH,
+        * entry         = "rc.glsl",
+        * force         = NULL,
+        * backend       = NULL,
+        * audio_impl_name = "pulseaudio";
     const char* system_shader_paths[] = { user_path, install_path, NULL };
     
     char** requests    = malloc(1);
@@ -241,19 +247,26 @@ int main(int argc, char** argv) {
             case 'C': copy_mode = true;   break;
             case 'd': desktop   = true;   break;
             case 'r': append_buf(requests, &requests_sz, optarg); break;
-            case 'e': entry     = optarg; break;
-            case 'm': force     = optarg; break;
-            case 'b': backend   = optarg; break;
+            case 'e': entry           = optarg; break;
+            case 'm': force           = optarg; break;
+            case 'b': backend         = optarg; break;
+            case 'a': audio_impl_name = optarg; break;
             case '?': exit(EXIT_FAILURE); break;
             case 'V':
                 puts(GLAVA_VERSION_STRING);
                 exit(EXIT_SUCCESS);
                 break;
             default:
-            case 'h':
-                printf(help_str, argc > 0 ? argv[0] : "glava");
+            case 'h': {
+                char buf[2048];
+                size_t bsz = 0;
+                for (size_t t = 0; t < audio_impls_idx; ++t)
+                    bsz += snprintf(buf + bsz, sizeof(buf) - bsz, "\t\"%s\"%s\n", audio_impls[t]->name,
+                                    !strcmp(audio_impls[t]->name, audio_impl_name) ? " (default)" : "");
+                printf(help_str, argc > 0 ? argv[0] : "glava", buf);
                 exit(EXIT_SUCCESS);
                 break;
+            }
         }
     }
 
@@ -306,13 +319,27 @@ int main(int argc, char** argv) {
         .sample_sz    = rd->samplesize_request,
         .modified     = false
     };
-    if (!audio.source) {
-        get_pulse_default_sink(&audio);
-        if (verbose) printf("Using default PulseAudio sink: %s\n", audio.source);
+
+    struct audio_impl* impl = NULL;
+    
+    for (size_t t = 0; t < audio_impls_idx; ++t) {
+        if (!strcmp(audio_impls[t]->name, audio_impl_name)) {
+            impl = audio_impls[t];
+            break;
+        }
+    }
+
+    if (!impl) {
+        fprintf(stderr, "The specified audio backend (\"%s\") is not available.\n", audio_impl_name);
+        exit(EXIT_FAILURE);
     }
     
+    impl->init(&audio);
+    
+    if (verbose) printf("Using audio source: %s\n", audio.source);
+    
     pthread_t thread;
-    pthread_create(&thread, NULL, input_pulse, (void*) &audio);
+    pthread_create(&thread, NULL, impl->entry, (void*) &audio);
     
     float lb[rd->bufsize_request], rb[rd->bufsize_request];
     while (rd->alive) {

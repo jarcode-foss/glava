@@ -68,6 +68,21 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 
 Note that some WMs listed without issues have specific overrides when using the `--desktop` flag. See `shaders/env_*.glsl` files for details.
 
+## Reading from MPD's FIFO output
+
+Add the following to your `~/.config/mpd.conf`:
+
+```
+audio_output {
+    type                    "fifo"
+    name                    "glava_fifo"
+    path                    "/tmp/mpd.fifo"
+    format                  "22050:16:2"
+}
+```
+
+Note the `22050` sample rate -- this is the reccommended setting for GLava. Restart MPD (if nessecary) and start GLava with `glava --audio=fifo`.
+
 ## Licensing
 
 GLava is licensed under the terms of the GPLv3, with the exemption of `khrplatform.h`, which is licensed under the terms in its header. GLava includes some (heavily modified) source code that originated from [cava](https://github.com/karlstav/cava), which was initially provided under the MIT license. The source files that originated from cava are the following:
