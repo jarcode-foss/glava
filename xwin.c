@@ -81,7 +81,7 @@ void xwin_wait_for_wm(void) {
     Atom check = None;
     bool exists = false;
     struct timespec tv = { .tv_sec = 0, .tv_nsec = 50 * 1000000 };
-    
+
     do {
         if (check == None) {
             check = XInternAtom(d, "_NET_SUPPORTING_WM_CHECK", true);
@@ -113,7 +113,7 @@ const char* xwin_detect_wm(struct gl_wcb* wcb) {
         int i;
         long unsigned int lui;
     } ignored;
-    
+
     unsigned long nitems = 0;
     unsigned char* wm_name = NULL;
     Window* wm_check;
@@ -121,7 +121,7 @@ const char* xwin_detect_wm(struct gl_wcb* wcb) {
                                       &ignored.a, &ignored.i, &nitems, &ignored.lui, (unsigned char**) &wm_check)) {
         return NULL;
     }
-    
+
     if (nitems > 0 && Success == XGetWindowProperty(d, *wm_check, name, 0, 1024, false, type,
                                                     &ignored.a, &ignored.i, &nitems, &ignored.lui, &wm_name)) {
         if (nitems > 0) {
@@ -133,11 +133,11 @@ const char* xwin_detect_wm(struct gl_wcb* wcb) {
             wm_name = NULL;
         }
     }
-    
+
     XFree(wm_check);
-    
+
     return (const char*) wm_name;
-    
+
 }
 
 bool xwin_should_render(struct gl_wcb* wcb, void* impl) {
@@ -147,27 +147,27 @@ bool xwin_should_render(struct gl_wcb* wcb, void* impl) {
         d = XOpenDisplay(0);
         should_close = true;
     }
-    
+
     Atom prop       = XInternAtom(d, "_NET_ACTIVE_WINDOW", true);
     Atom fullscreen = XInternAtom(d, "_NET_WM_STATE_FULLSCREEN", true);
-    
+
     Atom actual_type;
     int actual_format, t;
     unsigned long nitems, bytes_after;
     unsigned char* data = NULL;
 
     int handler(Display* d, XErrorEvent* e) { return 0; }
-    
+
     XSetErrorHandler(handler); /* dummy error handler */
-          
+
     if (Success != XGetWindowProperty(d, DefaultRootWindow(d), prop, 0, 1, false, AnyPropertyType,
                                       &actual_type, &actual_format, &nitems, &bytes_after, &data)) {
         goto close; /* if an error occurs here, the WM probably isn't EWMH compliant */
     }
-    
+
     if (!nitems)
         goto close;
-    
+
     Window active = ((Window*) data)[0];
 
     prop = XInternAtom(d, "_NET_WM_STATE", true);
@@ -252,7 +252,7 @@ static Drawable get_drawable(Display* d, Window w) {
     Atom id;
 
     id = XInternAtom(d, "_XROOTPMAP_ID", False);
-    
+
     if (XGetWindowProperty(d, w, id, 0, 1, False, XA_PIXMAP,
                            &act_type, &act_format, &nitems, &bytes_after,
                            &data) == Success && data) {
@@ -272,7 +272,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    
+
     int x, y, w, h;
     rd_get_wcb(rd)->get_fbsize(rd_get_impl_window(rd), &w, &h);
     rd_get_wcb(rd)->get_pos(rd_get_impl_window(rd), &x, &y);
@@ -280,9 +280,9 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
     Display* d = rd_get_wcb(rd)->get_x11_display();
     Drawable src = get_drawable(d, DefaultRootWindow(d));
     bool use_shm = XShmQueryExtension(d);
-    
+
     /* Obtain section of root pixmap */
-    
+
     XShmSegmentInfo shminfo;
     Visual* visual = DefaultVisual(d, DefaultScreen(d));
     XVisualInfo match = { .visualid = XVisualIDFromVisual(visual) };
@@ -308,7 +308,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
 
     /* Try to convert pixel bit depth to OpenGL storage format. The following formats\
        will need intermediate conversion before OpenGL can accept the data:
-       
+
        - 8-bit pixel formats (retro displays, low-bandwidth virtual displays)
        - 36-bit pixel formats (rare deep color displays) */
 
@@ -332,7 +332,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
                     case 30: type = GL_UNSIGNED_INT_10_10_10_2; break; /* 30-bit, deep color */
                 }
                 break;
-            case 64: 
+            case 64:
                 if (image->depth == 48) /* 48-bit deep color */
                     type = GL_UNSIGNED_SHORT;
                 else goto invalid;
@@ -346,7 +346,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
             default:
             invalid: invalid = true;
         }
-    
+
         uint8_t* buf;
         if (invalid) {
             abort();
@@ -365,7 +365,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
                     buf[base + 3] = 255;
                 }
             }
-    
+
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
             free(buf);
         } else {
@@ -390,6 +390,6 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
 
     if (image) XDestroyImage(image);
     XFree(info);
-    
+
     return texture;
 }

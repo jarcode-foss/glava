@@ -47,7 +47,7 @@ static inline void register_wcb(struct gl_wcb* wcb) { wcbs[wcbs_idx++] = wcb; }
     } while (0)
 
 /* GLSL bind source */
- 
+
 struct gl_bind_src {
     const char* name;
     int type;
@@ -151,10 +151,10 @@ static GLuint shaderload(const char*             rpath,
     }
     struct stat st;
     int fd = -1;
-    
+
     if (!raw) {
         snprintf(path, sizeof(path) / sizeof(char), "%s/%s", shader, rpath);
-    
+
         fd = open(path, O_RDONLY);
         if (fd == -1) {
             fprintf(stderr, "failed to load shader '%s': %s\n", path, strerror(errno));
@@ -166,9 +166,9 @@ static GLuint shaderload(const char*             rpath,
     /* open and create a copy with prepended header */
     GLint max_uniforms;
     glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, &max_uniforms);
-    
+
     const GLchar* map = raw ? shader : mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
-    
+
     static const GLchar* header_fmt =
         "#version %d\n"
         "#define UNIFORM_LIMIT %d\n"
@@ -176,7 +176,7 @@ static GLuint shaderload(const char*             rpath,
         "#define SMOOTH_FACTOR %.6f\n"
         "#define USE_ALPHA %d\n"
         "#define PREMULTIPLY_ALPHA %d\n";
-    
+
     struct glsl_ext ext = {
         .source     = raw ? NULL : map,
         .source_len = raw ? 0 : st.st_size,
@@ -190,7 +190,7 @@ static GLuint shaderload(const char*             rpath,
 
     /* If this is raw input, skip processing */
     if (!raw) ext_process(&ext, rpath);
-    
+
     size_t blen = strlen(header_fmt) + 64;
     GLchar* buf = malloc((blen * sizeof(GLchar*)) + ext.p_len);
     int written = snprintf(buf, blen, header_fmt, (int) shader_version, (int) max_uniforms,
@@ -202,7 +202,7 @@ static GLuint shaderload(const char*             rpath,
     }
     memcpy(buf + written, ext.processed, ext.p_len);
     if (!raw) munmap((void*) map, st.st_size);
-    
+
     GLuint s = glCreateShader(type);
     GLint sl = (GLint) (ext.p_len + written);
     glShaderSource(s, 1, (const GLchar* const*) &buf, &sl);
@@ -232,7 +232,7 @@ static GLuint shaderload(const char*             rpath,
             return 0;
         }
     }
-    
+
     if (!raw) ext_free(&ext);
     free(buf);
     close(fd);
@@ -249,7 +249,7 @@ static GLuint shaderlink_f(GLuint* arr) {
         fprintf(stderr, "failed to create program\n");
         abort();
     }
-    
+
     while ((f = arr[i++]) != 0) {
         glAttachShader(p, f);
         switch (glGetError()) {
@@ -366,7 +366,7 @@ static void setup_sfbo(struct gl_sfbo* s, int w, int h) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-    
+
     /* setup and bind framebuffer to texture */
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
@@ -384,18 +384,18 @@ static void overlay(struct overlay_data* d) {
     buf[0] = -1.0f; buf[1] = -1.0f; buf[2] = 0.0f;
     buf[3] =  1.0f; buf[4] = -1.0f; buf[5] = 0.0f;
     buf[6] = -1.0f; buf[7] =  1.0f; buf[8] = 0.0f;
-    
+
     buf[9]  =  1.0f; buf[10] =  1.0f; buf[11] = 0.0f;
     buf[12] =  1.0f; buf[13] = -1.0f; buf[14] = 0.0f;
     buf[15] = -1.0f; buf[16] =  1.0f; buf[17] = 0.0f;
-    
+
     glGenBuffers(1, &d->vbuf);
     glBindBuffer(GL_ARRAY_BUFFER, d->vbuf);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 18, buf, GL_STATIC_DRAW);
-    
+
     glGenVertexArrays(1, &d->vao);
     glBindVertexArray(d->vao);
-    
+
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, d->vbuf);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
@@ -463,7 +463,7 @@ static void glad_debugcb(const char* name, void *funcptr, int len_args, ...) {
 
 #define SHADER_EXT_VERT "vert"
 #define SHADER_EXT_FRAG "frag"
-    
+
 static struct gl_bind_src bind_sources[] = {
     #define SRC_PREV 0
     { .name = "prev", .type = BIND_SAMPLER2D, .src_type = SRC_PREV },
@@ -540,12 +540,12 @@ void transform_gravity(struct gl_data* d, void** udata, void* data) {
     struct gl_sampler_data* s = (struct gl_sampler_data*) data;
     float* b = s->buf;
     size_t sz = s->sz, t;
-    
+
     float* applied;
     ALLOC_ONCE(applied, udata, sz);
 
     float g = d->gravity_step * (1.0F / d->ur);
-    
+
     for (t = 0; t < sz; ++t) {
         if (b[t] >= applied[t]) {
             applied[t] = b[t] - g;
@@ -555,20 +555,20 @@ void transform_gravity(struct gl_data* d, void** udata, void* data) {
 }
 
 void transform_average(struct gl_data* d, void** udata, void* data) {
-    
+
     struct gl_sampler_data* s = (struct gl_sampler_data*) data;
     float* b = s->buf;
     size_t sz = s->sz, t, f;
     size_t tsz = sz * d->avg_frames;
     float v;
     bool use_window = d->avg_window;
-    
+
     float* bufs;
     ALLOC_ONCE(bufs, udata, tsz);
-    
+
     memmove(bufs, &bufs[sz], (tsz - sz) * sizeof(float));
     memcpy(&bufs[tsz - sz], b, sz * sizeof(float));
-    
+
     #define DO_AVG(w)                                   \
         do {                                            \
             for (t = 0; t < sz; ++t) {                  \
@@ -579,7 +579,7 @@ void transform_average(struct gl_data* d, void** udata, void* data) {
                 b[t] = v / d->avg_frames;               \
             }                                           \
         } while (0)
-    
+
     if (use_window)
         DO_AVG(window(f, d->avg_frames));
     else
@@ -602,7 +602,7 @@ void transform_window(struct gl_data* d, void** _, void* data) {
     struct gl_sampler_data* s = (struct gl_sampler_data*) data;
     float* b = s->buf;
     size_t sz = s->sz, t;
-    
+
     for (t = 0; t < sz; ++t) {
         b[t] *= window(t, sz);
     }
@@ -612,11 +612,11 @@ void transform_fft(struct gl_data* d, void** _, void* in) {
     struct gl_sampler_data* s = (struct gl_sampler_data*) in;
     float* data = s->buf;
     unsigned long nn = (unsigned long) (s->sz / 2);
-    
+
     unsigned long n, mmax, m, j, istep, i;
     float wtemp, wr, wpr, wpi, wi, theta;
     float tempr, tempi;
- 
+
     // reverse-binary reindexing
     n = nn<<1;
     j=1;
@@ -632,7 +632,7 @@ void transform_fft(struct gl_data* d, void** _, void* in) {
         }
         j += m;
     };
- 
+
     // here begins the Danielson-Lanczos section
     mmax=2;
     while (n>mmax) {
@@ -648,7 +648,7 @@ void transform_fft(struct gl_data* d, void** _, void* in) {
                 j=i+mmax;
                 tempr = wr*data[j-1] - wi*data[j];
                 tempi = wr * data[j] + wi*data[j-1];
- 
+
                 data[j-1] = data[i-1] - tempr;
                 data[j] = data[i] - tempi;
                 data[i-1] += tempr;
@@ -660,7 +660,7 @@ void transform_fft(struct gl_data* d, void** _, void* in) {
         }
         mmax=istep;
     }
-    
+
     /* abs and log scale */
     for (n = 0; n < s->sz; ++n) {
         if (data[n] < 0.0F) data[n] = -data[n];
@@ -693,7 +693,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                         bool         auto_desktop, bool        verbose) {
 
     xwin_wait_for_wm();
-    
+
     renderer* r = malloc(sizeof(struct renderer));
     *r = (struct renderer) {
         .alive                = true,
@@ -704,7 +704,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
         .samplesize_request   = 1024,
         .audio_source_request = NULL
     };
-    
+
     struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
         .w                 = NULL,
@@ -783,7 +783,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
         fprintf(stderr, "Invalid window creation backend selected: '%s'\n", backend);
         abort();
     }
-    
+
     #ifdef GLAD_DEBUG
     if (verbose) printf("Assigning debug callback\n");
     static bool assigned_debug_cb = false;
@@ -792,7 +792,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
         assigned_debug_cb = true;
     }
     #endif
-    
+
     gl->wcb->init();
 
     int shader_version        = 330,
@@ -810,14 +810,14 @@ struct renderer* rd_new(const char** paths,        const char* entry,
     #define WINDOW_HINT(request)                                        \
         { .name = "set" #request, .fmt = "b",                           \
                 .handler = RHANDLER(name, args, { gl->wcb->set_##request(*(bool*) args[0]); }) }
-    
+
     struct request_handler handlers[] = {
         {
             .name = "setopacity", .fmt = "s",
             .handler = RHANDLER(name, args, {
 
                     bool native_opacity = !strcmp("native", (char*) args[0]);
-                    
+
                     gl->premultiply_alpha = native_opacity;
 
                     gl->wcb->set_transparent(native_opacity);
@@ -1041,7 +1041,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                     ++current->binds_sz;
                     current->binds = realloc(current->binds, current->binds_sz * sizeof(struct gl_bind));
                     current->binds[current->binds_sz - 1] = (struct gl_bind) {
-                        .name            = strdup((const char*) args[1]), 
+                        .name            = strdup((const char*) args[1]),
                         .type            = src->type,
                         .src_type        = src->src_type,
                         .transformations = malloc(1),
@@ -1052,13 +1052,13 @@ struct renderer* rd_new(const char** paths,        const char* entry,
         },
         { .name = NULL }
     };
-    
+
     #undef WINDOW_WINT
-    
+
     /* Find entry point in data directory list. The first entry point found will indicate
        the path to use for future shader files and modules. Generally, user configuration
        directories will be populated with symlinks to the installed modules. */
-    
+
     const char* data;
     const char* dd; /* defaults dir (system) */
     const char* env = gl->wcb->get_environment();
@@ -1078,7 +1078,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
         snprintf(se_buf, bsz, "%s/%s", data, entry);
 
         struct stat st;
-        
+
         int fd = open(se_buf, O_RDONLY);
         if (fd == -1) {
             /* If the file exists but there was an error opening it, complain and exit */
@@ -1099,10 +1099,10 @@ struct renderer* rd_new(const char** paths,        const char* entry,
             .cd         = data,
             .handlers   = handlers
         };
-        
+
         ext_process(&ext, se_buf);
         ext_free(&ext);
-        
+
         munmap((void*) map, st.st_size);
 
         if (auto_desktop) {
@@ -1145,7 +1145,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                         "Is the window manager EWMH compliant?");
             }
         }
-        
+
         break;
     }
 
@@ -1154,7 +1154,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
             .cd         = data,
             .handlers   = handlers
         };
-        
+
         const char* req;
         char fbuf[64];
         int idx = 1;
@@ -1170,7 +1170,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
             ++idx;
         }
     }
-    
+
     if (!module) {
         fprintf(stderr,
                 "No module was selected, edit '%s' to load "
@@ -1178,7 +1178,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                 entry);
         exit(EXIT_FAILURE);
     }
-    
+
     gl->w = gl->wcb->create_and_bind(wintitle, "GLava", xwintype, (const char**) xwinstates, xwinstates_sz,
                                      gl->geometry[2], gl->geometry[3], gl->geometry[0], gl->geometry[1],
                                      context_version_major, context_version_minor, gl->clickthrough);
@@ -1186,7 +1186,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
 
     for (size_t t = 0; t < xwinstates_sz; ++t)
         free(xwinstates[t]);
-    
+
     if (xwintype)   free(xwintype);
     if (xwinstates) free(xwinstates);
     if (wintitle && wintitle != wintitle_default) free(wintitle);
@@ -1202,7 +1202,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
-    
+
     size_t m_len = strlen(module);
     size_t bsz = d_len + m_len + 2;
     char shaders[bsz]; /* module pack path to use */
@@ -1215,10 +1215,10 @@ struct renderer* rd_new(const char** paths,        const char* entry,
 
     /* Iterate through shader passes in the shader directory and build textures, framebuffers, and
        shader programs with each fragment shader. */
-    
+
     struct gl_sfbo* stages;
     size_t count = 0;
-    
+
     {
         char buf[32];
         DIR* dir = opendir(shaders);
@@ -1231,7 +1231,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
             bool found;
             do {
                 found = false;
-        
+
                 dir = opendir(shaders);
                 while ((d = readdir(dir)) != NULL) {
                     if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
@@ -1246,20 +1246,20 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                 closedir(dir);
                 ++idx;
             } while (found);
-        
+
             stages = malloc(sizeof(struct gl_sfbo) * count);
-        
+
             idx = 1;
             do {
                 found = false;
-            
+
                 dir = opendir(shaders);
                 while ((d = readdir(dir)) != NULL) {
                     if (d->d_type == DT_REG || d->d_type == DT_UNKNOWN) {
                         snprintf(buf, sizeof(buf), "%d." SHADER_EXT_FRAG, (int) idx);
                         if (!strcmp(buf, d->d_name)) {
                             if (verbose) printf("compiling: '%s'\n", d->d_name);
-                        
+
                             struct gl_sfbo* s = &stages[idx - 1];
                             *s = (struct gl_sfbo) {
                                 .name       = strdup(d->d_name),
@@ -1287,7 +1287,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                             }
 
                             glUseProgram(id);
-                        
+
                             /* Setup uniform bindings */
                             size_t b;
                             for (b = 0; b < s->binds_sz; ++b) {
@@ -1295,7 +1295,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                             }
                             glBindFragDataLocation(id, 1, "fragment");
                             glUseProgram(0);
-                        
+
                             found = true;
                         }
                     }
@@ -1305,10 +1305,10 @@ struct renderer* rd_new(const char** paths,        const char* entry,
             } while (found);
         }
     }
-    
+
     gl->stages = stages;
     gl->stages_sz = count;
-    
+
     {
         struct gl_sfbo* final = NULL;
         if (!gl->premultiply_alpha) {
@@ -1318,13 +1318,13 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                 }
             }
         }
-        /* Invalidate framebuffer and use direct rendering if it was instantiated 
+        /* Invalidate framebuffer and use direct rendering if it was instantiated
            due to a following `nativeonly` shader pass. */
         if (final) final->valid = false;
     }
 
     /* Compile smooth pass shader */
-    
+
     {
         const char* util_folder = "util";
         size_t u_len = strlen(util_folder);
@@ -1336,18 +1336,18 @@ struct renderer* rd_new(const char** paths,        const char* entry,
             abort();
         loading_smooth_pass = false;
     }
-    
+
     /* target seconds per update */
     gl->target_spu = (float) (r->samplesize_request / 4) / (float) r->rate_request;
-    
+
     gl->audio_tex_r = create_1d_tex();
     gl->audio_tex_l = create_1d_tex();
-    
+
     if (gl->interpolate) {
         /* Allocate six buffers at once */
         size_t isz = (r->bufsize_request / gl->bufscale);
         float* ibuf = malloc(isz * 6 * sizeof(float));
-        
+
         gl->interpolate_buf[IB_START_LEFT ] = &ibuf[isz * IB_START_LEFT ]; /* left channel keyframe start  */
         gl->interpolate_buf[IB_END_LEFT   ] = &ibuf[isz * IB_END_LEFT   ]; /* left channel keyframe end    */
         gl->interpolate_buf[IB_START_RIGHT] = &ibuf[isz * IB_START_RIGHT]; /* right channel keyframe start */
@@ -1366,24 +1366,24 @@ struct renderer* rd_new(const char** paths,        const char* entry,
     }
 
     overlay(&gl->overlay);
-    
+
     glClearColor(gl->clear_color.r, gl->clear_color.g, gl->clear_color.b, gl->clear_color.a);
-    
+
     gl->wcb->set_visible(gl->w, true);
-    
+
     return r;
 }
 
 void rd_time(struct renderer* r) {
     struct gl_data* gl = r->gl;
-    
+
     gl->wcb->set_time(gl->w, 0.0D); /* reset time for measuring this frame */
 }
 
 bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
     struct gl_data* gl = r->gl;
     size_t t, a, fbsz = bsz * sizeof(float);
-    
+
     if (gl->wcb->should_close(gl->w)) {
         r->alive = false;
         return true;
@@ -1392,7 +1392,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     /* Stop rendering if the backend has some reason not to render (minimized, obscured) */
     if (!gl->wcb->should_render(gl->w))
         return false;
-    
+
     /* Stop rendering when fullscreen windows are focused */
     if (gl->check_fullscreen && !xwin_should_render(gl->wcb, gl->w))
         return false;
@@ -1450,7 +1450,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     int ww, wh, wx, wy;
     gl->wcb->get_fbsize(gl->w, &ww, &wh);
     gl->wcb->get_pos(gl->w, &wx, &wy);
-    
+
     /* Resize screen textures if needed */
     if (ww != gl->lww || wh != gl->lwh) {
         for (t = 0; t < gl->stages_sz; ++t) {
@@ -1469,29 +1469,29 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     gl->lwy = wy;
     gl->lww = ww;
     gl->lwh = wh;
-    
+
     glViewport(0, 0, ww, wh);
-        
+
     struct gl_sfbo* prev;
 
     /* Iterate through each rendering stage (shader) */
-    
+
     for (t = 0; t < gl->stages_sz; ++t) {
 
         bool load_flags[64] = { [ 0 ... 63 ] = false }; /* Load flags for each texture position */
-        
+
         /* Current shader program */
         struct gl_sfbo* current = &gl->stages[t];
 
         if (current->nativeonly && !gl->premultiply_alpha)
             continue;
-        
+
         /* Bind framebuffer if this is not the final pass */
         if (current->valid)
             glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
-        
+
         glClear(GL_COLOR_BUFFER_BIT);
-        
+
         if (!current->valid && gl->copy_desktop) {
             /* Self-contained code for drawing background image */
             static GLuint bg_prog, bg_utex, bg_screen;
@@ -1523,29 +1523,29 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             glUniform2i(bg_screen, (GLint) ww, (GLint) wh);
             glUniform1i(bg_utex, 0);
             /* We need to disable blending, we might read in bogus alpha values due
-               to how we obtain the background texture (format is four byte `rgb_`, 
+               to how we obtain the background texture (format is four byte `rgb_`,
                where the last value is skipped) */
             if (!gl->premultiply_alpha) glDisable(GL_BLEND);
             drawoverlay(&gl->overlay);
             if (!gl->premultiply_alpha) glEnable(GL_BLEND);
             glUseProgram(0);
         }
-        
+
         /* Select the program associated with this pass */
         glUseProgram(current->shader);
 
         bool prev_bound = false;
-        
-        /* Iterate through each uniform binding, transforming and passing the 
+
+        /* Iterate through each uniform binding, transforming and passing the
            data into the shader. */
-        
+
         size_t b, c = 0;
         for (b = 0; b < current->binds_sz; ++b) {
             struct gl_bind* bind = &current->binds[b];
 
             /* Handle transformations and bindings for 1D samplers */
             void handle_1d_tex(GLuint tex, float* buf, float* ubuf, size_t sz, int offset, bool audio) {
-                
+
                 if (load_flags[offset])
                     goto bind_uniform;
                 load_flags[offset] = true;
@@ -1557,7 +1557,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                     struct gl_sampler_data d = {
                         .buf = buf, .sz = sz
                     };
-                    
+
                     for (t = 0; t < bind->t_sz; ++t) {
                         bind->transformations[t](gl, &gl->t_data[c], &d);
                         ++c; /* Index for transformation data (note: change if new
@@ -1573,7 +1573,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 if (audio && gl->smooth_pass) {
                     static bool setup = false;
                     static GLuint sm_utex, sm_usz, sm_uw;
-                    
+
                     /* Compile preprocess shader and handle uniform locations */
                     if (!setup) {
                         sm_utex = glGetUniformLocation(gl->sm_prog, "tex");
@@ -1597,12 +1597,12 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                         glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
                         glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_REPEAT);
                         glTexImage1D(GL_TEXTURE_1D, 0, GL_R16, sz, 0, GL_RED, GL_FLOAT, NULL);
-    
+
                         /* setup and bind framebuffer to texture */
                         glBindFramebuffer(GL_FRAMEBUFFER, sm->fbo);
                         glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,\
                                                GL_TEXTURE_1D, sm->tex, 0);
-                        
+
                         switch (glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
                             case GL_FRAMEBUFFER_COMPLETE: break;
                             default:
@@ -1614,7 +1614,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                         glBindFramebuffer(GL_FRAMEBUFFER, sm->fbo);
                         glBindTexture(GL_TEXTURE_1D, sm->tex);
                     }
-                    
+
                     glUseProgram(gl->sm_prog);
                     glActiveTexture(GL_TEXTURE0 + offset);
                     glBindTexture(GL_TEXTURE_1D, tex);
@@ -1636,7 +1636,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
                     tex = sm->tex; /* replace input texture with our processed one */
                 }
-                
+
                 glActiveTexture(GL_TEXTURE0 + offset);
                 glBindTexture(GL_TEXTURE_1D, tex);
             bind_uniform:
@@ -1646,7 +1646,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             /* Handle each binding source; only bother to handle transformations
                for 1D samplers, since that's the only transformation type that
                (currently) exists. */
-            
+
             switch (bind->src_type) {
                 case SRC_PREV:
                     /* bind texture and pass it to the shader uniform if we need to pass
@@ -1664,7 +1664,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 case SRC_SCREEN:   glUniform2i(bind->uniform, (GLint) ww, (GLint) wh);    break;
             }
         }
-        
+
         drawoverlay(&gl->overlay); /* Fullscreen quad (actually just two triangles) */
 
         /* Reset some state */
@@ -1703,7 +1703,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     }
 
     /* Handle counters and print FPS counter (if needed) */
-    
+
     ++gl->fcounter;           /* increment frame counter                          */
     if (modified) {           /* if this is an update/key frame                   */
         ++gl->ucounter;       /*   increment update frame counter                 */
@@ -1719,14 +1719,14 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         gl->tcounter = 0;                     /* reset timer          */
         gl->fcounter = 0;                     /* reset frame counter  */
         gl->ucounter = 0;                     /* reset update counter */
-        
+
         /* Refresh window position and size if we are forcing it */
         if (gl->force_geometry) {
             gl->wcb->set_geometry(gl->w,
                                   gl->geometry[0], gl->geometry[1],
                                   gl->geometry[2], gl->geometry[3]);
         }
-        
+
         if (gl->force_raised) {
             gl->wcb->raise(gl->w);
         }
@@ -1734,7 +1734,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
     /* Restore interpolation settings */
     gl->interpolate = old_interpolate;
-    
+
     return true;
 }
 

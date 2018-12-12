@@ -323,7 +323,7 @@ static void* create_and_bind(const char* name, const char* class,
     XSetWindowAttributes attr = {};
     GLXFBConfig* fbc;
     int fb_sz, best = -1, samp = -1;
-    
+
     int glx_minor, glx_major;
     glXQueryVersion(display, &glx_minor, &glx_major);
     if (glx_major <= 1 && glx_minor < 4) {
@@ -346,14 +346,14 @@ static void* create_and_bind(const char* name, const char* class,
         GLX_ALPHA_SIZE,    8,
         None
     };
-    
+
     int context_attrs[] = {
         GLX_CONTEXT_MAJOR_VERSION_ARB, version_major,
         GLX_CONTEXT_MINOR_VERSION_ARB, version_minor,
         // GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
         None
     };
-    
+
     fbc = glXChooseFBConfig(display, DefaultScreen(display), gl_attrs, &fb_sz);
     if (!fbc) {
         fprintf(stderr,
@@ -364,7 +364,7 @@ static void* create_and_bind(const char* name, const char* class,
                 version_major, version_minor);
         exit(EXIT_FAILURE);
     }
-    
+
     for (int t = 0; t < fb_sz; ++t) {
         XVisualInfo* xvi = glXGetVisualFromFBConfig(display, fbc[t]);
         if (xvi) {
@@ -372,10 +372,10 @@ static void* create_and_bind(const char* name, const char* class,
             glXGetFBConfigAttrib(display, fbc[t], GLX_SAMPLE_BUFFERS, &samp_buf);
             glXGetFBConfigAttrib(display, fbc[t], GLX_SAMPLES,        &samples );
             XRenderPictFormat* fmt = XRenderFindVisualFormat(display, xvi->visual);
-            
+
             if (!fmt || (transparent ? fmt->direct.alphaMask == 0 : fmt->direct.alphaMask != 0))
                 continue;
-            
+
             if (best < 0 || (samp_buf && samples > samp)) {
                 best = t;
                 samp = samples;
@@ -383,7 +383,7 @@ static void* create_and_bind(const char* name, const char* class,
             XFree(xvi);
         }
     }
-    
+
     if (best == -1) {
         fprintf(stderr, "Could not find suitable format for FBConfig\n");
         abort();
@@ -391,22 +391,22 @@ static void* create_and_bind(const char* name, const char* class,
 
     GLXFBConfig config = fbc[best];
     XFree(fbc);
-    
+
     vi = glXGetVisualFromFBConfig(display, config);
-    
+
     attr.colormap          = XCreateColormap(display, DefaultRootWindow(display), vi->visual, AllocNone);
     attr.event_mask        = ExposureMask        | KeyPressMask         | StructureNotifyMask;
     attr.event_mask       |= PropertyChangeMask  | VisibilityChangeMask;
     attr.background_pixmap = None;
     attr.border_pixel      = 0;
-    
+
     unsigned long vmask = CWColormap | CWEventMask | CWBackPixmap | CWBorderPixel;
     if (type[0] == '!') {
         vmask |= CWOverrideRedirect;
         attr.override_redirect = true;
         w->override_state = type[1];
     }
-    
+
     if (!(w->w = XCreateWindow(display, DefaultRootWindow(display)/**xwin_get_desktop_layer(&wcb_glx)*/,
                                x, y, d, h, 0,
                                vi->depth, InputOutput, vi->visual,
@@ -416,7 +416,7 @@ static void* create_and_bind(const char* name, const char* class,
     }
 
     bool desktop = false;
-    
+
     if (type)
         desktop = xwin_settype(&wcb_glx, w, type);
 
@@ -434,39 +434,39 @@ static void* create_and_bind(const char* name, const char* class,
     apply_decorations(w->w);
 
     XFree(vi);
-    
+
     XStoreName(display, w->w, name);
-    
+
     XSetWMProtocols(display, w->w, &ATOM_WM_DELETE_WINDOW, 1);
-    
+
     /* Eliminate the window's effective region */
     w->clickthrough = desktop || clickthrough;
     apply_clickthrough(w);
-    
+
     glXCreateContextAttribsARBProc glXCreateContextAttribsARB = NULL;
     glXSwapIntervalEXTProc glXSwapIntervalEXT = NULL;
     glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
         glXGetProcAddressARB((const GLubyte*) "glXCreateContextAttribsARB");
     glXSwapIntervalEXT = (glXSwapIntervalEXTProc)
         glXGetProcAddressARB((const GLubyte*) "glXSwapIntervalEXT");
-    
+
     if (!glXCreateContextAttribsARB) {
         fprintf(stderr, "glXGetProcAddressARB(\"glXCreateContextAttribsARB\"): failed\n");
         abort();
     }
-    
+
     if (!(w->context = glXCreateContextAttribsARB(display, config, 0, True, context_attrs))) {
         fprintf(stderr, "glXCreateContextAttribsARB(): failed\n");
         abort();
     }
-    
+
     XSync(display, False);
-    
+
     glXMakeCurrent(display, w->w, w->context);
     gladLoadGL();
 
     GLXDrawable drawable = glXGetCurrentDrawable();
-    
+
     if (glXSwapIntervalEXT) glXSwapIntervalEXT(display, drawable, swap);
 
     if (!transparent)

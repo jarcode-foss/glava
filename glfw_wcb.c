@@ -74,27 +74,27 @@ static void* create_and_bind(const char* name, const char* class,
                              bool clickthrough) {
 
     GLFWwindow* w;
-    
+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, version_major);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, version_minor);
-    
+
     if (!(w = glfwCreateWindow(d, h, class, NULL, NULL))) {
         fprintf(stderr, "glfwCreateWindow(): failed\n");
         glfwTerminate();
         return NULL;
     }
-    
+
     if (type)
         xwin_settype(&wcb_glfw, w, type);
 
     for (size_t t = 0; t < states_sz; ++t)
         xwin_addstate(&wcb_glfw, w, states[t]);
-    
+
     glfwSetWindowPos(w, x, y);
     glfwMakeContextCurrent(w);
-    
+
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
-    
+
     return w;
 }
 
@@ -124,7 +124,7 @@ static void swap_buffers(GLFWwindow* w) {
     glfwSwapBuffers(w);
     glfwPollEvents();
 }
-    
+
 static Display* get_x11_display(void)                          { return glfwGetX11Display();      }
 static Window   get_x11_window (GLFWwindow* w)                 { return glfwGetX11Window(w);      }
 static bool     should_close   (GLFWwindow* w)                 { return glfwWindowShouldClose(w); }

@@ -49,7 +49,7 @@ static void pulseaudio_context_state_callback(pa_context* pulseaudio_context, vo
             break;
         case PA_CONTEXT_TERMINATED:
             pa_mainloop_quit(m_pulseaudio_mainloop, 0);
-            break;	  
+            break;
     }
 }
 
@@ -57,7 +57,7 @@ static void pulseaudio_context_state_callback(pa_context* pulseaudio_context, vo
 static void init(struct audio_data* audio) {
 
     if (audio->source) return;
-    
+
 	pa_mainloop_api* mainloop_api;
 	pa_context* pulseaudio_context;
 	int ret;
@@ -91,7 +91,7 @@ static void init(struct audio_data* audio) {
     }
 
 	pa_mainloop_run(m_pulseaudio_mainloop, &ret);
-	
+
 
 }
 
@@ -113,7 +113,7 @@ static void* entry(void* data) {
     int i, n;
     size_t ssz = audio->sample_sz;
 	float buf[ssz / 2];
-    
+
 	const pa_sample_spec ss = {
 		.format   = FSAMPLE_FORMAT,
 		.rate     = audio->rate,
@@ -123,10 +123,10 @@ static void* entry(void* data) {
         .maxlength = (uint32_t) -1,
         .fragsize  = ssz
 	};
-    
+
 	pa_simple* s = NULL;
 	int error;
-    
+
 	if (!(s = pa_simple_new(NULL, "glava", PA_STREAM_RECORD,
                             audio->source, "audio for glava",
                             &ss, NULL, &pb, &error))) {
@@ -135,15 +135,15 @@ static void* entry(void* data) {
                 audio->source, pa_strerror(error));
 		exit(EXIT_FAILURE);
 	}
-    
+
 	n = 0;
-    
+
     float* bl = (float*) audio->audio_out_l;
     float* br = (float*) audio->audio_out_r;
     size_t fsz = audio->audio_buf_sz;
-    
+
 	while (1) {
-        
+
         /* Record some data ... */
         if (pa_simple_read(s, buf, sizeof(buf), &error) < 0) {
             fprintf(stderr, __FILE__": pa_simple_read() failed: %s\n", pa_strerror(error));
@@ -155,10 +155,10 @@ static void* entry(void* data) {
         /* progressing the audio buffer, making space for new write */
 
         memmove(bl, &bl[ssz / 4], (fsz - (ssz / 4)) * sizeof(float));
-        memmove(br, &br[ssz / 4], (fsz - (ssz / 4)) * sizeof(float)); 
+        memmove(br, &br[ssz / 4], (fsz - (ssz / 4)) * sizeof(float));
 
         /* sorting out channels */
-        
+
         for (n = 0, i = 0; i < ssz / 2; i += 2) {
 
             /* size_t idx = (i / 2) + (at * (BUFSIZE / 2)); */
@@ -179,15 +179,15 @@ static void* entry(void* data) {
             ++n;
         }
         audio->modified = true;
-        
+
         pthread_mutex_unlock(&audio->mutex);
-        
+
         if (audio->terminate == 1) {
             pa_simple_free(s);
             break;
         }
     }
-    
+
 	return 0;
 }
 

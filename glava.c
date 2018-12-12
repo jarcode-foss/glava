@@ -88,7 +88,7 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
         fprintf(stderr, "could not create directory '%s': %s\n", dest, strerror(errno));
         exit(EXIT_FAILURE);
     }
-    
+
     struct dirent* d;
     while ((d = readdir(dir)) != NULL) {
         if (!strcmp(d->d_name, ".") || !strcmp(d->d_name, ".."))
@@ -101,7 +101,7 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
         char p[pl], f[fl];
         snprintf(p, pl, "%s/%s", path, d->d_name);
         snprintf(f, fl, "%s/%s", dest, d->d_name);
-        
+
         if (d->d_type != DT_UNKNOWN) /* don't bother with stat if we already have the type */
             type = d->d_type == DT_REG ? 1 : (d->d_type == DT_DIR ? 2 : 0);
         else {
@@ -111,7 +111,7 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
             } else
                 type = S_ISREG(st.st_mode) ? 1 : (S_ISDIR(st.st_mode) ? 2 : 0);
         }
-        
+
         switch (type) {
             case 1: {
                 int source = -1, dest = -1;
@@ -234,12 +234,12 @@ int main(int argc, char** argv) {
         * backend       = NULL,
         * audio_impl_name = "pulseaudio";
     const char* system_shader_paths[] = { user_path, install_path, NULL };
-    
+
     char** requests    = malloc(1);
     size_t requests_sz = 0;
-    
+
     bool verbose = false, copy_mode = false, desktop = false;
-    
+
     int c, idx;
     while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
         switch (c) {
@@ -288,18 +288,18 @@ int main(int argc, char** argv) {
 
     rd = rd_new(system_shader_paths, entry, (const char**) requests,
                 backend, desktop, verbose);
-    
+
     struct sigaction action = { .sa_handler = handle_term };
     sigaction(SIGTERM, &action, NULL);
     sigaction(SIGINT, &action, NULL);
-    
+
     float b0[rd->bufsize_request], b1[rd->bufsize_request];
     size_t t;
     for (t = 0; t < rd->bufsize_request; ++t) {
         b0[t] = 0.0F;
         b1[t] = 0.0F;
     }
-    
+
     struct audio_data audio = {
         .source = ({
                 char* src = NULL;
@@ -321,7 +321,7 @@ int main(int argc, char** argv) {
     };
 
     struct audio_impl* impl = NULL;
-    
+
     for (size_t t = 0; t < audio_impls_idx; ++t) {
         if (!strcmp(audio_impls[t]->name, audio_impl_name)) {
             impl = audio_impls[t];
@@ -333,19 +333,19 @@ int main(int argc, char** argv) {
         fprintf(stderr, "The specified audio backend (\"%s\") is not available.\n", audio_impl_name);
         exit(EXIT_FAILURE);
     }
-    
+
     impl->init(&audio);
-    
+
     if (verbose) printf("Using audio source: %s\n", audio.source);
-    
+
     pthread_t thread;
     pthread_create(&thread, NULL, impl->entry, (void*) &audio);
-    
+
     float lb[rd->bufsize_request], rb[rd->bufsize_request];
     while (rd->alive) {
 
         rd_time(rd); /* update timer for this frame */
-        
+
         bool modified; /* if the audio buffer has been updated by the streaming thread */
 
         /* lock the audio mutex and read our data */
@@ -359,7 +359,7 @@ int main(int argc, char** argv) {
             audio.modified = false; /* set this flag to false until the next time we read */
         }
         pthread_mutex_unlock(&audio.mutex);
-        
+
         if (!rd_update(rd, lb, rb, rd->bufsize_request, modified)) {
             /* Sleep for 50ms and then attempt to render again */
             struct timespec tv = {
