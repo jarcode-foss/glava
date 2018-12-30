@@ -39,6 +39,9 @@ ifeq ($(INSTALL),unix)
     ifndef SHADERDIR
         ifdef XDG_CONFIG_DIRS
             SHADERDIR = /$(firstword $(subst :, ,$(XDG_CONFIG_DIRS)))/glava/
+	    ifeq ($(wildcard $(SHADERDIR)/..),)
+                SHADERDIR = /etc/xdg/glava/
+            endif
         else
             SHADERDIR = /etc/xdg/glava/
         endif
