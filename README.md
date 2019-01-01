@@ -31,7 +31,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
-sudo apt-get install libpulse0 libpulse-dev libglfw3 libglfw3-dev libxext6 libxext-dev libxcomposite-dev python make gcc 
+sudo apt-get install libpulse0 libpulse-dev libxext6 libxext-dev libxcomposite-dev make gcc 
 ```
 
 ## Installation
@@ -108,7 +108,3 @@ The modified files are relicensed under the terms of the GPLv3. The MIT license 
 The below copyright applies for the modifications to the files listed above, and the remaining sources in the repository:
 
 `Copyright (c) 2017 Levi Webb`
-
-## Porting
-
-GLava was built with GLFW, making the graphics frontend mostly compatible if it were to be ported to Windows, and I have taken most of the Xlib-specific code and placed it into `xwin.c` if anyone decides they wish to attempt at a port.
