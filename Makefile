@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 src = $(wildcard *.c)
 obj = $(src:.c=.o)
 
