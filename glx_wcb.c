@@ -193,8 +193,8 @@ static void init(void) {
     maximized   = false;
     transparent = false;
 
-    void* hgl  = dlopen("libGL.so", RTLD_LAZY);
-    void* hglx = dlopen("libGLX.so", RTLD_LAZY);
+    void* hgl  = dlopen("libGL.so.1", RTLD_LAZY);
+    void* hglx = dlopen("libGLX.so.0", RTLD_LAZY);
 
     if (!hgl && !hglx) {
         fprintf(stderr, "Failed to load GLX functions (libGL and libGLX do not exist!)\n");
