@@ -69,6 +69,10 @@
 #error "Unsupported target system"
 #endif
 
+#ifndef ACCESSPERMS
+#define ACCESSPERMS (S_IRWXU|S_IRWXG|S_IRWXO) /* 0777 */
+#endif
+
 /* Copy installed shaders/configuration from the installed location
    (usually /etc/xdg). Modules (folders) will be linked instead of
    copied. */
