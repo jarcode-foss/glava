@@ -34,6 +34,11 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 sudo apt-get install libpulse0 libpulse-dev libxext6 libxext-dev libxcomposite-dev make gcc 
 ```
 
+**Fedora users:** the following command ensures you have all the needed packages and headers to compile GLava:
+```bash
+sudo dnf install libXcomposite-devel pulseaudio-libs-devel libX11-devel libXext-devel libXrender-devel
+```
+
 ## Installation
 Some distributions have a package for `glava`. If your distribution is not listed please use the compilation instructions above.
 
