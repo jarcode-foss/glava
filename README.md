@@ -37,6 +37,7 @@ sudo apt-get install libpulse0 libpulse-dev libxext6 libxext-dev libxcomposite-d
 **Fedora users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
 sudo dnf install libXcomposite-devel pulseaudio-libs-devel libX11-devel libXext-devel libXrender-devel
+sudo dnf group install 'C Development Tools and Libraries'
 ```
 
 ## Installation
