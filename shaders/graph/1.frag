@@ -91,8 +91,12 @@ float get_line_height(in sampler1D tex, float idx) {
     /* clamp far ends of the screen down to make the ends of the graph smoother */
 
     float fact = clamp((abs((screen.x / 2) - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
+    #if JOIN_CHANNELS > 0
     fact = pow(fact, 1.8);  /* To avoid spikes */
     s = fact * s + (1 - fact) * middle;
+    #else
+    s *= fact;
+    #endif
 
     s *= clamp((min(gl_FragCoord.x, screen.x - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
 

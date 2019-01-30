@@ -22,6 +22,8 @@
 #define ANTI_ALIAS 0
 /* outline color */
 #define OUTLINE #262626
+/* 1 to join the two channels together in the middle, 0 to clamp both down to zero */
+#define JOIN_CHANNELS 0
 /* 1 to invert (vertically), 0 otherwise */
 #define INVERT 0
 
