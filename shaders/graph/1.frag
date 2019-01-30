@@ -81,15 +81,26 @@ out vec4 fragment;
 #define TWOPI 6.28318530718
 
 float half_w;
+float middle;
+highp float pixel = 1.0F / float(screen.x);
 
-void render_side(in sampler1D tex, float idx) {
-    highp float pixel = 1.0F / float(screen.x);
+float get_line_height(in sampler1D tex, float idx) {
     float s = smooth_audio_adj(tex, audio_sz, idx / half_w, pixel);
     /* scale the data upwards so we can see it */
     s *= VSCALE;
     /* clamp far ends of the screen down to make the ends of the graph smoother */
-    s *= clamp((abs((screen.x / 2) - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
+
+    float fact = clamp((abs((screen.x / 2) - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
+    fact = pow(fact, 1.8);  /* To avoid spikes */
+    s = fact * s + (1 - fact) * middle;
+
     s *= clamp((min(gl_FragCoord.x, screen.x - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
+
+    return s;
+}
+
+void render_side(in sampler1D tex, float idx) {
+    float s = get_line_height(tex, idx);
 
     /* and finally set fragment color if we are in range */
     #if INVERT > 0
@@ -106,6 +117,9 @@ void render_side(in sampler1D tex, float idx) {
 
 void main() {
     half_w = (screen.x / 2);
+
+    middle = VSCALE * (smooth_audio_adj(audio_l, audio_sz, 1, pixel) + smooth_audio_adj(audio_r, audio_sz, 0, pixel)) / 2;
+
     if (gl_FragCoord.x < half_w) {
         render_side(audio_l, LEFT_IDX);
     } else {
