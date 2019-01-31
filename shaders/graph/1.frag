@@ -92,7 +92,7 @@ float get_line_height(in sampler1D tex, float idx) {
 
     float fact = clamp((abs((screen.x / 2) - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
     #if JOIN_CHANNELS > 0
-    fact = pow(fact, 1.8);  /* To avoid spikes */
+    fact = -2 * pow(fact, 3) + 3 * pow(fact, 2);    /* To avoid spikes */
     s = fact * s + (1 - fact) * middle;
     #else
     s *= fact;
