@@ -107,11 +107,9 @@ void render_side(in sampler1D tex, float idx) {
     float s = get_line_height(tex, idx);
 
     /* and finally set fragment color if we are in range */
-    #if INVERT > 0
-    float pos = float(screen.y) - gl_FragCoord.y;
-    #else
+
     float pos = gl_FragCoord.y;
-    #endif
+
     if (pos + 1.5 <= s) {
         fragment = COLOR;
     } else {
