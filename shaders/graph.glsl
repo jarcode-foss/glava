@@ -13,8 +13,17 @@
 #define DRAW_OUTLINE 0
 /* 1 to draw edge highlight, 0 to disable */
 #define DRAW_HIGHLIGHT 1
+/* Whether to anti-alias the border of the graph, creating a smoother curve.
+   This may have a small impact on performance. Note that this only anti-aliases
+   the border, so that the seams between the graph and the outline and/or the
+   highlight (if present) will not be aliased.
+   Note: This requires `xroot` transparency to be enabled since it
+   relies on alpha blending with the background. */
+#define ANTI_ALIAS 0
 /* outline color */
 #define OUTLINE #262626
+/* 1 to join the two channels together in the middle, 0 to clamp both down to zero */
+#define JOIN_CHANNELS 0
 /* 1 to invert (vertically), 0 otherwise */
 #define INVERT 0
 
