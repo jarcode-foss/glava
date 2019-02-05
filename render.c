@@ -91,7 +91,7 @@ struct gl_bind {
 
 struct gl_sfbo {
     GLuint fbo, tex, shader;
-    bool valid, nativeonly;
+    bool indirect, nativeonly;
     const char* name;
     struct gl_bind* binds;
     size_t binds_sz;
@@ -139,6 +139,7 @@ static GLuint shaderload(const char*             rpath,
                          struct request_handler* handlers,
                          int                     shader_version,
                          bool                    raw,
+                         bool*                   skipped,
                          struct gl_data*         gl) {
 
     size_t s_len = strlen(shader);
@@ -218,14 +219,33 @@ static GLuint shaderload(const char*             rpath,
     if (ret == GL_FALSE) {
         glGetShaderiv(s, GL_INFO_LOG_LENGTH, &ilen);
         if (ilen) {
-            GLchar ebuf[ilen];
+            GLchar* ebuf = malloc(sizeof(GLchar) * ilen);
             glGetShaderInfoLog(s, ilen, NULL, ebuf);
+            
+            /* check for `#error __disablestage` and flag `*skipped` accordingly */
+            if (skipped != NULL) {
+                bool last = false;
+                static const char* skip_keyword = "__disablestage";
+                size_t sksz = sizeof(skip_keyword);
+                for(size_t t = 0; t < (size_t) ilen; ++t) {
+                    if (ebuf[t] == '_') {
+                        if (last && !strncmp(ebuf + t - 1, skip_keyword, sksz)) {
+                            *skipped = true;
+                            goto free_ebuf;
+                        } else last = true;
+                    } else last = false;
+                }
+            }
+            
             fprintf(stderr, "Shader compilation failed for '%s':\n", path);
             fwrite(ebuf, sizeof(GLchar), ilen - 1, stderr);
             #ifdef GLAVA_DEBUG
             fprintf(stderr, "Processed shader source for '%s':\n", path);
             fwrite(buf, sizeof(GLchar), sl, stderr);
             #endif
+            
+        free_ebuf:
+            free(ebuf);
             return 0;
         } else {
             fprintf(stderr, "Shader compilation failed for '%s', but no info was available\n", path);
@@ -282,14 +302,16 @@ static GLuint shaderlink_f(GLuint* arr) {
 }
 
 /* load shaders */
-#define shaderbuild(gl, shader_path, c, d, r, v, ...)                    \
-    shaderbuild_f(gl, shader_path, c, d, r, v, (const char*[]) {__VA_ARGS__, 0})
+#define shaderbuild(gl, shader_path, c, d, r, v, s, ...)                 \
+    shaderbuild_f(gl, shader_path, c, d, r, v, s, (const char*[]) {__VA_ARGS__, 0})
 static GLuint shaderbuild_f(struct gl_data* gl,
                             const char* shader_path,
                             const char* config, const char* defaults,
                             struct request_handler* handlers,
                             int shader_version,
+                            bool* skipped,
                             const char** arr) {
+    if (skipped) *skipped = false;
     const char* str;
     int i = 0, sz = 0, t;
     while ((str = arr[i++]) != NULL) ++sz;
@@ -303,7 +325,7 @@ static GLuint shaderbuild_f(struct gl_data* gl,
                 if (!strcmp(path + t + 1, "frag") || !strcmp(path + t + 1, "glsl")) {
                     if (!(shaders[i] = shaderload(path, GL_FRAGMENT_SHADER,
                                                   shader_path, config, defaults, handlers,
-                                                  shader_version, false, gl))) {
+                                                  shader_version, false, skipped, gl))) {
                         return 0;
                     }
                 } else if (!strcmp(path + t + 1, "vert")) {
@@ -323,7 +345,7 @@ static GLuint shaderbuild_f(struct gl_data* gl,
         }
     }
     /* load builtin vertex shader */
-    shaders[sz] = shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC, NULL, NULL, handlers, shader_version, true, gl);
+    shaders[sz] = shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC, NULL, NULL, handlers, shader_version, true, NULL, gl);
     fflush(stdout);
     return shaderlink_f(shaders);
 }
@@ -358,9 +380,9 @@ static void update_1d_tex(GLuint tex, size_t w, float* data) {
 /* setup screen framebuffer object and its texture */
 
 static void setup_sfbo(struct gl_sfbo* s, int w, int h) {
-    GLuint tex = s->valid ? s->tex : ({ glGenTextures(1, &s->tex); s->tex; });
-    GLuint fbo = s->valid ? s->fbo : ({ glGenFramebuffers(1, &s->fbo); s->fbo; });
-    s->valid = true;
+    GLuint tex = s->indirect ? s->tex : ({ glGenTextures(1, &s->tex); s->tex; });
+    GLuint fbo = s->indirect ? s->fbo : ({ glGenFramebuffers(1, &s->fbo); s->fbo; });
+    s->indirect = true;
     /* bind texture and setup space */
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -1264,37 +1286,40 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                             *s = (struct gl_sfbo) {
                                 .name       = strdup(d->d_name),
                                 .shader     = 0,
-                                .valid      = false,
+                                .indirect   = false,
                                 .nativeonly = false,
                                 .binds      = malloc(1),
                                 .binds_sz   = 0
                             };
 
                             current = s;
-                            GLuint id = shaderbuild(gl, shaders, data, dd, handlers, shader_version, d->d_name);
-                            if (!id) {
+                            bool skip;
+                            GLuint id = shaderbuild(gl, shaders, data, dd, handlers, shader_version, &skip, d->d_name);
+                            if (skip && verbose) printf("disabled: '%s'\n", d->d_name);
+                            if (!id && !skip)
                                 abort();
-                            }
 
                             s->shader = id;
 
-                            /* Only setup a framebuffer and texture if this isn't the final step,
-                               as it can rendered directly */
-                            if (idx != count) {
-                                int w, h;
-                                gl->wcb->get_fbsize(gl->w, &w, &h);
-                                setup_sfbo(&stages[idx - 1], w, h);
-                            }
+                            if (id) {
+                                /* Only setup a framebuffer and texture if this isn't the final step,
+                                   as it can rendered directly */
+                                if (idx != count) {
+                                    int w, h;
+                                    gl->wcb->get_fbsize(gl->w, &w, &h);
+                                    setup_sfbo(&stages[idx - 1], w, h);
+                                }
 
-                            glUseProgram(id);
+                                glUseProgram(id);
                         
-                            /* Setup uniform bindings */
-                            size_t b;
-                            for (b = 0; b < s->binds_sz; ++b) {
-                                s->binds[b].uniform = glGetUniformLocation(id, s->binds[b].name);
+                                /* Setup uniform bindings */
+                                size_t b;
+                                for (b = 0; b < s->binds_sz; ++b) {
+                                    s->binds[b].uniform = glGetUniformLocation(id, s->binds[b].name);
+                                }
+                                glBindFragDataLocation(id, 1, "fragment");
+                                glUseProgram(0);
                             }
-                            glBindFragDataLocation(id, 1, "fragment");
-                            glUseProgram(0);
                         
                             found = true;
                         }
@@ -1311,16 +1336,13 @@ struct renderer* rd_new(const char** paths,        const char* entry,
     
     {
         struct gl_sfbo* final = NULL;
-        if (!gl->premultiply_alpha) {
-            for (size_t t = 0; t < gl->stages_sz; ++t) {
-                if (!gl->stages[t].nativeonly) {
-                    final = &gl->stages[t];
-                }
+        for (size_t t = 0; t < gl->stages_sz; ++t) {
+            if (gl->stages[t].shader && (gl->premultiply_alpha || !gl->stages[t].nativeonly)) {
+                final = &gl->stages[t];
             }
         }
-        /* Invalidate framebuffer and use direct rendering if it was instantiated 
-           due to a following `nativeonly` shader pass. */
-        if (final) final->valid = false;
+        /* Use dirct rendering on final pass */
+        if (final) final->indirect = false;
     }
 
     /* Compile smooth pass shader */
@@ -1332,7 +1354,7 @@ struct renderer* rd_new(const char** paths,        const char* entry,
         char util[usz]; /* module pack path to use */
         snprintf(util, usz, "%s/%s", data, util_folder);
         loading_smooth_pass = true;
-        if (!(gl->sm_prog = shaderbuild(gl, util, data, dd, handlers, shader_version, "smooth_pass.frag")))
+        if (!(gl->sm_prog = shaderbuild(gl, util, data, dd, handlers, shader_version, NULL, "smooth_pass.frag")))
             abort();
         loading_smooth_pass = false;
     }
@@ -1454,7 +1476,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     /* Resize screen textures if needed */
     if (ww != gl->lww || wh != gl->lwh) {
         for (t = 0; t < gl->stages_sz; ++t) {
-            if (gl->stages[t].valid) {
+            if (gl->stages[t].indirect) {
                 setup_sfbo(&gl->stages[t], ww, wh);
             }
         }
@@ -1483,16 +1505,16 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         /* Current shader program */
         struct gl_sfbo* current = &gl->stages[t];
 
-        if (current->nativeonly && !gl->premultiply_alpha)
+        if (!current->shader || (current->nativeonly && !gl->premultiply_alpha))
             continue;
         
         /* Bind framebuffer if this is not the final pass */
-        if (current->valid)
+        if (current->indirect)
             glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
         
         glClear(GL_COLOR_BUFFER_BIT);
         
-        if (!current->valid && gl->copy_desktop) {
+        if (!current->indirect && gl->copy_desktop) {
             /* Self-contained code for drawing background image */
             static GLuint bg_prog, bg_utex, bg_screen;
             static bool setup = false;
@@ -1509,9 +1531,9 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 "}"                                                                                  "\n";
             if (!setup) {
                 bg_prog = shaderlink(shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC,
-                                                NULL, NULL, NULL, 330, true, gl),
+                                                NULL, NULL, NULL, 330, true, NULL, gl),
                                      shaderload(NULL, GL_FRAGMENT_SHADER, frag_shader,
-                                                NULL, NULL, NULL, 330, true, gl));
+                                                NULL, NULL, NULL, 330, true, NULL, gl));
                 bg_utex   = glGetUniformLocation(bg_prog, "tex");
                 bg_screen = glGetUniformLocation(bg_prog, "screen");
                 glBindFragDataLocation(bg_prog, 1, "fragment");
@@ -1629,7 +1651,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
                     /* Return state */
                     glUseProgram(current->shader);
-                    if (current->valid)
+                    if (current->indirect)
                         glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
                     else
                         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1668,7 +1690,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         drawoverlay(&gl->overlay); /* Fullscreen quad (actually just two triangles) */
 
         /* Reset some state */
-        if (current->valid)
+        if (current->indirect)
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glUseProgram(0);
 

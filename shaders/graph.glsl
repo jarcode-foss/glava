@@ -14,11 +14,8 @@
 /* 1 to draw edge highlight, 0 to disable */
 #define DRAW_HIGHLIGHT 1
 /* Whether to anti-alias the border of the graph, creating a smoother curve.
-   This may have a small impact on performance. Note that this only anti-aliases
-   the border, so that the seams between the graph and the outline and/or the
-   highlight (if present) will not be aliased.
-   Note: This requires `xroot` transparency to be enabled since it
-   relies on alpha blending with the background. */
+   This may have a small impact on performance.
+   Note: requires `xroot` or `none` opacity to be set */
 #define ANTI_ALIAS 0
 /* outline color */
 #define OUTLINE #262626

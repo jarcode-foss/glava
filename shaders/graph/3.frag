@@ -12,6 +12,10 @@ out vec4 fragment; /* output */
 #include "@graph.glsl"
 #include ":graph.glsl"
 
+#if ANTI_ALIAS == 0
+#error __disablestage
+#endif
+
 /* Moves toward the border of the graph, gives the
    y coordinate of the last colored pixel */
 float get_col_height_up(float x, float oy) {
