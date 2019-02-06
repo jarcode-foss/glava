@@ -9,6 +9,10 @@ out vec4 fragment; /* output */
 #include "@graph.glsl"
 #include ":graph.glsl"
 
+#if DRAW_OUTLINE == 0 && DRAW_HIGHLIGHT == 0
+#error __disablestage
+#endif
+
 void main() {
     fragment = texelFetch(tex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);
     
