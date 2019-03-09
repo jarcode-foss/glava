@@ -49,13 +49,15 @@ void main() {
     #else
     float d = AREA_HEIGHT - AREA_Y;
     #endif
-    float nbars = floor((AREA_WIDTH * 0.5F) / float(BAR_WIDTH + BAR_GAP)) * 2;
     float section = BAR_WIDTH + BAR_GAP;    /* size of section for each bar (including gap) */
     float center =  section / 2.0F;         /* half section, distance to center             */
     float m = abs(mod(dx, section));        /* position in section                          */
     float md = m - center;                  /* position in section from center line         */
+    float nbars = floor((AREA_WIDTH * 0.5F) / section) * 2;
+    float p, s;
     if (md < ceil(float(BAR_WIDTH) / 2) && md >= -floor(float(BAR_WIDTH) / 2)) {  /* if not in gap */
-        float p = int(dx / section) / float(nbars / 2); /* position, (-1.0F, 1.0F))     */
+        s = dx / section;
+        p = (sign(s) == 1.0 ? ceil(s) : floor(s)) / float(nbars / 2); /* position, (-1.0F, 1.0F))     */
         p += sign(p) * ((0.5F + center) / AREA_WIDTH);    /* index center of bar position */
         /* Apply smooth function and index texture */
         #define smooth_f(tex, p) smooth_audio(tex, audio_sz, p)
@@ -66,7 +68,7 @@ void main() {
             return;
         }
         /* handle user options and store result of indexing in 'v' */
-        if (p >= 0.0F) {
+        if (p > 0.0F) {
             #if DIRECTION == 1
             p = 1.0F - p;
             #endif
