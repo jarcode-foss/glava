@@ -13,9 +13,24 @@
    - circular     heavily rounded points
    - sinusoidal   rounded at both low and high weighted values
                     like a sine wave
-   - linear       not rounded at all, just use linear distance
+   - linear       not rounded at all; linear distance
    */
 #define ROUND_FORMULA sinusoidal
+
+/* The sampling mode for processing raw FFT input:
+   
+   - average     averages all the inputs in the sample range for
+                   a given point. Produces smooth output, but peaks
+                   are not well represented
+   - maximum     obtains the best value from the closest peak in
+                   the sample range. Very accurate peaks, but
+                   output is jagged and sporadic.
+   - hybrid      uses the results from both `average` and `maximum`
+                   with the weight provided in `SAMPLE_HYBRID_WEIGHT` */
+#define SAMPLE_MODE average
+/* Weight should be provided in the range (0, 1). Higher values favour
+   averaged results. `hybrid` mode only. */
+#define SAMPLE_HYBRID_WEIGHT 0.65
 
 /* Factor used to scale frequencies. Lower values allows lower
    frequencies to occupy more space. */
