@@ -19,6 +19,17 @@
 #include "xwin.h"
 #include "glsl_ext.h"
 
+typeof(stdin_types) stdin_types = {
+    [STDIN_TYPE_NONE]  = { .n = "NONE",  .i = STDIN_TYPE_NONE  },
+    [STDIN_TYPE_INT]   = { .n = "int",   .i = STDIN_TYPE_INT   },
+    [STDIN_TYPE_FLOAT] = { .n = "float", .i = STDIN_TYPE_FLOAT },
+    [STDIN_TYPE_BOOL]  = { .n = "bool",  .i = STDIN_TYPE_BOOL  },
+    [STDIN_TYPE_VEC2]  = { .n = "vec2",  .i = STDIN_TYPE_VEC2  },
+    [STDIN_TYPE_VEC3]  = { .n = "vec3",  .i = STDIN_TYPE_VEC3  },
+    [STDIN_TYPE_VEC4]  = { .n = "vec4",  .i = STDIN_TYPE_VEC4  },
+    {}
+};
+
 #define TWOPI 6.28318530718
 #define PI 3.14159265359
 #define swap(a, b) do { __auto_type tmp = a; a = b; b = tmp; } while (0)
@@ -90,7 +101,7 @@ struct gl_bind {
 /* GL screen framebuffer object */
 
 struct gl_sfbo {
-    GLuint fbo, tex, shader;
+    GLuint fbo, tex, shader, stdin_uniform;
     bool indirect, nativeonly;
     const char* name;
     struct gl_bind* binds;
@@ -126,6 +137,7 @@ struct gl_data {
     } clear_color;
     float* interpolate_buf[6];
     int geometry[4];
+    int stdin_type;
 };
 
 
@@ -176,7 +188,11 @@ static GLuint shaderload(const char*             rpath,
         "#define PRE_SMOOTHED_AUDIO %d\n"
         "#define SMOOTH_FACTOR %.6f\n"
         "#define USE_ALPHA %d\n"
-        "#define PREMULTIPLY_ALPHA %d\n";
+        "#define PREMULTIPLY_ALPHA %d\n"
+        "#define USE_STDIN %d\n"
+        "#if USE_STDIN == 1\n"
+        "uniform %s STDIN;\n"
+        "#endif\n";
     
     struct glsl_ext ext = {
         .source     = raw ? NULL : map,
@@ -196,7 +212,8 @@ static GLuint shaderload(const char*             rpath,
     GLchar* buf = malloc((blen * sizeof(GLchar*)) + ext.p_len);
     int written = snprintf(buf, blen, header_fmt, (int) shader_version, (int) max_uniforms,
                            gl->smooth_pass ? 1 : 0, (double) gl->smooth_factor,
-                           1, gl->premultiply_alpha ? 1 : 0);
+                           1, gl->premultiply_alpha ? 1 : 0,
+                           gl->stdin_type != STDIN_TYPE_NONE, stdin_types[gl->stdin_type].n);
     if (written < 0) {
         fprintf(stderr, "snprintf() encoding error while prepending header to shader '%s'\n", path);
         return 0;
@@ -710,9 +727,10 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
     return NULL;
 }
 
-struct renderer* rd_new(const char** paths,        const char* entry,
-                        const char** requests,     const char* force_backend,
-                        bool         auto_desktop, bool        verbose) {
+struct renderer* rd_new(const char** paths,      const char* entry,
+                        const char** requests,   const char* force_backend,
+                        int          stdin_type, bool        auto_desktop,
+                        bool         verbose) {
 
     xwin_wait_for_wm();
     
@@ -760,7 +778,8 @@ struct renderer* rd_new(const char** paths,        const char* entry,
         .fft_cutoff        = 0.3F,
         .geometry          = { 0, 0, 500, 400 },
         .clear_color       = { 0.0F, 0.0F, 0.0F, 0.0F },
-        .clickthrough      = false
+        .clickthrough      = false,
+        .stdin_type        = stdin_type
     };
 
     bool forced = force_backend != NULL;
@@ -1309,13 +1328,16 @@ struct renderer* rd_new(const char** paths,        const char* entry,
                                     gl->wcb->get_fbsize(gl->w, &w, &h);
                                     setup_sfbo(&stages[idx - 1], w, h);
                                 }
-
+                                
                                 glUseProgram(id);
-                        
+                                
                                 /* Setup uniform bindings */
                                 size_t b;
                                 for (b = 0; b < s->binds_sz; ++b) {
                                     s->binds[b].uniform = glGetUniformLocation(id, s->binds[b].name);
+                                }
+                                if (gl->stdin_type != STDIN_TYPE_NONE) {
+                                    s->stdin_uniform = glGetUniformLocation(id, "STDIN");
                                 }
                                 glBindFragDataLocation(id, 1, "fragment");
                                 glUseProgram(0);
@@ -1493,6 +1515,100 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     gl->lwh = wh;
     
     glViewport(0, 0, ww, wh);
+    
+    static bool stdin_uniform_ready = false;
+    static union {
+        bool     b;
+        int      i;
+        float    f[4];
+    } stdin_parsed;
+    
+    /* Parse stdin data, if nessecary */
+    if (gl->stdin_type != STDIN_TYPE_NONE) {
+        static char stdin_buf[64] = {};
+        static size_t stdin_idx = 0;
+        int c, n, p;
+        setvbuf(stdin, NULL, _IOLBF, 64);
+        
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(STDIN_FILENO, &fds);
+        struct timeval timeout = { 0, 0 };
+        n = select(1, &fds, NULL, NULL, &timeout);
+        
+        for (p = 0; n > 0; ++p) {
+            c = getchar();
+            if (stdin_idx >= (sizeof(stdin_buf) / sizeof(*stdin_buf)) - 1)
+                break;
+            if (c != EOF && c != '\n')
+                stdin_buf[stdin_idx++] = c;
+            else if (c != EOF) {
+                stdin_buf[stdin_idx] = '\0';
+                switch (gl->stdin_type) {
+                    case STDIN_TYPE_BOOL:
+                        if (!strcmp("true", stdin_buf) ||
+                            !strcmp("TRUE", stdin_buf) ||
+                            !strcmp("True", stdin_buf) ||
+                            !strcmp("1",    stdin_buf)) {
+                            stdin_parsed.b = true;
+                            stdin_uniform_ready = true;
+                        } else if (!strcmp("false", stdin_buf) ||
+                                   !strcmp("FALSE", stdin_buf) ||
+                                   !strcmp("False", stdin_buf) ||
+                                   !strcmp("0",    stdin_buf)) {
+                            stdin_parsed.b = false;
+                            stdin_uniform_ready = true;
+                        }
+                        break;
+                    case STDIN_TYPE_INT:
+                        errno = 0;
+                        stdin_parsed.i = (int) strtol(stdin_buf, NULL, 10);
+                        if (errno != ERANGE) stdin_uniform_ready = true;
+                        break;
+                    case STDIN_TYPE_FLOAT:
+                        errno = 0;
+                        stdin_parsed.f[0] = strtof(stdin_buf, NULL);
+                        if (errno != ERANGE) stdin_uniform_ready = true;
+                        break;
+                    case STDIN_TYPE_VEC2:
+                        if (EOF != sscanf(stdin_buf, "%f,%f",
+                                          &stdin_parsed.f[0], &stdin_parsed.f[1]))
+                            stdin_uniform_ready = true;
+                        break;
+                    case STDIN_TYPE_VEC3:
+                        if (EOF != sscanf(stdin_buf, "%f,%f,%f",
+                                          &stdin_parsed.f[0], &stdin_parsed.f[1],
+                                          &stdin_parsed.f[2]))
+                            stdin_uniform_ready = true;
+                        break;
+                    case STDIN_TYPE_VEC4:
+                        if (stdin_buf[0] == '#') {
+                            stdin_parsed.f[0] = 0.0F;
+                            stdin_parsed.f[1] = 0.0F;
+                            stdin_parsed.f[2] = 0.0F;
+                            stdin_parsed.f[3] = 1.0F;
+                            float* ptrs[] = {
+                                &stdin_parsed.f[0], &stdin_parsed.f[1],
+                                &stdin_parsed.f[2], &stdin_parsed.f[3]
+                            };
+                            ext_parse_color(stdin_buf + 1, 2, ptrs);
+                            stdin_uniform_ready = true;
+                        } else if (EOF != sscanf(stdin_buf, "%f,%f,%f,%f",
+                                                 &stdin_parsed.f[0], &stdin_parsed.f[1],
+                                                 &stdin_parsed.f[2], &stdin_parsed.f[3]))
+                            stdin_uniform_ready = true;
+                        break;
+                }
+                stdin_buf[0] = '\0';
+                stdin_idx = 0;
+                break;
+            } else {
+                fprintf(stderr, "scanf() returned EOF, ignoring input\n");
+                gl->stdin_type = STDIN_TYPE_NONE;
+                break;
+            };
+        }
+    }
         
     struct gl_sfbo* prev;
 
@@ -1556,6 +1672,37 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         /* Select the program associated with this pass */
         glUseProgram(current->shader);
 
+        /* Pass STDIN unfirom if one has been parsed */
+        if (stdin_uniform_ready) {
+            switch (gl->stdin_type) {
+                case STDIN_TYPE_BOOL:
+                    glUniform1i(current->stdin_uniform, (int) stdin_parsed.b);
+                    break;
+                case STDIN_TYPE_INT:
+                    glUniform1i(current->stdin_uniform, stdin_parsed.i);
+                    break;
+                case STDIN_TYPE_FLOAT:
+                    glUniform1f(current->stdin_uniform, stdin_parsed.f[0]);
+                    break;
+                case STDIN_TYPE_VEC2:
+                    glUniform2f(current->stdin_uniform,
+                                stdin_parsed.f[0], stdin_parsed.f[1]);
+                    break;
+                case STDIN_TYPE_VEC3:
+                    glUniform3f(current->stdin_uniform,
+                                stdin_parsed.f[0], stdin_parsed.f[1],
+                                stdin_parsed.f[2]);
+                    break;
+                case STDIN_TYPE_VEC4:
+                    glUniform4f(current->stdin_uniform,
+                                stdin_parsed.f[0], stdin_parsed.f[1],
+                                stdin_parsed.f[2], stdin_parsed.f[4]);
+                    break;
+                default: break;
+            }
+            stdin_uniform_ready = false;
+        }
+        
         bool prev_bound = false;
         
         /* Iterate through each uniform binding, transforming and passing the 

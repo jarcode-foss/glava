@@ -2,6 +2,19 @@
 #ifndef RENDER_H
 #define RENDER_H
 
+extern const struct {
+    const char* n;
+    int i;
+} stdin_types[];
+
+#define STDIN_TYPE_NONE  0
+#define STDIN_TYPE_INT   1
+#define STDIN_TYPE_FLOAT 2
+#define STDIN_TYPE_BOOL  3
+#define STDIN_TYPE_VEC2  4
+#define STDIN_TYPE_VEC3  5
+#define STDIN_TYPE_VEC4  6
+
 struct gl_data;
 
 typedef struct renderer {
@@ -11,9 +24,10 @@ typedef struct renderer {
     struct gl_data* gl;
 } renderer;
 
-struct renderer* rd_new            (const char** paths,        const char* entry,
-                                    const char** requests,     const char* force_backend,
-                                    bool         auto_desktop, bool        verbose);
+struct renderer* rd_new            (const char** paths,      const char* entry,
+                                    const char** requests,   const char* force_backend,
+                                    int          stdin_type, bool        auto_desktop,
+                                    bool         verbose);
 bool             rd_update         (struct renderer*, float* lb, float* rb,
                                     size_t bsz, bool modified);
 void             rd_destroy        (struct renderer*);

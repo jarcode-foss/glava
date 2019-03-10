@@ -182,6 +182,10 @@ static const char* help_str =
     "                          appropriate backend will be used for the underlying windowing\n"
     "                          system.\n"
     "-a, --audio=BACKEND     specifies an audio input backend to use.\n"
+    "-i, --stdin[=FORMAT]    specifies a format for input to be read from stdin. The input\n"
+    "                           may be read from the STDIN macro from within shader sources.\n"
+    "                           A stream of inputs (each overriding the previous) must be\n"
+    "                           separated by newline (\'\\n\') characters.\n"
     "-V, --version           print application version and exit\n"
     "\n"
     "The REQUEST argument is evaluated identically to the \'#request\' preprocessor directive\n"
@@ -196,9 +200,12 @@ static const char* help_str =
     "The BACKEND argument may be any of the following strings (for this particular build):\n"
     "%s"
     "\n"
+    "The FORMAT argument must be a valid GLSL type. If `--stdin` is used without an argument,\n"
+    "the default type is `vec4` (type used for RGBA colors)\n"
+    "\n"
     GLAVA_VERSION_STRING "\n";
 
-static const char* opt_str = "dhvVe:Cm:b:r:a:";
+static const char* opt_str = "dhvVe:Cm:b:r:a:i::";
 static struct option p_opts[] = {
     {"help",        no_argument,       0, 'h'},
     {"verbose",     no_argument,       0, 'v'},
@@ -209,6 +216,7 @@ static struct option p_opts[] = {
     {"force-mod",   required_argument, 0, 'm'},
     {"copy-config", no_argument,       0, 'C'},
     {"backend",     required_argument, 0, 'b'},
+    {"stdin",       optional_argument, 0, 'i'},
     {"version",     no_argument,       0, 'V'},
     {0,             0,                 0,  0 }
 };
@@ -231,13 +239,14 @@ int main(int argc, char** argv) {
 
     /* Evaluate these macros only once, since they allocate */
     const char
-        * install_path  = SHADER_INSTALL_PATH,
-        * user_path     = SHADER_USER_PATH,
-        * entry         = "rc.glsl",
-        * force         = NULL,
-        * backend       = NULL,
+        * install_path    = SHADER_INSTALL_PATH,
+        * user_path       = SHADER_USER_PATH,
+        * entry           = "rc.glsl",
+        * force           = NULL,
+        * backend         = NULL,
         * audio_impl_name = "pulseaudio";
     const char* system_shader_paths[] = { user_path, install_path, NULL };
+    int stdin_type = STDIN_TYPE_NONE;
     
     char** requests    = malloc(1);
     size_t requests_sz = 0;
@@ -271,6 +280,21 @@ int main(int argc, char** argv) {
                 exit(EXIT_SUCCESS);
                 break;
             }
+            case 'i': {
+                stdin_type = -1;
+                for (size_t t = 0 ; stdin_types[t].n != NULL; ++t) {
+                    if (optarg == NULL) {
+                        stdin_type = STDIN_TYPE_VEC4;
+                    } else if (!strcmp(stdin_types[t].n, optarg)) {
+                        stdin_type = stdin_types[t].i;
+                        break;
+                    }
+                }
+                if (stdin_type == -1) {
+                    fprintf(stderr, "Unsupported `--stdin` GLSL type: \"%s\"\n", optarg);
+                    exit(EXIT_FAILURE);
+                }
+            }
         }
     }
 
@@ -291,7 +315,7 @@ int main(int argc, char** argv) {
     append_buf(requests, &requests_sz, NULL);
 
     rd = rd_new(system_shader_paths, entry, (const char**) requests,
-                backend, desktop, verbose);
+                backend, stdin_type, desktop, verbose);
     
     struct sigaction action = { .sa_handler = handle_term };
     sigaction(SIGTERM, &action, NULL);

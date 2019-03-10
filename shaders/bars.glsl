@@ -1,7 +1,6 @@
 
 /* Center line thickness (pixels) */
 #define C_LINE 1
-
 /* Width (in pixels) of each bar */
 #define BAR_WIDTH 4
 /* Width (in pixels) of each bar gap */
