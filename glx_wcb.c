@@ -254,15 +254,37 @@ static void apply_decorations(Window w) {
     }
 }
 
+static bool find_parent(Window w, Window* parent) {
+    Window root, *children = NULL;
+    unsigned int num_children;
+
+    if(!XQueryTree(display, w, &root, parent, &children, &num_children))
+        return false;
+
+    if (children)
+        XFree(children);
+    
+    return *parent != None;
+}
+
 static void apply_clickthrough(struct glxwin* w) {
     if (w->clickthrough) {
         int ignored;
         if (XShapeQueryExtension(display, &ignored, &ignored)) {
-            Region region;
-            if ((region = XCreateRegion())) {
-                XShapeCombineRegion(display, w->w, ShapeInput, 0, 0, region, ShapeSet);
-                XDestroyRegion(region);
+            Window root = DefaultRootWindow(display);
+            Window win = w->w;
+            while (win != None) {
+                Region region;
+                if ((region = XCreateRegion())) {
+                    XShapeCombineRegion(display, w->w, ShapeInput, 0, 0, region, ShapeSet);
+                    XDestroyRegion(region);
+                }
+                Window parent;
+                find_parent(win, &parent);
+                win = (parent == root ? None : parent);
             }
+        } else {
+            fprintf(stderr, "Warning: XShape extension not available\n");
         }
     }
 }
@@ -277,6 +299,10 @@ static void process_events(struct glxwin* w) {
                     && ev.xclient.data.l[0]  == ATOM_WM_DELETE_WINDOW) {
                     w->should_close = true;
                 }
+                break;
+            case MapNotify:
+                apply_clickthrough(w);
+                XFlush(display);
                 break;
             case VisibilityNotify:
                 switch (ev.xvisibility.state) {
@@ -514,7 +540,6 @@ static void set_geometry(struct glxwin* w, int x, int y, int d, int h) {
 static void set_visible(struct glxwin* w, bool visible) {
     if (visible) {
         XMapWindow(display, w->w);
-        apply_clickthrough(w);
         switch (w->override_state) {
             case '+': XRaiseWindow(display, w->w); break;
             case '-': XLowerWindow(display, w->w); break;
