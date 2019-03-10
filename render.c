@@ -7,6 +7,7 @@
 #include <math.h>
 #include <time.h>
 
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1542,7 +1543,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 break;
             if (c != EOF && c != '\n')
                 stdin_buf[stdin_idx++] = c;
-            else if (c != EOF) {
+            else {
                 stdin_buf[stdin_idx] = '\0';
                 switch (gl->stdin_type) {
                     case STDIN_TYPE_BOOL:
@@ -1602,10 +1603,11 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 stdin_buf[0] = '\0';
                 stdin_idx = 0;
                 break;
-            } else {
-                fprintf(stderr, "scanf() returned EOF, ignoring input\n");
-                gl->stdin_type = STDIN_TYPE_NONE;
-                break;
+                
+                if (c == EOF) {
+                    gl->stdin_type = STDIN_TYPE_NONE;
+                    break;
+                }
             };
         }
     }
