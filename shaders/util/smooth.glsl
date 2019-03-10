@@ -10,6 +10,7 @@
 #define PI 3.14159265359
 #endif
 
+#include "@smooth_parameters.glsl"
 #include ":smooth_parameters.glsl"
 
 /* window value t that resides in range [0, sz)*/
@@ -43,6 +44,7 @@ float smooth_audio(in sampler1D tex, int tex_sz, highp float idx) {
         smax = scale_audio(clamp(idx + SMOOTH_FACTOR, 0, 1)) * tex_sz;
     float m = ((smax - smin) / 2.0F), s, w;
     float rm = smin + m; /* middle */
+    
     #if SAMPLE_MODE == average
     float avg = 0, weight = 0;
     for (s = smin; s <= smax; s += 1.0F) {

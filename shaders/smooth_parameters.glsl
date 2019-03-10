@@ -27,10 +27,10 @@
                    output is jagged and sporadic.
    - hybrid      uses the results from both `average` and `maximum`
                    with the weight provided in `SAMPLE_HYBRID_WEIGHT` */
-#define SAMPLE_MODE average
+//#define SAMPLE_MODE average
 /* Weight should be provided in the range (0, 1). Higher values favour
    averaged results. `hybrid` mode only. */
-#define SAMPLE_HYBRID_WEIGHT 0.65
+//#define SAMPLE_HYBRID_WEIGHT 0.65
 
 /* Factor used to scale frequencies. Lower values allows lower
    frequencies to occupy more space. */
