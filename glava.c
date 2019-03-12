@@ -218,6 +218,9 @@ static struct option p_opts[] = {
     {"backend",     required_argument, 0, 'b'},
     {"stdin",       optional_argument, 0, 'i'},
     {"version",     no_argument,       0, 'V'},
+    #ifdef GLAVA_DEBUG
+    {"run-tests",   no_argument,       0, 'T'},
+    #endif
     {0,             0,                 0,  0 }
 };
 
@@ -295,6 +298,12 @@ int main(int argc, char** argv) {
                     exit(EXIT_FAILURE);
                 }
             }
+                #ifdef GLAVA_DEBUG
+            case 'T': {
+                entry = "test_rc.glsl";
+                rd_enable_test_mode();
+            }
+                #endif
         }
     }
 
@@ -387,15 +396,31 @@ int main(int argc, char** argv) {
             audio.modified = false; /* set this flag to false until the next time we read */
         }
         pthread_mutex_unlock(&audio.mutex);
+
+        bool ret = rd_update(rd, lb, rb, rd->bufsize_request, modified);
         
-        if (!rd_update(rd, lb, rb, rd->bufsize_request, modified)) {
+        if (!ret) {
             /* Sleep for 50ms and then attempt to render again */
             struct timespec tv = {
                 .tv_sec = 0, .tv_nsec = 50 * 1000000
             };
             nanosleep(&tv, NULL);
         }
+        #ifdef GLAVA_DEBUG
+        if (ret && rd_get_test_mode())
+            break;
+        #endif
     }
+
+    #ifdef GLAVA_DEBUG
+    if (rd_get_test_mode()) {
+        if (rd_test_evaluate(rd)) {
+            fprintf(stderr, "Test results did not match expected output\n");
+            fflush(stderr);
+            exit(EXIT_FAILURE);
+        }
+    }
+    #endif
 
     audio.terminate = 1;
     int return_status;

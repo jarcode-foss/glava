@@ -24,6 +24,12 @@ typedef struct renderer {
     struct gl_data* gl;
 } renderer;
 
+#ifdef GLAVA_DEBUG
+void rd_enable_test_mode(void);
+bool rd_get_test_mode   (void);
+bool rd_test_evaluate   (struct renderer*);
+#endif
+
 struct renderer* rd_new            (const char** paths,      const char* entry,
                                     const char** requests,   const char* force_backend,
                                     int          stdin_type, bool        auto_desktop,

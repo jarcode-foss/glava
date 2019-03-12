@@ -162,6 +162,11 @@ __GLXextFuncPtr (*glXGetProcAddressARB)    (const GLubyte *);
 void            (*glXSwapBuffers)          (Display* dpy, GLXDrawable drawable);
 void            (*glXDestroyContext)       (Display* dpy, GLXContext ctx);
 Bool            (*glXQueryVersion)         (Display* dpy, int* major, int* minor);
+#ifdef GLAVA_DEBUG
+GLXPixmap       (*glXCreateGLXPixmap)      (Display* dpy, XVisualInfo* vis, Pixmap pixmap);
+static Pixmap    test_pixmap;
+static GLXPixmap test_glxpm;
+#endif
 
 extern struct gl_wcb wcb_glx;
 
@@ -227,6 +232,9 @@ static void init(void) {
     resolve(glXSwapBuffers);
     resolve(glXDestroyContext);
     resolve(glXQueryVersion);
+    #ifdef GLAVA_DEBUG
+    resolve(glXCreateGLXPixmap);
+    #endif
 
     intern(_MOTIF_WM_HINTS,    false);
     intern(WM_DELETE_WINDOW,   true);
@@ -487,10 +495,20 @@ static void* create_and_bind(const char* name, const char* class,
     }
     
     XSync(display, False);
-    
-    glXMakeCurrent(display, w->w, w->context);
-    gladLoadGL();
 
+    #ifdef GLAVA_DEBUG
+    if (rd_get_test_mode()) {
+        test_pixmap = XCreatePixmap(display, w->w, d, h,
+                                    DefaultDepth(display, DefaultScreen(display)));
+        test_glxpm  = glXCreateGLXPixmap(display, vi, test_pixmap);
+        glXMakeCurrent(display, test_glxpm, w->context);
+    } else
+        glXMakeCurrent(display, w->w, w->context);
+    #else
+    glXMakeCurrent(display, w->w, w->context);
+    #endif
+    gladLoadGL();
+    
     GLXDrawable drawable = glXGetCurrentDrawable();
     
     if (glXSwapIntervalEXT) glXSwapIntervalEXT(display, drawable, swap);
@@ -538,6 +556,10 @@ static void set_geometry(struct glxwin* w, int x, int y, int d, int h) {
 }
 
 static void set_visible(struct glxwin* w, bool visible) {
+    #ifdef GLAVA_DEBUG
+    if (rd_get_test_mode())
+        return;
+    #endif
     if (visible) {
         XMapWindow(display, w->w);
         switch (w->override_state) {
@@ -553,6 +575,10 @@ static void set_visible(struct glxwin* w, bool visible) {
 static bool should_close (struct glxwin* w) { return w->should_close; }
 static bool bg_changed   (struct glxwin* w) { return w->bg_changed; }
 static bool should_render(struct glxwin* w) {
+    #ifdef GLAVA_DEBUG
+    if (rd_get_test_mode())
+        return true;
+    #endif
     /* For nearly all window managers, windows are 'minimized' by unmapping parent windows.
        VisibilityNotify events are not sent in these instances, so we have to read window
        attributes to see if our window isn't viewable. */
@@ -563,7 +589,14 @@ static bool should_render(struct glxwin* w) {
 }
 
 static void swap_buffers(struct glxwin* w) {
+    #ifdef GLAVA_DEBUG
+    if (rd_get_test_mode())
+        glXSwapBuffers(display, test_glxpm);
+    else
+        glXSwapBuffers(display, w->w);
+    #else
     glXSwapBuffers(display, w->w);
+    #endif
     process_events(w);
 }
 

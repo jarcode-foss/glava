@@ -139,9 +139,32 @@ struct gl_data {
     float* interpolate_buf[6];
     int geometry[4];
     int stdin_type;
+    #ifdef GLAVA_DEBUG
+    struct {
+        float r, g, b, a;
+    } test_eval_color;
+    bool debug_verbose;
+    #endif
 };
 
 
+#ifdef GLAVA_DEBUG
+static bool test_mode = false;
+static struct gl_sfbo test_sfbo = {
+    .name       = "test",
+    .shader     = 0,
+    .indirect   = false,
+    .nativeonly = false,
+    .binds      = NULL,
+    .binds_sz   = 0
+};
+void rd_enable_test_mode(void) {
+    test_mode = true;
+}
+bool rd_get_test_mode(void) {
+    return test_mode;
+}
+#endif
 
 /* load shader file */
 static GLuint shaderload(const char*             rpath,
@@ -258,8 +281,10 @@ static GLuint shaderload(const char*             rpath,
             fprintf(stderr, "Shader compilation failed for '%s':\n", path);
             fwrite(ebuf, sizeof(GLchar), ilen - 1, stderr);
             #ifdef GLAVA_DEBUG
-            fprintf(stderr, "Processed shader source for '%s':\n", path);
-            fwrite(buf, sizeof(GLchar), sl, stderr);
+            if (gl->debug_verbose) {
+                fprintf(stderr, "Processed shader source for '%s':\n", path);
+                fwrite(buf, sizeof(GLchar), sl, stderr);
+            }
             #endif
             
         free_ebuf:
@@ -732,7 +757,7 @@ struct renderer* rd_new(const char** paths,      const char* entry,
                         const char** requests,   const char* force_backend,
                         int          stdin_type, bool        auto_desktop,
                         bool         verbose) {
-
+    
     xwin_wait_for_wm();
     
     renderer* r = malloc(sizeof(struct renderer));
@@ -780,7 +805,11 @@ struct renderer* rd_new(const char** paths,      const char* entry,
         .geometry          = { 0, 0, 500, 400 },
         .clear_color       = { 0.0F, 0.0F, 0.0F, 0.0F },
         .clickthrough      = false,
-        .stdin_type        = stdin_type
+        .stdin_type        = stdin_type,
+        #ifdef GLAVA_DEBUG
+        .test_eval_color   = { 0.0F, 0.0F, 0.0F, 0.0F },
+        .debug_verbose     = verbose
+        #endif
     };
 
     bool forced = force_backend != NULL;
@@ -898,6 +927,23 @@ struct renderer* rd_new(const char** paths,      const char* entry,
                     }
                 })
         },
+        #ifdef GLAVA_DEBUG
+        {
+            .name = "settesteval", .fmt = "s",
+            .handler = RHANDLER(name, args, {
+                    float* results[] = {
+                        &gl->test_eval_color.r,
+                        &gl->test_eval_color.g,
+                        &gl->test_eval_color.b,
+                        &gl->test_eval_color.a
+                    };
+                    if (!ext_parse_color((char*) args[0], 2, results)) {
+                        fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
+                        exit(EXIT_FAILURE);
+                    }
+                })
+        },
+        #endif
         {
             .name = "setbgf", .fmt = "ffff",
             .handler = RHANDLER(name, args, {
@@ -1357,6 +1403,14 @@ struct renderer* rd_new(const char** paths,      const char* entry,
     
     gl->stages = stages;
     gl->stages_sz = count;
+
+    #ifdef GLAVA_DEBUG
+    {
+        int w, h;
+        gl->wcb->get_fbsize(gl->w, &w, &h);
+        setup_sfbo(&test_sfbo, w, h);
+    }
+    #endif
     
     {
         struct gl_sfbo* final = NULL;
@@ -1504,6 +1558,9 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 setup_sfbo(&gl->stages[t], ww, wh);
             }
         }
+        #ifdef GLAVA_DEBUG
+        setup_sfbo(&test_sfbo, ww, wh);
+        #endif
     }
 
     /* Resize and grab new background data if needed */
@@ -1630,6 +1687,12 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         /* Bind framebuffer if this is not the final pass */
         if (current->indirect)
             glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
+        
+        #ifdef GLAVA_DEBUG
+        if (!current->indirect && test_mode) {
+            glBindFramebuffer(GL_FRAMEBUFFER, test_sfbo.fbo);
+        }
+        #endif
         
         glClear(GL_COLOR_BUFFER_BIT);
         
@@ -1909,6 +1972,43 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     
     return true;
 }
+
+#ifdef GLAVA_DEBUG
+bool rd_test_evaluate(struct renderer* r) {
+    int w, h;
+    struct gl_data* gl = r->gl;
+    gl->wcb->get_fbsize(gl->w, &w, &h);
+    printf("Reading pixels from final framebuffer (%dx%d)\n", w, h);
+    float margin = 1.0 / (255.0F * 2.0F);
+    float eval[4] = {
+        gl->test_eval_color.r,
+        gl->test_eval_color.g,
+        gl->test_eval_color.b,
+        gl->test_eval_color.a
+    };
+    bool err = false;
+    for (int x = 0; x < w; ++x) {
+        for (int y = 0; y < h; ++y) {
+            float ret[4];
+            glReadPixels(x, y, 1, 1, GL_RGBA, GL_FLOAT, &ret);
+            if (ret[0] < eval[0] - margin || ret[0] > eval[0] + margin ||
+                ret[1] < eval[1] - margin || ret[1] > eval[1] + margin ||
+                ret[2] < eval[2] - margin || ret[2] > eval[2] + margin ||
+                ret[3] < eval[3] - margin || ret[3] > eval[3] + margin) {
+                fprintf(stderr, "px (%d,%d) failed test, (%f,%f,%f,%f)"
+                        " is not within margins for (%f,%f,%f,%f)\n",
+                        x, y,
+                        (double) ret[0],  (double) ret[1],  (double) ret[2],  (double) ret[3],
+                        (double) eval[0], (double) eval[1], (double) eval[2], (double) eval[3]);
+                err = true;
+                goto end_test;
+            }
+        }
+    }
+end_test:
+    return err;
+}
+#endif
 
 void*          rd_get_impl_window (struct renderer* r)  { return r->gl->w;   }
 struct gl_wcb* rd_get_wcb         (struct renderer* r)  { return r->gl->wcb; }
