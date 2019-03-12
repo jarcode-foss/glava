@@ -32,9 +32,6 @@ out vec4 fragment;
 /* This shader is based on radial.glsl, refer to it for more commentary */
 
 float apply_smooth(float theta) {
-
-    fragment = vec4(0, 0, 0, 0);
-    
     float idx = theta + ROTATE;
     float dir = mod(abs(idx), TWOPI);
     if (dir > PI)
@@ -53,6 +50,7 @@ float apply_smooth(float theta) {
 }
 
 void main() {
+    fragment = vec4(0, 0, 0, 0);
     float
         dx = gl_FragCoord.x - (screen.x / 2),
         dy = gl_FragCoord.y - (screen.y / 2);
