@@ -1,6 +1,6 @@
 
 #if PREMULTIPLY_ALPHA == 0
-#error __distablestage
+#error __disablestage
 #endif
 
 #request uniform "prev" tex
