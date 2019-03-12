@@ -922,6 +922,7 @@ struct renderer* rd_new(const char** paths,      const char* entry,
         {
             .name = "nativeonly", .fmt = "b",
             .handler = RHANDLER(name, args, {
+                    fprintf(stderr, "WARNING: `nativeonly` is deprecated, use `#if PREMULTIPLY_ALPHA == 1`!\n");
                     if (current)
                         current->nativeonly = *(bool*) args[0];
                     else {
@@ -1698,7 +1699,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 case STDIN_TYPE_VEC4:
                     glUniform4f(current->stdin_uniform,
                                 stdin_parsed.f[0], stdin_parsed.f[1],
-                                stdin_parsed.f[2], stdin_parsed.f[4]);
+                                stdin_parsed.f[2], stdin_parsed.f[3]);
                     break;
                 default: break;
             }

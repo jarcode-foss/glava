@@ -1,5 +1,7 @@
 
-#request nativeonly true
+#if PREMULTIPLY_ALPHA == 0
+#error __distablestage
+#endif
 
 #request uniform "prev" tex
 uniform sampler2D tex;
