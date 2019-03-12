@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+.SHELLFLAGS="-O extglob -c"
 
 src = $(wildcard *.c)
 obj = $(src:.c=.o)
@@ -123,7 +124,7 @@ SHADERTARGET = $(shell readlink -m "$(DESTDIR)$(SHADERDIR)")
 install:
 	install -Dm755 glava $(EXECTARGET)
 	install -d $(SHADERTARGET)
-	shopt -s extglob && cp -Rv shaders/!(test|test_rc.glsl) $(SHADERTARGET)
+	cp -Rv shaders/!(test|test_rc.glsl) $(SHADERTARGET)
 
 .PHONY: uninstall
 uninstall:
