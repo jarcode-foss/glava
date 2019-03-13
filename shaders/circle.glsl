@@ -3,7 +3,11 @@
 /* center line thickness (pixels) */
 #define C_LINE 1.5
 /* outline color */
+#if USE_STDIN == 1
+#define OUTLINE STDIN
+#else
 #define OUTLINE #333333
+#endif
 /* Amplify magnitude of the results each bar displays */
 #define AMPLIFY 150
 /* Angle (in radians) for how much to rotate the visualizer */
