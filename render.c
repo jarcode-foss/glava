@@ -1650,8 +1650,9 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                                 &stdin_parsed.f[0], &stdin_parsed.f[1],
                                 &stdin_parsed.f[2], &stdin_parsed.f[3]
                             };
-                            ext_parse_color(stdin_buf + 1, 2, ptrs);
-                            stdin_uniform_ready = true;
+                            if (ext_parse_color(stdin_buf + 1, 2, ptrs)) {
+                                stdin_uniform_ready = true;
+                            } else fprintf("Bad format for color string: \"%s\"\n", stdin_buf);
                         } else if (EOF != sscanf(stdin_buf, "%f,%f,%f,%f",
                                                  &stdin_parsed.f[0], &stdin_parsed.f[1],
                                                  &stdin_parsed.f[2], &stdin_parsed.f[3]))
