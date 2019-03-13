@@ -16,7 +16,11 @@
 /* Amplify magnitude of the results each bar displays */
 #define AMPLIFY 300
 /* Bar color */ 
+#if USE_STDIN == 1
+#define COLOR (STDIN * ((d / 40) + 1))
+#else
 #define COLOR (#cc3333 * ((d / 40) + 1))
+#endif
 /* Angle (in radians) for how much to rotate the visualizer */
 #define ROTATE (PI / 2)
 /* Whether to switch left/right audio buffers */
