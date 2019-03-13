@@ -18,7 +18,7 @@
 #request setframerate 0
 #request setfullscreencheck false
 #request setprintframes true
-#request setsamplesize 1024/
+#request setsamplesize 1024
 #request setbufsize 4096
 #request setsamplerate 22050
 #request setforcegeometry false
