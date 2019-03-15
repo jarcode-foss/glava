@@ -306,7 +306,7 @@ int main(int argc, char** argv) {
                 }
                 after:
                 if (sep >= 0) {
-                    parsed_type = strdup(optarg + sep + 1);
+                    parsed_type = optarg + sep + 1;
                     optarg[sep] = '\0';
                 }
                 parsed_name = optarg;

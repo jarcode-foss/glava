@@ -489,7 +489,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         for (size_t p = 0; p < bbuf_idx; ++p)
                             if (bbuf[p] == ':') sep = p;
                         if (sep >= 0) {
-                            parsed_default = strdup(bbuf + sep + 1);
+                            parsed_default = bbuf + sep + 1;
                             bbuf[sep] = '\0';
                         }
                         parsed_name = bbuf;
