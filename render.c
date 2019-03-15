@@ -1644,6 +1644,8 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             if (c != EOF && c != '\n')
                 stdin_buf[stdin_idx++] = c;
             else {
+                if (stdin_idx == 0)
+                    goto reset;
                 stdin_buf[stdin_idx] = '\0';
                 
                 stdin_select = gl->stdin_type;
@@ -1669,9 +1671,9 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                             break;
                         }
                     }
-                    if (!valid && !v) {
+                    if ((stdin_name && stdin_name[0] == '\0') || (!valid && !v)) {
                         /* no assignment, just a default value */
-                        stdin_name     = "";
+                        stdin_name     = PIPE_DEFAULT;
                         stdin_name_len = 0;
                         valid = true;
                     }

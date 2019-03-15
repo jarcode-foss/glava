@@ -15,6 +15,8 @@ extern const struct {
 #define STDIN_TYPE_VEC3  5
 #define STDIN_TYPE_VEC4  6
 
+#define PIPE_DEFAULT "_"
+
 struct gl_data;
 
 typedef struct renderer {

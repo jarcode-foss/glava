@@ -318,7 +318,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     bool quoted = false, arg_start, b_sep = false, b_spc = false;
     int b_br = 0;
     char cbuf[9];
-    char bbuf[128];
+    char bbuf[256];
     char** args = malloc(sizeof(char*));
     size_t args_sz = 0;
 

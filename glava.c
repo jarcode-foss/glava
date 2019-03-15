@@ -165,33 +165,29 @@ static const char* help_str =
     "Opens a window with an OpenGL context to draw an audio visualizer.\n"
     "\n"
     "Available arguments:\n"
-    "-h, --help              show this help and exit\n"
-    "-v, --verbose           enables printing of detailed information about execution\n"
-    "-d, --desktop           enables running glava as a desktop window by detecting the\n"
-    "                          desktop environment and setting the appropriate properties\n"
-    "                          automatically. Can override properties in \"rc.glsl\".\n"
-    "-r, --request=REQUEST   evaluates the specified request after loading \"rc.glsl\".\n"
-    "-m, --force-mod=NAME    forces the specified module to load instead, ignoring any\n"
-    "                          `#request mod` instances in the entry point.\n"
-    "-e, --entry=FILE        specifies the name of the file to look for when loading shaders,\n"
-    "                          by default this is \"rc.glsl\".\n"
-    "-C, --copy-config       creates copies and symbolic links in the user configuration\n"
-    "                          directory for glava, copying any files in the root directory\n"
-    "                          of the installed shader directory, and linking any modules.\n"
-    "-b, --backend           specifies a window creation backend to use. By default, the most\n"
-    "                          appropriate backend will be used for the underlying windowing\n"
-    "                          system.\n"
-    "-a, --audio=BACKEND     specifies an audio input backend to use.\n"
-    "-p, --pipe[=FORMAT]     binds a value to be read from stdin. The input my be read using\n"
+    "-h, --help               show this help and exit\n"
+    "-v, --verbose            enables printing of detailed information about execution\n"
+    "-d, --desktop            enables running glava as a desktop window by detecting the\n"
+    "                           desktop environment and setting the appropriate properties\n"
+    "                           automatically. Can override properties in \"rc.glsl\".\n"
+    "-r, --request=REQUEST    evaluates the specified request after loading \"rc.glsl\".\n"
+    "-m, --force-mod=NAME     forces the specified module to load instead, ignoring any\n"
+    "                           `#request mod` instances in the entry point.\n"
+    "-e, --entry=FILE         specifies the name of the file to look for when loading shaders,\n"
+    "                           by default this is \"rc.glsl\".\n"
+    "-C, --copy-config        creates copies and symbolic links in the user configuration\n"
+    "                           directory for glava, copying any files in the root directory\n"
+    "                           of the installed shader directory, and linking any modules.\n"
+    "-b, --backend            specifies a window creation backend to use. By default, the most\n"
+    "                           appropriate backend will be used for the underlying windowing\n"
+    "                           system.\n"
+    "-a, --audio=BACKEND      specifies an audio input backend to use.\n"
+    "-p, --pipe=BIND[:TYPE] binds a value to be read from stdin. The input my be read using\n"
     "                           `@name` or `@name:default` syntax within shader sources.\n"
     "                           A stream of inputs (each overriding the previous) must be\n"
     "                           assigned with the `name = value` syntax and separated by\n"
     "                           newline (\'\\n\') characters.\n"
-    "-i, --stdin[=OLDFORMAT] specifies a format for input to be read from stdin. The input\n"
-    "                           may be read from the STDIN macro from within shader sources.\n"
-    "                           A stream of inputs (each overriding the previous) must be\n"
-    "                           separated by newline (\'\\n\') characters.\n"
-    "-V, --version           print application version and exit\n"
+    "-V, --version            print application version and exit\n"
     "\n"
     "The REQUEST argument is evaluated identically to the \'#request\' preprocessor directive\n"
     "in GLSL files.\n"
@@ -205,8 +201,10 @@ static const char* help_str =
     "The BACKEND argument may be any of the following strings (for this particular build):\n"
     "%s"
     "\n"
-    "The OLDFORMAT argument must be a valid GLSL type. If `--stdin` is used without an argument,\n"
-    "the default type is `vec4` (type used for RGBA colors)\n"
+    "The BIND argument must a valid GLSL identifier."
+    "\n"
+    "The TYPE argument must be a valid GLSL type. If `--pipe` is used without a \n"
+    "type argument, the default type is `vec4` (type used for RGBA colors).\n"
     "\n"
     GLAVA_VERSION_STRING "\n";
 
@@ -296,25 +294,37 @@ int main(int argc, char** argv) {
                 if (stdin_type != STDIN_TYPE_NONE) goto conflict_error;
                 char* parsed_name = NULL;
                 const char* parsed_type = NULL;
-                size_t in_sz = strlen(optarg);
-                int sep = -1;
-                for (size_t t = 0; t < in_sz; ++t) {
-                    switch (optarg[t]) {
-                        case ' ': optarg[t] = '\0';    goto after;
-                        case ':': sep       = (int) t; break;
+                if (optarg) {
+                    size_t in_sz = strlen(optarg);
+                    int sep = -1;
+                    for (size_t t = 0; t < in_sz; ++t) {
+                        switch (optarg[t]) {
+                            case ' ': optarg[t] = '\0';    goto after;
+                            case ':': sep       = (int) t; break;
+                        }
                     }
-                }
                 after:
-                if (sep >= 0) {
-                    parsed_type = optarg + sep + 1;
-                    optarg[sep] = '\0';
+                    if (sep >= 0) {
+                        parsed_type = optarg + sep + 1;
+                        optarg[sep] = '\0';
+                    }
+                    parsed_name = optarg;
+                } else parsed_name = PIPE_DEFAULT;
+                if (*parsed_name == '\0') {
+                    fprintf(stderr, "Error: invalid pipe binding name: \"%s\"\n"
+                            "Zero length names are not permitted.\n", parsed_name);
+                    exit(EXIT_FAILURE);
                 }
-                parsed_name = optarg;
                 for (char* c = parsed_name; *c != '\0'; ++c) {
                     switch (*c) {
+                        case '0' ... '9':
+                            if (c == parsed_name) {
+                                fprintf(stderr, "Error: invalid pipe binding name: \"%s\" ('%c')\n"
+                                        "Valid names may not start with a number.\n", parsed_name, *c);
+                                exit(EXIT_FAILURE);
+                            }
                         case 'a' ... 'z':
                         case 'A' ... 'Z':
-                        case '0' ... '9':
                         case '_': continue;
                         default:
                             fprintf(stderr, "Error: invalid pipe binding name: \"%s\" ('%c')\n"
