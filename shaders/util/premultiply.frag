@@ -1,5 +1,5 @@
 
-#if PREMULTIPLY_ALPHA == 0
+#if __PREMULTIPLY_ALPHA == 0
 #error __disablestage
 #endif
 
@@ -11,7 +11,5 @@ in vec4 gl_FragCoord;
 
 void main() {
     fragment = texelFetch(tex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);
-    #if PREMULTIPLY_ALPHA > 0
     fragment.rgb *= fragment.a;
-    #endif
 }

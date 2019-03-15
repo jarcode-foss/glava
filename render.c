@@ -223,11 +223,11 @@ static GLuint shaderload(const char*             rpath,
     
     static const GLchar* header_fmt =
         "#version %d\n"
-        "#define UNIFORM_LIMIT %d\n"
-        "#define PRE_SMOOTHED_AUDIO %d\n"
-        "#define SMOOTH_FACTOR %.6f\n"
-        "#define USE_ALPHA %d\n"
-        "#define PREMULTIPLY_ALPHA %d\n"
+        "#define __UNIFORM_LIMIT %d\n"
+        "#define __PRE_SMOOTHED_AUDIO %d\n"
+        "#define __SMOOTH_FACTOR %.6f\n"
+        "#define __USE_ALPHA %d\n"
+        "#define __PREMULTIPLY_ALPHA %d\n"
         "#define USE_STDIN %d\n"
         "#if USE_STDIN == 1\n"
         "uniform %s STDIN;\n"
