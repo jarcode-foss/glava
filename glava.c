@@ -182,7 +182,12 @@ static const char* help_str =
     "                          appropriate backend will be used for the underlying windowing\n"
     "                          system.\n"
     "-a, --audio=BACKEND     specifies an audio input backend to use.\n"
-    "-i, --stdin[=FORMAT]    specifies a format for input to be read from stdin. The input\n"
+    "-p, --pipe[=FORMAT]     binds a value to be read from stdin. The input my be read using\n"
+    "                           `@name` or `@name:default` syntax within shader sources.\n"
+    "                           A stream of inputs (each overriding the previous) must be\n"
+    "                           assigned with the `name = value` syntax and separated by\n"
+    "                           newline (\'\\n\') characters.\n"
+    "-i, --stdin[=OLDFORMAT] specifies a format for input to be read from stdin. The input\n"
     "                           may be read from the STDIN macro from within shader sources.\n"
     "                           A stream of inputs (each overriding the previous) must be\n"
     "                           separated by newline (\'\\n\') characters.\n"
@@ -200,12 +205,12 @@ static const char* help_str =
     "The BACKEND argument may be any of the following strings (for this particular build):\n"
     "%s"
     "\n"
-    "The FORMAT argument must be a valid GLSL type. If `--stdin` is used without an argument,\n"
+    "The OLDFORMAT argument must be a valid GLSL type. If `--stdin` is used without an argument,\n"
     "the default type is `vec4` (type used for RGBA colors)\n"
     "\n"
     GLAVA_VERSION_STRING "\n";
 
-static const char* opt_str = "dhvVe:Cm:b:r:a:i::";
+static const char* opt_str = "dhvVe:Cm:b:r:a:i::p::";
 static struct option p_opts[] = {
     {"help",        no_argument,       0, 'h'},
     {"verbose",     no_argument,       0, 'v'},
@@ -216,6 +221,7 @@ static struct option p_opts[] = {
     {"force-mod",   required_argument, 0, 'm'},
     {"copy-config", no_argument,       0, 'C'},
     {"backend",     required_argument, 0, 'b'},
+    {"pipe",        optional_argument, 0, 'p'},
     {"stdin",       optional_argument, 0, 'i'},
     {"version",     no_argument,       0, 'V'},
     #ifdef GLAVA_DEBUG
@@ -233,10 +239,11 @@ static void handle_term(int signum) {
     }
 }
 
-static inline void append_buf(char** buf, size_t* sz_store, char* str) {
-    buf = realloc(buf, ++(*sz_store) * sizeof(char*));
-    buf[*sz_store - 1] = str;
-}
+#define append_buf(buf, sz_store, ...)                      \
+    ({                                                      \
+        buf = realloc(buf, ++(*sz_store) * sizeof(*buf));   \
+        buf[*sz_store - 1] = __VA_ARGS__;                   \
+    })
 
 int main(int argc, char** argv) {
 
@@ -251,8 +258,10 @@ int main(int argc, char** argv) {
     const char* system_shader_paths[] = { user_path, install_path, NULL };
     int stdin_type = STDIN_TYPE_NONE;
     
-    char** requests    = malloc(1);
-    size_t requests_sz = 0;
+    char**          requests    = malloc(1);
+    size_t          requests_sz = 0;
+    struct rd_bind* binds       = malloc(1);
+    size_t          binds_sz    = 0;
     
     bool verbose = false, copy_mode = false, desktop = false;
     
@@ -283,21 +292,77 @@ int main(int argc, char** argv) {
                 exit(EXIT_SUCCESS);
                 break;
             }
-            case 'i': {
+            case 'p': {
+                if (stdin_type != STDIN_TYPE_NONE) goto conflict_error;
+                char* parsed_name = NULL;
+                const char* parsed_type = NULL;
+                size_t in_sz = strlen(optarg);
+                int sep = -1;
+                for (size_t t = 0; t < in_sz; ++t) {
+                    switch (optarg[t]) {
+                        case ' ': optarg[t] = '\0';    goto after;
+                        case ':': sep       = (int) t; break;
+                    }
+                }
+                after:
+                if (sep >= 0) {
+                    parsed_type = strdup(optarg + sep + 1);
+                    optarg[sep] = '\0';
+                }
+                parsed_name = optarg;
+                for (size_t t = 0; t < binds_sz; ++t) {
+                    if (!strcmp(binds[t].name, parsed_name)) {
+                        fprintf(stderr, "Error: attempted to re-bind pipe argument: \"%s\"\n", parsed_name);
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                int type = -1;
+                if (parsed_type == NULL || strlen(parsed_type) == 0) {
+                    type = STDIN_TYPE_VEC4;
+                    parsed_type = bind_types[STDIN_TYPE_VEC4].n;
+                } else {
+                    for (size_t t = 0 ; bind_types[t].n != NULL; ++t) {
+                        if (!strcmp(bind_types[t].n, parsed_type)) {
+                            type = bind_types[t].i;
+                            parsed_type = bind_types[t].n;
+                            break;
+                        }
+                    }
+                }
+                if (type == -1) {
+                    fprintf(stderr, "Error: Unsupported `--pipe` GLSL type: \"%s\"\n", parsed_type);
+                    exit(EXIT_FAILURE);
+                }
+                struct rd_bind bd = {
+                    .name  = parsed_name,
+                    .type  = type,
+                    .stype = parsed_type
+                };
+                append_buf(binds, &binds_sz, bd);
+                break;
+            }
+            case 'i': { /* TODO: remove */
+                if (binds_sz > 0) goto conflict_error;
                 stdin_type = -1;
-                for (size_t t = 0 ; stdin_types[t].n != NULL; ++t) {
-                    if (optarg == NULL) {
-                        stdin_type = STDIN_TYPE_VEC4;
-                    } else if (!strcmp(stdin_types[t].n, optarg)) {
-                        stdin_type = stdin_types[t].i;
-                        break;
+                if (optarg == NULL) {
+                    stdin_type = STDIN_TYPE_VEC4;
+                } else {
+                    for (size_t t = 0 ; bind_types[t].n != NULL; ++t) {
+                        if (!strcmp(bind_types[t].n, optarg)) {
+                            stdin_type = bind_types[t].i;
+                            break;
+                        }
                     }
                 }
                 if (stdin_type == -1) {
-                    fprintf(stderr, "Unsupported `--stdin` GLSL type: \"%s\"\n", optarg);
+                    fprintf(stderr, "Error: Unsupported `--stdin` GLSL type: \"%s\"\n", optarg);
                     exit(EXIT_FAILURE);
                 }
+                break;
             }
+            conflict_error:
+                fprintf(stderr, "Error: cannot use `--pipe` and `--stdin` together\n");
+                exit(EXIT_FAILURE);
                 #ifdef GLAVA_DEBUG
             case 'T': {
                 entry = "test_rc.glsl";
@@ -322,9 +387,10 @@ int main(int argc, char** argv) {
 
     /* Null terminate array arguments */
     append_buf(requests, &requests_sz, NULL);
+    append_buf(binds,    &binds_sz,    (struct rd_bind) { .name = NULL });
 
     rd = rd_new(system_shader_paths, entry, (const char**) requests,
-                backend, stdin_type, desktop, verbose);
+                backend, binds, stdin_type, desktop, verbose);
     
     struct sigaction action = { .sa_handler = handle_term };
     sigaction(SIGTERM, &action, NULL);

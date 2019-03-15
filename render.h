@@ -5,7 +5,7 @@
 extern const struct {
     const char* n;
     int i;
-} stdin_types[];
+} bind_types[];
 
 #define STDIN_TYPE_NONE  0
 #define STDIN_TYPE_INT   1
@@ -24,16 +24,22 @@ typedef struct renderer {
     struct gl_data* gl;
 } renderer;
 
+struct rd_bind {
+    const char* name;
+    const char* stype;
+    int type;
+};
+
 #ifdef GLAVA_DEBUG
 void rd_enable_test_mode(void);
 bool rd_get_test_mode   (void);
 bool rd_test_evaluate   (struct renderer*);
 #endif
 
-struct renderer* rd_new            (const char** paths,      const char* entry,
-                                    const char** requests,   const char* force_backend,
-                                    int          stdin_type, bool        auto_desktop,
-                                    bool         verbose);
+struct renderer* rd_new            (const char**    paths,        const char* entry,
+                                    const char**    requests,     const char* force_backend,
+                                    struct rd_bind* bindings,     int         stdin_type,
+                                    bool            auto_desktop, bool        verbose);
 bool             rd_update         (struct renderer*, float* lb, float* rb,
                                     size_t bsz, bool modified);
 void             rd_destroy        (struct renderer*);

@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "render.h"
 #include "glsl_ext.h"
 
 #define LINE_START 0
@@ -22,6 +23,7 @@
 #define INCLUDE 4
 #define COLOR 5
 #define DEFINE 6
+#define BIND 7
 
 struct sbuf {
     char* buf;
@@ -65,12 +67,16 @@ static void se_append(struct sbuf* sbuf, size_t elen, const char* fmt, ...) {
 }
 
 #define parse_error(line, f, fmt, ...)                                  \
-    fprintf(stderr, "[%s:%d] " fmt "\n", f, (int) line, __VA_ARGS__);   \
-    abort()
+    do {                                                                \
+        fprintf(stderr, "[%s:%d] " fmt "\n", f, (int) line, __VA_ARGS__); \
+        abort();                                                        \
+    } while (0)
 
-#define parse_error_s(line, f, s)                       \
-    fprintf(stderr, "[%s:%d] " s "\n", f, (int) line);  \
-    abort()
+#define parse_error_s(line, f, s)                           \
+    do {                                                    \
+        fprintf(stderr, "[%s:%d] " s "\n", f, (int) line);  \
+        abort();                                            \
+    } while (0)
 
 struct schar {
     char* buf;
@@ -196,7 +202,8 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                 .cd          = ext->cd,
                 .cfd         = ext->cfd,
                 .dd          = ext->dd,
-                .handlers    = ext->handlers
+                .handlers    = ext->handlers,
+                .binds       = ext->binds
             };
 
             /* recursively process */
@@ -306,10 +313,12 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     size_t t;
     char at;
     int state = LINE_START;
-    size_t macro_start_idx, arg_start_idx, cbuf_idx;
+    size_t macro_start_idx, arg_start_idx, cbuf_idx, bbuf_idx;
     size_t line = 1;
-    bool quoted = false, arg_start;
+    bool quoted = false, arg_start, b_sep = false, b_spc = false;
+    int b_br = 0;
     char cbuf[9];
+    char bbuf[128];
     char** args = malloc(sizeof(char*));
     size_t args_sz = 0;
 
@@ -385,6 +394,17 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             continue;
                         } else goto normal_char;
                     }
+                    case '@': {
+                        /* handle bind syntax */
+                        if (!comment && !string && ext->binds != NULL) {
+                            state = BIND;
+                            b_sep = false;
+                            b_spc = false;
+                            b_br  = 0;
+                            bbuf_idx = 0;
+                            continue;
+                        } else goto normal_char;
+                    }
                     case '\n':
                         if (comment && comment_line) {
                             comment = false;
@@ -426,6 +446,83 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         else goto copy; /* copy character if it ended the sequence */
                 }
             }
+            case BIND: { /* parse bind syntax (@name:default -> __IN_name | default)*/
+                switch (at) {
+                    default:
+                        if (b_br > 0) goto handle_bind; /* store characters in braces */
+                        else          goto emit_bind;   /* emit on unexpected char outside braces */
+                    case '(':
+                        if (b_sep) {
+                            ++b_br; goto handle_bind; /* inc. brace level */
+                        } else      goto emit_bind;   /* emit if wrong context: `@sym(`, `@(` (no ':') */
+                    case ')':
+                        if (b_br <= 0 || !b_sep) goto emit_bind; /* start emitting on unexpected ')': `@sym:v)`, `@s)` */
+                        else {
+                            --b_br;
+                            if (b_br == 0) goto emit_bind;   /* emit after reading brace contents */
+                            else           goto handle_bind; /* continue reading if nested */
+                        }
+                    case ' ': if (b_br <= 0) b_spc = true;   /* flag a non-braced space */
+                    case '#':
+                        if (b_sep) goto handle_bind;         /* handle color syntax only for defaults */
+                        else       goto emit_bind;           /* if '#' is encountered, skip to emit */
+                    case ':': b_sep = true;
+                    handle_bind: /* use character for binding syntax */
+                    case 'a' ... 'z':
+                    case 'A' ... 'Z':
+                    case '0' ... '9': {
+                        if (b_spc && b_br <= 0)
+                            goto emit_bind; /* skip non-braced characters after space: `@sym:vec4 c` */
+                        bbuf[bbuf_idx] = at;
+                        ++bbuf_idx;
+                        if (bbuf_idx >= sizeof(bbuf) - 1)
+                            goto emit_bind; /* start emitting if buffer was filled */
+                        else continue;
+                    }
+                    emit_bind: /* end binding syntax with current char */
+                    case '\n':
+                    case '\0': {
+                        const char* parsed_name    = NULL;
+                        const char* parsed_default = NULL;
+                        bbuf[bbuf_idx] = '\0'; /* null terminate */
+                        int sep = -1;
+                        for (size_t p = 0; p < bbuf_idx; ++p)
+                            if (bbuf[p] == ':') sep = p;
+                        if (sep >= 0) {
+                            parsed_default = strdup(bbuf + sep + 1);
+                            bbuf[sep] = '\0';
+                        }
+                        parsed_name = bbuf;
+                        bool m = false;
+                        for (struct rd_bind* bd = ext->binds; bd->name != NULL; ++bd) {
+                            if (!strcmp(parsed_name, bd->name)) {
+                                se_append(&sbuf, 128, " __IN_%s ", parsed_name);
+                                m = true;
+                                break;
+                            }
+                        }
+                        if (!m) {
+                            if (parsed_default) {
+                                if (parsed_default[0] == '#') {
+                                    ++parsed_default;
+                                    float r = 0.0F, g = 0.0F, b = 0.0F, a = 1.0F;
+                                    if (ext_parse_color(parsed_default, 2, (float*[]) { &r, &g, &b, &a })) {
+                                        se_append(&sbuf, 64, " vec4(%.6f, %.6f, %.6f, %.6f) ", r, g, b, a);
+                                    } else {
+                                        parse_error(line, f, "Invalid color format '#%s' while "
+                                                    "parsing GLSL color syntax extension", parsed_default);
+                                    }
+                                } else se_append(&sbuf, 260, " %s ", parsed_default);
+                            } else parse_error(line, f, "Unexpected `--pipe` binding name '@%s' while parsing GLSL."
+                                               " Try assigning a default or binding the value.", parsed_name);
+                        }
+                        state = at == '\n' ? LINE_START : GLSL;
+                        if (bbuf_idx >= sizeof(bbuf) - 1)
+                            continue;
+                        else goto copy; /* copy character if it ended the sequence */
+                    }
+                }
+            }
                 /* emit contents from start of macro to current index and resume regular parsing*/
                 #define skip_macro()                                    \
                     do {                                                \
@@ -444,7 +541,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             (!strncmp("#" lower, &ext->source[macro_start_idx], t - macro_start_idx) \
                                 || !strncmp("#" upper, &ext->source[macro_start_idx], t - macro_start_idx))
                         #define DIRECTIVE_CASE(lower, upper)            \
-                            do { if (state == MACRO && DIRECTIVE_CMP(#lower, #upper)) { state = upper; goto prepare_arg_parse; } } while (0)
+                            ({ if (state == MACRO && DIRECTIVE_CMP(#lower, #upper)) \
+                               { state = upper; goto prepare_arg_parse; } })
                         
                         DIRECTIVE_CASE(request, REQUEST);
                         DIRECTIVE_CASE(include, INCLUDE);

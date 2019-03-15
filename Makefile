@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.SHELLFLAGS="-O extglob -c"
+.SHELLFLAGS = -O extglob -c
 
 src = $(wildcard *.c)
 obj = $(src:.c=.o)

@@ -13,7 +13,7 @@
 #define AMPLIFY 300
 /* Whether the current settings use the alpha channel;
    enabling this is required for alpha to function
-   correctly on X11 with `"native"` transparency. */
+   correctly on X11 with `"native"` transparency */
 #define USE_ALPHA 0
 /* How strong the gradient changes */
 #define GRADIENT_POWER 60
