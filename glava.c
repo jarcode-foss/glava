@@ -364,8 +364,10 @@ int main(int argc, char** argv) {
                 append_buf(binds, &binds_sz, bd);
                 break;
             }
-            case 'i': { /* TODO: remove */
+            case 'i': {
                 if (binds_sz > 0) goto conflict_error;
+                fprintf(stderr, "Warning: `--stdin` is deprecated and will be "
+                        "removed in a future release, use `--pipe` instead. \n");
                 stdin_type = -1;
                 if (optarg == NULL) {
                     stdin_type = STDIN_TYPE_VEC4;
