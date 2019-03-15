@@ -470,7 +470,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                     handle_bind: /* use character for binding syntax */
                     case 'a' ... 'z':
                     case 'A' ... 'Z':
-                    case '0' ... '9': {
+                    case '0' ... '9':
+                    case '_': {
                         if (b_spc && b_br <= 0)
                             goto emit_bind; /* skip non-braced characters after space: `@sym:vec4 c` */
                         bbuf[bbuf_idx] = at;
