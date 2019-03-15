@@ -310,6 +310,19 @@ int main(int argc, char** argv) {
                     optarg[sep] = '\0';
                 }
                 parsed_name = optarg;
+                for (char* c = parsed_name; *c != '\0'; ++c) {
+                    switch (*c) {
+                        case 'a' ... 'z':
+                        case 'A' ... 'Z':
+                        case '0' ... '9':
+                        case '_': continue;
+                        default:
+                            fprintf(stderr, "Error: invalid pipe binding name: \"%s\" ('%c')\n"
+                                    "Valid names may only contain [a..z], [A..Z], [0..9] "
+                                    "and '_' characters.\n", parsed_name, *c);
+                            exit(EXIT_FAILURE);
+                    }
+                }
                 for (size_t t = 0; t < binds_sz; ++t) {
                     if (!strcmp(binds[t].name, parsed_name)) {
                         fprintf(stderr, "Error: attempted to re-bind pipe argument: \"%s\"\n", parsed_name);
