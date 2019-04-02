@@ -471,7 +471,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         if (b_br > 0) goto handle_bind; /* store characters in braces */
                         else          goto emit_bind;   /* emit on unexpected char outside braces */
                     case '(':
-                        if (b_sep) {
+                        if (b_sep && !b_spc) {
                             ++b_br; goto handle_bind; /* inc. brace level */
                         } else      goto emit_bind;   /* emit if wrong context: `@sym(`, `@(` (no ':') */
                     case ')':
@@ -479,8 +479,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         if (b_br <= 0 || !b_sep) goto emit_bind;
                         else {
                             --b_br;
-                            if (b_br == 0) goto emit_bind;   /* emit after reading brace contents */
-                            else           goto handle_bind; /* continue reading if nested */
+                            if (b_br <= 0) b_spc = true;
+                            goto handle_bind; /* dec. brace level */
                         }
                     case ' ': if (b_br <= 0) b_spc = true;   /* flag a non-braced space */
                     case '#': case '+': case '-':
@@ -496,7 +496,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                     case 'A' ... 'Z':
                     case '0' ... '9':
                     case '_': {
-                        if (b_spc && b_br <= 0)
+                        if (b_spc && at != ')')
                             goto emit_bind; /* skip non-braced characters after space: `@sym:vec4 c` */
                         if (b_sep && at != ':')
                             b_pre = false;
