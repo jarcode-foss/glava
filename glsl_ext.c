@@ -330,7 +330,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     int state = LINE_START;
     size_t macro_start_idx, arg_start_idx, cbuf_idx, bbuf_idx;
     size_t line = 1;
-    bool quoted = false, arg_start, b_sep = false, b_spc = false;
+    bool quoted = false, arg_start, b_sep = false, b_spc = false, b_pre = true;
     int b_br = 0;
     char cbuf[9];
     char bbuf[256];
@@ -417,6 +417,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             state = BIND;
                             b_sep = false;
                             b_spc = false;
+                            b_pre = true;
                             b_br  = 0;
                             bbuf_idx = 0;
                             continue;
@@ -480,9 +481,11 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             else           goto handle_bind; /* continue reading if nested */
                         }
                     case ' ': if (b_br <= 0) b_spc = true;   /* flag a non-braced space */
-                    case '#':
-                        if (b_sep) goto handle_bind;         /* handle color syntax only for defaults */
-                        else       goto emit_bind;           /* if '#' is encountered, skip to emit */
+                    case '#': case '+': case '-':
+                    case '!': case '~': case '&':
+                        if (b_sep && (b_br > 0 || b_pre))
+                            goto handle_bind; /* handle precede syntax only for defaults */
+                        else goto emit_bind;  /* if encountered, skip to emit */
                     case ':': b_sep = true;
                     handle_bind: /* use character for binding syntax */
                     case 'a' ... 'z':
@@ -491,6 +494,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                     case '_': {
                         if (b_spc && b_br <= 0)
                             goto emit_bind; /* skip non-braced characters after space: `@sym:vec4 c` */
+                        if (b_sep && at != ':')
+                            b_pre = false;
                         bbuf[bbuf_idx] = at;
                         ++bbuf_idx;
                         if (bbuf_idx >= sizeof(bbuf) - 1)
