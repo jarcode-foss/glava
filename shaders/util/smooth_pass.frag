@@ -6,8 +6,8 @@ uniform int w;
 out vec4 fragment;
 in vec4 gl_FragCoord;
 
-#undef __PRE_SMOOTHED_AUDIO
-#define __PRE_SMOOTHED_AUDIO 0
+#undef _PRE_SMOOTHED_AUDIO
+#define _PRE_SMOOTHED_AUDIO 0
 
 #include ":util/smooth.glsl"
 

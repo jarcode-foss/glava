@@ -1,5 +1,5 @@
 
-#if __PREMULTIPLY_ALPHA == 0
+#if _PREMULTIPLY_ALPHA == 0
 #error __disablestage
 #endif
 

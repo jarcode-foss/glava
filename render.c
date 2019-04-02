@@ -212,7 +212,7 @@ static GLuint shaderload(const char*             rpath,
     bind_header[0] = '\0';
     size_t bh_idx = 0;
 
-    const char* fmt = "uniform %s __IN_%s;\n";
+    const char* fmt = "uniform %s _IN_%s;\n";
 
     for (struct rd_bind* bd = gl->binds; bd->name != NULL; ++bd) {
         size_t inc = snprintf(NULL, 0, fmt, bd->stype, bd->name);
@@ -223,11 +223,11 @@ static GLuint shaderload(const char*             rpath,
     
     static const GLchar* header_fmt =
         "#version %d\n"
-        "#define __UNIFORM_LIMIT %d\n"
-        "#define __PRE_SMOOTHED_AUDIO %d\n"
-        "#define __SMOOTH_FACTOR %.6f\n"
-        "#define __USE_ALPHA %d\n"
-        "#define __PREMULTIPLY_ALPHA %d\n"
+        "#define _UNIFORM_LIMIT %d\n"
+        "#define _PRE_SMOOTHED_AUDIO %d\n"
+        "#define _SMOOTH_FACTOR %.6f\n"
+        "#define _USE_ALPHA %d\n"
+        "#define _PREMULTIPLY_ALPHA %d\n"
         "#define USE_STDIN %d\n"
         "#if USE_STDIN == 1\n"
         "uniform %s STDIN;\n"
@@ -297,7 +297,32 @@ static GLuint shaderload(const char*             rpath,
             }
             
             fprintf(stderr, "Shader compilation failed for '%s':\n", path);
-            fwrite(ebuf, sizeof(GLchar), ilen - 1, stderr);
+            int ln_start = 0, col_start = 0;
+            for (int i = 0; i < ilen; ++i) {
+                switch (ebuf[i]) {
+                    newline:
+                    case '\n': {
+                        int ret = -1, sz = (i - ln_start) + 1;
+                        char fmt[]  = { '%', '0' + (sz > 9 ? 9 : sz), 'd', '\0' };
+                        if (ext.ss_lookup && sscanf(ebuf + ln_start, fmt, &ret) > 0) {
+                            fprintf(stderr, "\"%s\":", ext.ss_lookup[ret]);
+                        }
+                        sz -= col_start - ln_start;
+                        if (sz > 0)
+                            fwrite(ebuf + col_start, sizeof(GLchar), sz, stderr);
+                        ln_start = i + 1;
+                        col_start = ln_start;
+                        break;
+                    }
+                    case ':':
+                        if (col_start <= ln_start)
+                            col_start = i + 1;
+                    default:
+                        if (i == ilen - 1) goto newline;
+                        break;
+                        
+                }
+            }
             #ifdef GLAVA_DEBUG
             if (gl->debug_verbose) {
                 fprintf(stderr, "Processed shader source for '%s':\n", path);
@@ -1388,8 +1413,9 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                             bool skip;
                             GLuint id = shaderbuild(gl, shaders, data, dd, handlers, shader_version, &skip, d->d_name);
                             if (skip && verbose) printf("disabled: '%s'\n", d->d_name);
+                            /* check for compilation failure */
                             if (!id && !skip)
-                                abort();
+                                exit(EXIT_FAILURE);
 
                             s->shader = id;
 
@@ -1415,7 +1441,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                                 size_t u = 0;
                                 for (struct rd_bind* bd = gl->binds; bd->name != NULL; ++bd) {
                                     char buf[128];
-                                    if (snprintf(buf, 128, "__IN_%s", bd->name) > 0) {
+                                    if (snprintf(buf, 128, "_IN_%s", bd->name) > 0) {
                                         s->pipe_uniforms[u] = glGetUniformLocation(id, buf);
                                     } else {
                                         fprintf(stderr, "failed to format binding: \"%s\"\n", bd->name);

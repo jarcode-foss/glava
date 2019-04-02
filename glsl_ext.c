@@ -203,14 +203,18 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                 .cfd         = ext->cfd,
                 .dd          = ext->dd,
                 .handlers    = ext->handlers,
-                .binds       = ext->binds
+                .binds       = ext->binds,
+                .ss_lookup   = ext->ss_lookup,
+                .ss_len      = ext->ss_len
             };
 
             /* recursively process */
             ext_process(&next, target);
             inherit(ext, &next);
             munmap(map, st.st_size);
-        
+
+            ext->ss_lookup = next.ss_lookup;
+            
             struct schar ret = {
                 .buf = next.processed,
                 .sz  = next.p_len
@@ -302,6 +306,17 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     
     ext->destruct    = malloc(1);
     ext->destruct_sz = 0;
+
+    if (!ext->ss_lookup) {
+        ext->ss_lookup = malloc(sizeof(ext->ss_lookup[0]));
+        ext->ss_len_s  = 0;
+        ext->ss_len    = &ext->ss_len_s;
+        ext->ss_own    = true;
+    } else ext->ss_own = false;
+
+    ext->ss_lookup = realloc(ext->ss_lookup, sizeof(ext->ss_lookup[0]) * ++(*ext->ss_len));
+    int ss_cur = *ext->ss_len - 1;
+    ext->ss_lookup[ss_cur] = strdup(f);
     
     struct sbuf sbuf = {
         .buf   = malloc(256),
@@ -324,7 +339,9 @@ void ext_process(struct glsl_ext* ext, const char* f) {
 
     bool prev_slash = false, comment = false, comment_line = false, prev_asterix = false,
         prev_escape = false, string = false;
-     
+    
+    se_append(&sbuf, 32, "#line 1 %d\n", ss_cur);
+    
     for (t = 0; t <= source_len; ++t) {
         at = source_len == t ? '\0' : ext->source[t];
         if (at == '\n')
@@ -605,6 +622,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             if (r.buf) {
                                 n_append(&sbuf, r.sz, r.buf);
                                 append(&sbuf, "\n");
+                                se_append(&sbuf, 48, "#line %d %d\n", line, ss_cur);
                             }
                             if (state == DEFINE) skip_macro();
                             else state = LINE_START;
@@ -651,10 +669,14 @@ void ext_process(struct glsl_ext* ext, const char* f) {
 }
 
 void ext_free(struct glsl_ext* ext) {
-    free(ext->processed);
     size_t t;
-    for (t = 0; t < ext->destruct_sz; ++t) {
-        free(ext->destruct[t]);
+    free(ext->processed);
+    if (ext->ss_own) {
+        for (t = 0; t < ext->ss_len_s; ++t)
+            free(ext->ss_lookup[t]);
+        free(ext->ss_lookup);
     }
+    for (t = 0; t < ext->destruct_sz; ++t)
+        free(ext->destruct[t]);
     free(ext->destruct);
 }

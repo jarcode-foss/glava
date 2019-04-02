@@ -31,6 +31,10 @@ struct glsl_ext {
     struct rd_bind* binds;    /* OPT IN: --pipe binds                                        */
     void**       destruct;    /* internal */
     size_t       destruct_sz; /* internal */
+    char**       ss_lookup;   /* source-string lookup table */
+    size_t*      ss_len;
+    size_t       ss_len_s;
+    bool         ss_own;
 
     /* IN: NULL (where the last element's 'name' member is NULL) terminated
        array of request handlers */

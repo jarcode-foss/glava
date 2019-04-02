@@ -34,14 +34,14 @@ float iscale_audio(float idx) {
     return -log((SAMPLE_RANGE) * idx) / (SAMPLE_SCALE);
 }
 
-/* Note: the __SMOOTH_FACTOR macro is defined by GLava itself, from `#request setsmoothfactor`*/
+/* Note: the _SMOOTH_FACTOR macro is defined by GLava itself, from `#request setsmoothfactor`*/
 
 float smooth_audio(in sampler1D tex, int tex_sz, highp float idx) {
     
-    #if __PRE_SMOOTHED_AUDIO < 1
+    #if _PRE_SMOOTHED_AUDIO < 1
     float
-        smin = scale_audio(clamp(idx - __SMOOTH_FACTOR, 0, 1)) * tex_sz,
-        smax = scale_audio(clamp(idx + __SMOOTH_FACTOR, 0, 1)) * tex_sz;
+        smin = scale_audio(clamp(idx - _SMOOTH_FACTOR, 0, 1)) * tex_sz,
+        smax = scale_audio(clamp(idx + _SMOOTH_FACTOR, 0, 1)) * tex_sz;
     float m = ((smax - smin) / 2.0F), s, w;
     float rm = smin + m; /* middle */
     
