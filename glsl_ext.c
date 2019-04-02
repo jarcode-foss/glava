@@ -328,7 +328,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     size_t t;
     char at;
     int state = LINE_START;
-    size_t macro_start_idx, arg_start_idx, cbuf_idx, bbuf_idx;
+    size_t macro_start_idx, arg_start_idx, cbuf_idx, bbuf_idx, b_restart;
     size_t line = 1;
     bool quoted = false, arg_start, b_sep = false, b_spc = false, b_pre = true;
     int b_br = 0;
@@ -419,7 +419,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             b_spc = false;
                             b_pre = true;
                             b_br  = 0;
-                            bbuf_idx = 0;
+                            b_restart = 0;
+                            bbuf_idx  = 0;
                             continue;
                         } else goto normal_char;
                     }
@@ -474,7 +475,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             ++b_br; goto handle_bind; /* inc. brace level */
                         } else      goto emit_bind;   /* emit if wrong context: `@sym(`, `@(` (no ':') */
                     case ')':
-                        if (b_br <= 0 || !b_sep) goto emit_bind; /* start emitting on unexpected ')': `@sym:v)`, `@s)` */
+                        /* start emitting on unexpected ')': `@sym:v)`, `@s)` */
+                        if (b_br <= 0 || !b_sep) goto emit_bind;
                         else {
                             --b_br;
                             if (b_br == 0) goto emit_bind;   /* emit after reading brace contents */
@@ -486,7 +488,9 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         if (b_sep && (b_br > 0 || b_pre))
                             goto handle_bind; /* handle precede syntax only for defaults */
                         else goto emit_bind;  /* if encountered, skip to emit */
-                    case ':': b_sep = true;
+                    case ':':
+                        if (!b_sep) b_restart = t;
+                        b_sep = true;
                     handle_bind: /* use character for binding syntax */
                     case 'a' ... 'z':
                     case 'A' ... 'Z':
@@ -519,23 +523,16 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         bool m = false;
                         for (struct rd_bind* bd = ext->binds; bd->name != NULL; ++bd) {
                             if (!strcmp(parsed_name, bd->name)) {
-                                se_append(&sbuf, 128, " __IN_%s ", parsed_name);
+                                se_append(&sbuf, 128, " _IN_%s ", parsed_name);
                                 m = true;
                                 break;
                             }
                         }
                         if (!m) {
-                            if (parsed_default) {
-                                if (parsed_default[0] == '#') {
-                                    ++parsed_default;
-                                    float r = 0.0F, g = 0.0F, b = 0.0F, a = 1.0F;
-                                    if (ext_parse_color(parsed_default, 2, (float*[]) { &r, &g, &b, &a })) {
-                                        se_append(&sbuf, 64, " vec4(%.6f, %.6f, %.6f, %.6f) ", r, g, b, a);
-                                    } else {
-                                        parse_error(line, f, "Invalid color format '#%s' while "
-                                                    "parsing GLSL color syntax extension", parsed_default);
-                                    }
-                                } else se_append(&sbuf, 260, " %s ", parsed_default);
+                            if (parsed_default && b_restart > 0) {
+                                /* To emit the default, we push back the cursor to where it starts
+                                   and simply resume parsing from a normal context. */
+                                t = b_restart;
                             } else parse_error(line, f, "Unexpected `--pipe` binding name '@%s' while parsing GLSL."
                                                " Try assigning a default or binding the value.", parsed_name);
                         }
