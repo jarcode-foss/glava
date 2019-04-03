@@ -35,6 +35,8 @@ If you use GNU Emacs, the above style can be configured via the following elisp:
 
 If you author and maintain your own shader module for GLava, you are free to use your preferred code style. Otherwise, shaders follow the same style as GLava's C sources.
 
+The only exception to this is a hard rule for builtin prefixes. Variables should _never_ start with an underscore, as `__` are reserved by the GLSL compiler, and `_` are reserved for GLava builtins and namespaces. 
+
 ## Pull Requests
 
 You are free to make pull requests for any change, even if you are not sure if the proposed changes are appropriate. @wacossusca34 and/or @coderobe will be able to suggest changes or commentary on the PR if there is a reason it is not acceptable.
