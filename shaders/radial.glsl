@@ -4,19 +4,17 @@
 /* center line thickness (pixels) */
 #define C_LINE 2
 /* outline color */
-#define OUTLINE #333333
+#define OUTLINE @bg:#333333
 /* number of bars (use even values for best results) */
-#define NBARS 180
+#define NBARS 160
 /* width (in pixels) of each bar*/
-#define BAR_WIDTH 3.5
-/* outline color */
-#define BAR_OUTLINE OUTLINE
-/* outline width (in pixels, set to 0 to disable outline drawing) */
-#define BAR_OUTLINE_WIDTH 0
+#define BAR_WIDTH 4.5
 /* Amplify magnitude of the results each bar displays */
 #define AMPLIFY 300
-/* Bar color */ 
-#define COLOR (#cc3333 * ((d / 40) + 1))
+/* How quickly the gradient transitions, in pixels */
+#define GRADIENT 95
+/* Bar color. This is a gradient by default. */
+#define COLOR @fg:mix(#cc3333, #cca0a0, clamp(d / GRADIENT, 0, 1))
 /* Angle (in radians) for how much to rotate the visualizer */
 #define ROTATE (PI / 2)
 /* Whether to swap left/right audio buffers, set to 1 to enable */
@@ -34,6 +32,10 @@
 
 /* Gravity step, override from `smooth_parameters.glsl` */
 #request setgravitystep 5.0
-
 /* Smoothing factor, override from `smooth_parameters.glsl` */
 #request setsmoothfactor 0.02
+
+/* (DEPRECATED) outline color */
+#define BAR_OUTLINE OUTLINE
+/* (DEPRECATED) outline width (in pixels, set to 0 to disable outline drawing) */
+#define BAR_OUTLINE_WIDTH 0

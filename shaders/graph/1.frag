@@ -108,10 +108,11 @@ void render_side(in sampler1D tex, float idx) {
 
     /* and finally set fragment color if we are in range */
     #if INVERT > 0
-    float pos = float(screen.y) - gl_FragCoord.y;
+    float d = float(screen.y) - gl_FragCoord.y;
     #else
-    float pos = gl_FragCoord.y;
+    float d = gl_FragCoord.y;
     #endif
+    #define pos d
     if (pos + 1.5 <= s) {
         fragment = COLOR;
     } else {

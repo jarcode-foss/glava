@@ -536,10 +536,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             } else parse_error(line, f, "Unexpected `--pipe` binding name '@%s' while parsing GLSL."
                                                " Try assigning a default or binding the value.", parsed_name);
                         }
-                        state = at == '\n' ? LINE_START : GLSL;
-                        if (bbuf_idx >= sizeof(bbuf) - 1)
-                            continue;
-                        else goto copy; /* copy character if it ended the sequence */
+                        state = GLSL;
+                        continue;
                     }
                 }
             }
