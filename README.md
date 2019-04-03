@@ -8,12 +8,16 @@
 ```bash
 $ git clone https://github.com/wacossusca34/glava
 $ cd glava
-$ CFLAGS="-march=native" make
-$ sudo make install
+$ CFLAGS="-march=native" meson build
+$ ninja -C build
+$ cd build
+$ sudo meson install
 $ glava
 ```
 
-You can pass `BUILD=debug` to the makefile for debug builds of both glad and glava, and you can manually specify install targets with `INSTALL=...`, possible arguments are `unix` for FHS compliant Linux and BSD distros, `osx` for Mac OSX, and `standalone` which allows you to run GLava in the build directory.
+You can run `meson configure` in the project directory to get a list of available compile-time configuration options.  
+
+You can pass `-DDEBUG` to meson for debug builds of both glad (only with `-Dglad`) and glava, `-Dstandalone` allows you to run GLava in the build directory.
 
 **Requirements:**
 
@@ -23,6 +27,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 **Additional compile time requirements:**
 
+- Meson
 - GCC (this program uses GNU C features)
 
 **Optional requirements:**
@@ -31,7 +36,7 @@ You can pass `BUILD=debug` to the makefile for debug builds of both glad and gla
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
-sudo apt-get install libpulse0 libpulse-dev libxext6 libxext-dev libxrender-dev libxcomposite-dev make gcc 
+sudo apt-get install libpulse0 libpulse-dev libxext6 libxext-dev libxrender-dev libxcomposite-dev meson gcc 
 ```
 
 ## Installation

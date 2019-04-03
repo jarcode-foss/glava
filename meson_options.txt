@@ -1,0 +1,5 @@
+option('shaderdir', type: 'string', value: '/etc/xdg/glava/', description: 'Default shader directory')
+option('enable_glfw', type: 'boolean', value: false, description: 'Enable GLFW backend')
+option('disable_glx', type: 'boolean', value: false, description: 'Disable GLX')
+option('standalone', type: 'boolean', value: false, description: 'OS-independent build')
+option('glad', type: 'boolean', value: false, description: 'Regenerate GLAD')
