@@ -97,9 +97,8 @@ executable(
 	'glava-config',
 	sources: run_command('find', 'glava-config', '-type', 'f', '-name', '*.c', '-print').stdout().strip().split('\n'),
 	dependencies: [
-		dependency('glew'),
-		cc.find_library('glfw'),
-		cc.find_library('GL')
+		cc.find_library('GL'),
+		cc.find_library('X11')
 	],
 	c_args: '-Wunused-but-set-variable',
 	install: true
