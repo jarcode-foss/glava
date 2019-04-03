@@ -43,13 +43,13 @@ Some distributions have a package for `glava`. If your distribution is not liste
 
 ## [Configuration](https://github.com/wacossusca34/glava/wiki)
 
-GLava will start by looking for an entry point in the user configuration folder (`~/.config/glava/rc.glsl`\*), and will fall back to loading from the shader installation folder (`/etc/xdg/glava`\*). The entry point will specify a module to load and should set global configuration variables. Configuration for specific modules can be done in their respective `.glsl` files, which the module itself will include.
+GLava will start by looking for an entry point in the user configuration folder (`~/.config/glava/rc.glsl`), and will fall back to loading from the shader installation folder (`/etc/xdg/glava`). The entry point will specify a module to load and should set global configuration variables. Configuration for specific modules can be done in their respective `.glsl` files, which the module itself will include.
 
 You should start by running `glava --copy-config`. This will copy over default configuration files and create symlinks to modules in your user config folder. GLava will either load system configuration files or the user provided ones, so it's not advised to copy these files selectively.
 
 To embed GLava in your desktop (for EWMH compliant window managers), run it with the `--desktop` flag and then position it accordingly with `#request setgeometry x y width height` in your `rc.glsl`.
 
-\* On an XDG compliant Linux or BSD system.
+For more information, see the [main configuration page](https://github.com/wacossusca34/glava/wiki).
 
 ## Desktop window compatibility
 
@@ -89,6 +89,14 @@ audio_output {
 ```
 
 Note the `22050` sample rate -- this is the reccommended setting for GLava. Restart MPD (if nessecary) and start GLava with `glava --audio=fifo`.
+
+## Performance
+
+GLava will have a notable performance impact by default due to reletively high update rates, interpolation, and smoothing. Because FFT computations are (at the moment) performed on the CPU, you may wish to _lower_ `setsamplesize` and `setbufsize` on old hardware.
+
+However, there is functionality to prevent GLava from unessecarily eating resources. GLava will always halt completely when obscured, so a fullscreen application covering the visualizer should enounter no issues (ie. games). If you wish for GLava to halt rendering when _any_ fullscreen application is in focus regardless of visibility, you can set `setfullscreencheck` to `true` in `rc.glsl`.
+
+Any serious performance and/or updating issues (low FPS/UPS) should be reported. At a minimum, modules should be expected to run smoothly on Intel HD graphics and software rasterizers like `llvmpipe`.
 
 ## Licensing
 
