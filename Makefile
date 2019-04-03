@@ -1,7 +1,11 @@
 .PHONY: all install clean
 
-all:
+all: ninja
+
+build:
 	meson build
+
+ninja: build
 	ninja -C build
 
 install:
