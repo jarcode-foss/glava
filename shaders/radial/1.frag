@@ -64,7 +64,7 @@ void main() {
             float dir = mod(abs(idx), TWOPI);          /* absolute position, [0, 2pi) */
             if (dir > PI)
                 idx = -sign(idx) * (TWOPI - dir);      /* Re-correct position values to [-pi, pi) */
-            if (INVERT > 0)
+            #if INVERT == 0
                 idx = -idx;                            /* Invert if needed */
             float pos = int(abs(idx) / section) / float(NBARS / 2);        /* bar position, [0, 1) */
             #define smooth_f(tex) smooth_audio(tex, audio_sz, pos)         /* smooth function format */

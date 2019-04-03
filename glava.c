@@ -182,7 +182,7 @@ static const char* help_str =
     "                           appropriate backend will be used for the underlying windowing\n"
     "                           system.\n"
     "-a, --audio=BACKEND      specifies an audio input backend to use.\n"
-    "-p, --pipe=[BIND[:TYPE]] binds value(s) to be read from stdin. The input my be read using\n"
+    "-p, --pipe[=BIND[:TYPE]] binds value(s) to be read from stdin. The input my be read using\n"
     "                           `@name` or `@name:default` syntax within shader sources.\n"
     "                           A stream of inputs (each overriding the previous) must be\n"
     "                           assigned with the `name = value` syntax and separated by\n"
