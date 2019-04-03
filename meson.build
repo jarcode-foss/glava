@@ -82,7 +82,7 @@ endif
 
 add_project_arguments(
 	'-DGLAVA_VERSION="'+glava_version+'"',
-	'-DSHADER_INSTALL_PATH="'+get_option('shaderdir')+'"',
+	'-DSHADER_INSTALL_PATH="'+shaderdir+'"',
 	language: 'c'
 )
 
