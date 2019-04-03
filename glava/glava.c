@@ -51,7 +51,7 @@
     })
 
 #ifdef GLAVA_STANDALONE
-#define SHADER_INSTALL_PATH "shaders"
+#define SHADER_INSTALL_PATH "../shaders/glava"
 #define SHADER_USER_PATH "userconf"
 /* FHS compliant systems */
 #elif defined(__unix__) || defined(GLAVA_UNIX)
