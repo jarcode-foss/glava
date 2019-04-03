@@ -63,7 +63,7 @@ if get_option('enable_glfw')
 		'-DGLAVA_GLFW',
 		language: 'c'
 	)
-	glava_dependencies += dependency('glfw')
+	glava_dependencies += cc.find_library('glfw')
 endif
 
 if not get_option('disable_glx')
@@ -90,6 +90,18 @@ executable(
 	'glava',
 	sources: run_command('find', 'glava', '-type', 'f', '-name', '*.c', '-print').stdout().strip().split('\n'),
 	dependencies: glava_dependencies,
+	install: true
+)
+
+executable(
+	'glava-config',
+	sources: run_command('find', 'glava-config', '-type', 'f', '-name', '*.c', '-print').stdout().strip().split('\n'),
+	dependencies: [
+		dependency('glew'),
+		cc.find_library('glfw'),
+		cc.find_library('GL')
+	],
+	c_args: '-Wunused-but-set-variable',
 	install: true
 )
 
