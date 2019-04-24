@@ -618,7 +618,7 @@ static struct gl_bind_src bind_sources[] = {
 
 #define E 2.7182818284590452353
 
-void transform_smooth(struct gl_data* d, void** udaa, void* data) {
+void transform_smooth(struct gl_data* d, void** _, void* data) {
     struct gl_sampler_data* s = (struct gl_sampler_data*) data;
     float* b = s->buf;
     size_t
