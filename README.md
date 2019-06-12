@@ -15,6 +15,8 @@ $ sudo meson install
 $ glava
 ```
 
+Note: If you're using an old version of meson, and `sudo meson install` [does not work](https://github.com/wacossusca34/glava/issues/119), try running `ninja install` instead.
+
 You can run `meson configure` in the project directory to get a list of available compile-time configuration options.  
 
 You can pass `-DDEBUG` to meson for debug builds of both glad (only with `-Dglad`) and glava, `-Dstandalone` allows you to run GLava in the build directory.
