@@ -125,8 +125,8 @@ struct gl_data {
     struct gl_wcb* wcb;
     int lww, lwh, lwx, lwy; /* last window dimensions */
     int rate; /* framerate */
-    double tcounter;
-    int fcounter, fcounter_last, ucounter, kcounter;
+    float tcounter, tcounter_last;
+    int fcounter, ucounter, kcounter;
     bool print_fps, avg_window, interpolate, force_geometry, force_raised,
         copy_desktop, smooth_pass, premultiply_alpha, check_fullscreen,
         clickthrough;
@@ -822,9 +822,9 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
         .wcb               = NULL,
         .stages            = NULL,
         .rate              = 0,
-        .tcounter          = 0.0D,
+        .tcounter          = 0.0F,
+        .tcounter_last     = 0.0F,
         .fcounter          = 0,
-        .fcounter_last     = 0,
         .ucounter          = 0,
         .kcounter          = 0,
         .fr                = 1.0F,
@@ -2026,11 +2026,11 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                     }
                     glUniform1i(bind->uniform, 0);
                     break;
-                case SRC_AUDIO_L:  handle_1d_tex(gl->audio_tex_l, lb, ilb, bsz, 1, true);    break;
-                case SRC_AUDIO_R:  handle_1d_tex(gl->audio_tex_r, rb, irb, bsz, 2, true);    break;
-                case SRC_AUDIO_SZ: glUniform1i(bind->uniform, bsz);                          break;
-                case SRC_SCREEN:   glUniform2i(bind->uniform, (GLint) ww, (GLint) wh);       break;
-                case SRC_TIME:     glUniform1f(bind->uniform, (GLfloat) gl->fcounter);       break;
+                case SRC_AUDIO_L:  handle_1d_tex(gl->audio_tex_l, lb, ilb, bsz, 1, true); break;
+                case SRC_AUDIO_R:  handle_1d_tex(gl->audio_tex_r, rb, irb, bsz, 2, true); break;
+                case SRC_AUDIO_SZ: glUniform1i(bind->uniform, bsz);                       break;
+                case SRC_SCREEN:   glUniform2i(bind->uniform, (GLint) ww, (GLint) wh);    break;
+                case SRC_TIME:     glUniform1f(bind->uniform, (GLfloat) gl->tcounter);    break;
             }
         }
         
@@ -2073,22 +2073,22 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
     /* Handle counters and print FPS counter (if needed) */
 
-    ++gl->fcounter;           /* increment frame counter                          */
-    if (modified) {           /* if this is an update/key frame                   */
-        ++gl->ucounter;       /*   increment update frame counter                 */
-        gl->kcounter = 0;     /*   reset keyframe counter (for interpolation)     */
-    } else ++gl->kcounter;    /* increment keyframe counter otherwise             */
-    gl->tcounter += duration; /* timer counter, measuring when a >1s has occurred */
-    if (gl->tcounter >= 1.0D) {
-        int elapsed_frames = gl->fcounter - gl->fcounter_last;
-        gl->fr = elapsed_frames / gl->tcounter; /* frame rate (FPS)     */
-        gl->ur = gl->ucounter / gl->tcounter;   /* update rate (UPS)    */
-        if (gl->print_fps)                      /* print FPS            */
-            printf("FPS: %.2f, UPS: %.2f, frame: %d\n",
-                   (double) gl->fr, (double) gl->ur, (int) gl->fcounter);
-        gl->tcounter = 0;                     /* reset timer                     */
-        gl->fcounter_last = gl->fcounter;     /* save this frame for next update */
-        gl->ucounter = 0;                     /* reset update counter            */
+    ++gl->fcounter;                   /* increment frame counter                          */
+    if (modified) {                   /* if this is an update/key frame                   */
+        ++gl->ucounter;               /*   increment update frame counter                 */
+        gl->kcounter = 0;             /*   reset keyframe counter (for interpolation)     */
+    } else ++gl->kcounter;            /* increment keyframe counter otherwise             */
+    gl->tcounter += (float) duration; /* timer counter, measuring when a >1s has occurred */
+    float elapsed_time = gl->tcounter - gl->tcounter_last;
+    if (elapsed_time >= 1.0F) {
+        gl->fr = gl->fcounter / elapsed_time; /* frame rate (FPS)  */
+        gl->ur = gl->ucounter / elapsed_time; /* update rate (UPS) */
+        if (gl->print_fps)                    /* print FPS         */
+            printf("FPS: %.2f, UPS: %.2f, time: %.2f\n",
+                   (double) gl->fr, (double) gl->ur, (float) gl->tcounter);
+        gl->tcounter_last = gl->tcounter;     /* save time for next iteration */
+        gl->fcounter = 0;                     /* reset frame counter          */
+        gl->ucounter = 0;                     /* reset update counter         */
         
         /* Refresh window position and size if we are forcing it */
         if (gl->force_geometry) {

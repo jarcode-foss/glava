@@ -40,7 +40,7 @@ void main() {
 #endif
 
   vec2 v = (gl_FragCoord.xy - (screen * 0.5)) / min(screen.y, screen.x) * 10.0;
-  float t = time * 0.008; // * (smooth_audio(audio_l, audio_sz, FREQ) + 1.0) * TIME_MULT;
+  float t = time * 0.8; // * (smooth_audio(audio_l, audio_sz, FREQ) + 1.0) * TIME_MULT;
   float r = smooth_audio(audio_l, audio_sz, FREQ) * MULT;
   for (int i = 0; i < N; i++) {
     float d = (3.14159265 / float(N)) * (float(i) * 5.0);
