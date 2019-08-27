@@ -1,3 +1,4 @@
+/* Note: to only render a single channel, see `setmirror` in `rc.glsl`. */
 
 /* Center line thickness (pixels) */
 #define C_LINE 1
@@ -24,8 +25,10 @@
 /* Whether to switch left/right audio buffers */
 #define INVERT 0
 /* Whether to flip the output vertically */
-#define FLIP 0
+#define FLIP 1
 /* Whether to mirror output along `Y = X`, causing output to render on the left side of the window */
 /* Use with `FLIP 1` to render on the right side */
 #define MIRROR_YX 0
+/* Whether to disable mono rendering when `#request setmirror true` is set in `rc.glsl`. */
+#define DISABLE_MONO 0
 

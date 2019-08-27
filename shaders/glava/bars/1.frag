@@ -29,6 +29,10 @@ out vec4 fragment;
 #define TWOPI 6.28318530718
 #define PI 3.14159265359
 
+#if DISABLE_MONO == 1
+#define CHANNELS 2
+#endif
+
 void main() {
 
     #if MIRROR_YX == 0
@@ -42,8 +46,16 @@ void main() {
     #define AREA_X gl_FragCoord.y
     #define AREA_Y gl_FragCoord.x
     #endif
-    
+
+    #if CHANNELS == 2
     float dx = (AREA_X - (AREA_WIDTH / 2));
+    #else
+    #if INVERT == 1
+    float dx = AREA_WIDTH - AREA_X;
+    #else
+    float dx = AREA_X;
+    #endif
+    #endif
     #if FLIP == 0
     float d = AREA_Y;
     #else
@@ -57,8 +69,13 @@ void main() {
     float p, s;
     if (md < ceil(float(BAR_WIDTH) / 2) && md >= -floor(float(BAR_WIDTH) / 2)) {  /* if not in gap */
         s = dx / section;
-        p = (sign(s) == 1.0 ? ceil(s) : floor(s)) / float(nbars / 2); /* position, (-1.0F, 1.0F))     */
-        p += sign(p) * ((0.5F + center) / AREA_WIDTH);    /* index center of bar position */
+        p = (sign(s) == 1.0 ? ceil(s) : floor(s));
+        #if CHANNELS == 2
+        p /= float(nbars / 2);
+        #else
+        p /= float(nbars);
+        #endif
+        p += sign(p) * ((0.5F + center) / AREA_WIDTH);                /* index center of bar position */
         /* Apply smooth function and index texture */
         #define smooth_f(tex, p) smooth_audio(tex, audio_sz, p)
         float v;
@@ -72,7 +89,9 @@ void main() {
             #if DIRECTION == 1
             p = 1.0F - p;
             #endif
-            #if INVERT > 0
+            #if CHANNELS == 1
+            v = smooth_f(audio_l, p);
+            #elif INVERT > 0 
             v = smooth_f(audio_l, p);
             #else
             v = smooth_f(audio_r, p);
@@ -82,7 +101,9 @@ void main() {
             #if DIRECTION == 1
             p = 1.0F - p;
             #endif
-            #if INVERT > 0
+            #if CHANNELS == 1
+            v = smooth_f(audio_l, p);
+            #elif INVERT > 0
             v = smooth_f(audio_r, p);
             #else
             v = smooth_f(audio_l, p);

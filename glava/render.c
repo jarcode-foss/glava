@@ -131,7 +131,7 @@ struct gl_data {
     int fcounter, ucounter, kcounter;
     bool print_fps, avg_window, interpolate, force_geometry, force_raised,
         copy_desktop, smooth_pass, premultiply_alpha, check_fullscreen,
-        clickthrough;
+        clickthrough, mirror_input;
     void** t_data;
     size_t t_count;
     float gravity_step, target_spu, fr, ur, smooth_distance, smooth_ratio,
@@ -226,6 +226,7 @@ static GLuint shaderload(const char*             rpath,
         "#define _SMOOTH_FACTOR %.6f\n"
         "#define _USE_ALPHA %d\n"
         "#define _PREMULTIPLY_ALPHA %d\n"
+        "#define _CHANNELS %d\n"
         "#define USE_STDIN %d\n"
         "#if USE_STDIN == 1\n"
         "uniform %s STDIN;\n"
@@ -251,7 +252,7 @@ static GLuint shaderload(const char*             rpath,
     GLchar* buf = malloc((blen * sizeof(GLchar*)) + ext.p_len);
     int written = snprintf(buf, blen, header_fmt, (int) shader_version, (int) max_uniforms,
                            gl->smooth_pass ? 1 : 0, (double) gl->smooth_factor,
-                           1, gl->premultiply_alpha ? 1 : 0,
+                           1, gl->premultiply_alpha ? 1 : 0, gl->mirror_input ? 1 : 2,
                            gl->stdin_type != STDIN_TYPE_NONE, bind_types[gl->stdin_type].n,
                            bind_header);
     if (written < 0) {
@@ -850,6 +851,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
         .sm_prog           = 0,
         .copy_desktop      = true,
         .premultiply_alpha = true,
+        .mirror_input      = false,
         .check_fullscreen  = false,
         .smooth_pass       = true,
         .fft_scale         = 10.2F,
@@ -970,7 +972,10 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
         },
         {
             .name = "setmirror", .fmt = "b",
-            .handler = RHANDLER(name, args, { r->mirror_input = *(bool*) args[0]; })
+            .handler = RHANDLER(name, args, {
+                    r->mirror_input  = *(bool*) args[0];
+                    gl->mirror_input = *(bool*) args[0];
+                })
         },
         {
             .name = "setfullscreencheck", .fmt = "b",
@@ -2101,7 +2106,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         gl->ur = gl->ucounter / gl->tcounter; /* update rate (UPS)    */
         if (gl->print_fps) {                  /* print FPS            */
             #ifdef GLAVA_DEBUG
-            printf("FPS: %.2f, UPS: %.2f\n, time: %.2f",
+            printf("FPS: %.2f, UPS: %.2f, time: %.2f\n",
                    (double) gl->fr, (double) gl->ur, (double) gl->time);
             #else
             printf("FPS: %.2f, UPS: %.2f\n",
