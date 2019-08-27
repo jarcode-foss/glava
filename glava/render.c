@@ -127,6 +127,7 @@ struct gl_data {
     int lww, lwh, lwx, lwy; /* last window dimensions */
     int rate; /* framerate */
     double tcounter;
+    float time, timecycle;
     int fcounter, ucounter, kcounter;
     bool print_fps, avg_window, interpolate, force_geometry, force_raised,
         copy_desktop, smooth_pass, premultiply_alpha, check_fullscreen,
@@ -585,7 +586,9 @@ static struct gl_bind_src bind_sources[] = {
     #define SRC_AUDIO_SZ 3
     { .name = "audio_sz", .type = BIND_INT, .src_type = SRC_AUDIO_SZ },
     #define SRC_SCREEN 4
-    { .name = "screen", .type = BIND_IVEC2, .src_type = SRC_SCREEN }
+    { .name = "screen", .type = BIND_IVEC2, .src_type = SRC_SCREEN },
+    #define SRC_TIME 5
+    { .name = "time", .type = BIND_FLOAT, .src_type = SRC_SCREEN }
 };
 
 #define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * (double) t  / (double)(sz - 1))))
@@ -828,6 +831,8 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
         .fcounter          = 0,
         .ucounter          = 0,
         .kcounter          = 0,
+        .time              = 0.0F,
+        .timecycle         = 60.0F,
         .fr                = 1.0F,
         .ur                = 1.0F,
         .print_fps         = true,
@@ -1130,6 +1135,8 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
         {   .name = "setfftcutoff", .fmt = "f",
             .handler = RHANDLER(name, args, {
                     if (!loading_smooth_pass) gl->fft_cutoff = *(float*) args[0];})          },
+        {   .name = "timecycle", .fmt = "f",
+            .handler = RHANDLER(name, args, { gl->timecycle = *(float*) args[0]; })          },
         {
             .name = "transform", .fmt = "ss",
             .handler = RHANDLER(name, args, {
@@ -2037,6 +2044,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 case SRC_AUDIO_R:  handle_1d_tex(gl->audio_tex_r, rb, irb, bsz, 2, true); break;
                 case SRC_AUDIO_SZ: glUniform1i(bind->uniform, bsz);                       break;
                 case SRC_SCREEN:   glUniform2i(bind->uniform, (GLint) ww, (GLint) wh);    break;
+                case SRC_TIME:     glUniform1f(bind->uniform, (GLfloat) gl->time);        break;
             }
         }
         
@@ -2078,7 +2086,10 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     }
 
     /* Handle counters and print FPS counter (if needed) */
-    
+
+    ++gl->time;               /* shader uniform time value */
+    if (gl->time >= gl->timecycle)
+        gl->time -= gl->timecycle;
     ++gl->fcounter;           /* increment frame counter                          */
     if (modified) {           /* if this is an update/key frame                   */
         ++gl->ucounter;       /*   increment update frame counter                 */
@@ -2088,9 +2099,15 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
     if (gl->tcounter >= 1.0D) {
         gl->fr = gl->fcounter / gl->tcounter; /* frame rate (FPS)     */
         gl->ur = gl->ucounter / gl->tcounter; /* update rate (UPS)    */
-        if (gl->print_fps)                    /* print FPS            */
+        if (gl->print_fps) {                  /* print FPS            */
+            #ifdef GLAVA_DEBUG
+            printf("FPS: %.2f, UPS: %.2f\n, time: %.2f",
+                   (double) gl->fr, (double) gl->ur, (double) gl->time);
+            #else
             printf("FPS: %.2f, UPS: %.2f\n",
                    (double) gl->fr, (double) gl->ur);
+            #endif
+        }
         gl->tcounter = 0;                     /* reset timer          */
         gl->fcounter = 0;                     /* reset frame counter  */
         gl->ucounter = 0;                     /* reset update counter */
