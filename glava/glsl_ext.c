@@ -328,9 +328,9 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     size_t t;
     char at;
     int state = LINE_START;
-    size_t macro_start_idx, arg_start_idx, cbuf_idx, bbuf_idx, b_restart;
+    size_t macro_start_idx = 0, arg_start_idx = 0, cbuf_idx, bbuf_idx, b_restart;
     size_t line = 1;
-    bool quoted = false, arg_start, b_sep = false, b_spc = false, b_pre = true;
+    bool quoted = false, arg_start = false, b_sep = false, b_spc = false, b_pre = true;
     int b_br = 0;
     char cbuf[9];
     char bbuf[256];

@@ -21,6 +21,7 @@ else
 	add_project_arguments(
 		'-O2',
 		'-Wstringop-overflow=0',
+        '-Wmaybe-uninitialized=0',
 		language: 'c'
 	)
 	if get_option('glad')

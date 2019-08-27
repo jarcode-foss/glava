@@ -1207,10 +1207,10 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
        the path to use for future shader files and modules. Generally, user configuration
        directories will be populated with symlinks to the installed modules. */
     
-    const char* data;
-    const char* dd; /* defaults dir (system) */
-    const char* env = gl->wcb->get_environment();
-    size_t d_len, e_len;
+    const char* data = NULL;
+    const char* dd   = NULL; /* defaults dir (system) */
+    const char* env  = gl->wcb->get_environment();
+    size_t d_len = 0, e_len = 0;
 
     for (const char** i = paths; (data = *i) != NULL; ++i) dd = data;
     for (const char** i = paths; (data = *i) != NULL; ++i) {
@@ -1329,7 +1329,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
     
     gl->w = gl->wcb->create_and_bind(wintitle, "GLava", xwintype, (const char**) xwinstates, xwinstates_sz,
                                      gl->geometry[2], gl->geometry[3], gl->geometry[0], gl->geometry[1],
-                                     context_version_major, context_version_minor, gl->clickthrough, gl->test_mode);
+                                     context_version_major, context_version_minor, gl->clickthrough, test_mode);
     if (!gl->w) abort();
 
     for (size_t t = 0; t < xwinstates_sz; ++t)
@@ -1364,7 +1364,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
     /* Iterate through shader passes in the shader directory and build textures, framebuffers, and
        shader programs with each fragment shader. */
     
-    struct gl_sfbo* stages;
+    struct gl_sfbo* stages = NULL;
     size_t count = 0;
     
     {
@@ -1813,7 +1813,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         }
     }
         
-    struct gl_sfbo* prev;
+    struct gl_sfbo* prev = NULL;
 
     /* Iterate through each rendering stage (shader) */
     
