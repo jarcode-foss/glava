@@ -30,7 +30,7 @@ out vec4 fragment;
 #define PI 3.14159265359
 
 #if DISABLE_MONO == 1
-#define CHANNELS 2
+#define _CHANNELS 2
 #endif
 
 void main() {
@@ -47,7 +47,7 @@ void main() {
     #define AREA_Y gl_FragCoord.x
     #endif
 
-    #if CHANNELS == 2
+    #if _CHANNELS == 2
     float dx = (AREA_X - (AREA_WIDTH / 2));
     #else
     #if INVERT == 1
@@ -70,7 +70,7 @@ void main() {
     if (md < ceil(float(BAR_WIDTH) / 2) && md >= -floor(float(BAR_WIDTH) / 2)) {  /* if not in gap */
         s = dx / section;
         p = (sign(s) == 1.0 ? ceil(s) : floor(s));
-        #if CHANNELS == 2
+        #if _CHANNELS == 2
         p /= float(nbars / 2);
         #else
         p /= float(nbars);
@@ -89,7 +89,7 @@ void main() {
             #if DIRECTION == 1
             p = 1.0F - p;
             #endif
-            #if CHANNELS == 1
+            #if _CHANNELS == 1
             v = smooth_f(audio_l, p);
             #elif INVERT > 0 
             v = smooth_f(audio_l, p);
@@ -101,7 +101,7 @@ void main() {
             #if DIRECTION == 1
             p = 1.0F - p;
             #endif
-            #if CHANNELS == 1
+            #if _CHANNELS == 1
             v = smooth_f(audio_l, p);
             #elif INVERT > 0
             v = smooth_f(audio_r, p);
