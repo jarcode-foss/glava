@@ -1,15 +1,56 @@
 .PHONY: all install clean
 
+# In case these were specified explicitly as options instead of environment variables, export them to child processes
+export DESTDIR
+export CFLAGS
+
+BUILD_DIR = build
+
+MESON_CONF = $(BUILD_DIR)
+
+# Support assigning standalone/debug builds as the old Makefile did, otherwise complain
+
+ifneq ($(BUILD),debug)
+	MESON_CONF += --buildtype=release
+    ifdef BUILD
+		@echo "WARNING: ignoring build option '$(BUILD)' in compatibility Makefile"
+    endif
+endif
+
+ifeq ($(INSTALL),standalone)
+	MESON_CONF += -Dstandalone=true
+else
+    ifdef INSTALL
+		@echo "WARNING: ignoring install option '$(INSTALL)' in compatibility Makefile"
+    endif
+endif
+
+# Store relevant variables that may change depending on the environment or user input
+STATE = $(BUILD),$(INSTALL),$(PYTHON),$(CC),$(CFLAGS),$(DESTDIR)
+# Only update the file if the contents changed, `make` just looks at the timestamp
+$(shell if [[ ! -e build_state ]]; then touch build_state; fi)
+$(shell if [ '$(STATE)' != "`cat build_state`" ]; then echo '$(STATE)' > build_state; fi)
+
+ifndef BUILD
+	@echo ""
+	@echo "PACKAGE MAINTAINER NOTICE: Configuring release build for compatibility with old makefile."
+	@echo "                           If you are a package maintainer consider using meson directly!"
+	@echo ""
+endif
+
 all: ninja
 
-build:
-	meson build
+# Rebuild if the makefile state changes to maintain old behaviour and smooth rebuilds with altered parameters
+build: build_state
+	@rm -rf $(BUILD_DIR)
+	meson $(BUILD_DIR)
+	meson configure $(MESON_CONF)
 
 ninja: build
-	ninja -C build
+	ninja -C $(BUILD_DIR)
 
 install:
-	cd build && meson install
+	cd $(BUILD_DIR) && meson install
 
 clean:
-	rm -rf build
+	rm -rf $(BUILD_DIR)

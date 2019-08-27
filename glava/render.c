@@ -47,6 +47,7 @@ typeof(bind_types) bind_types = {
 #define VERTEX_SHADER_SRC                                               \
     "layout(location = 0) in vec3 pos; void main() { gl_Position = vec4(pos.x, pos.y, 0.0F, 1.0F); }"
 
+bool glad_instantiated = false;
 struct gl_wcb* wcbs[2] = {};
 static size_t wcbs_idx = 0;
 
@@ -141,30 +142,26 @@ struct gl_data {
     int geometry[4];
     int stdin_type;
     struct rd_bind* binds;
+    GLuint bg_prog, bg_utex, bg_screen;
+    bool bg_setup;
+    GLuint sm_utex, sm_usz, sm_uw;
+    bool sm_setup;
     #ifdef GLAVA_DEBUG
     struct {
         float r, g, b, a;
     } test_eval_color;
     bool debug_verbose;
+    bool assigned_debug_cb;
+    bool test_mode;
+    struct gl_sfbo test_sfbo;
     #endif
 };
 
 
 #ifdef GLAVA_DEBUG
-static bool test_mode = false;
-static struct gl_sfbo test_sfbo = {
-    .name       = "test",
-    .shader     = 0,
-    .indirect   = false,
-    .nativeonly = false,
-    .binds      = NULL,
-    .binds_sz   = 0
-};
-void rd_enable_test_mode(void) {
-    test_mode = true;
-}
-bool rd_get_test_mode(void) {
-    return test_mode;
+bool rd_get_test_mode(struct renderer* r) {
+    struct gl_data* gl = r->gl;
+    return gl->test_mode;
 }
 #endif
 
@@ -268,9 +265,14 @@ static GLuint shaderload(const char*             rpath,
     glShaderSource(s, 1, (const GLchar* const*) &buf, &sl);
     switch (glGetError()) {
         case GL_INVALID_VALUE:
+            fprintf(stderr, "invalid value while loading shader source\n");
+            abort(); //todo: remove
+            return 0;
         case GL_INVALID_OPERATION:
             fprintf(stderr, "invalid operation while loading shader source\n");
+            abort(); //todo: remove
             return 0;
+        default: {}
     }
     glCompileShader(s);
     GLint ret, ilen;
@@ -366,6 +368,7 @@ static GLuint shaderlink_f(GLuint* arr) {
                 fprintf(stderr, "shader is already attached, or argument types "
                         "were invalid when calling glAttachShader\n");
                 return 0;
+            default: {}
         }
     }
     glLinkProgram(p);
@@ -799,7 +802,8 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
 struct renderer* rd_new(const char**    paths,        const char* entry,
                         const char**    requests,     const char* force_backend,
                         struct rd_bind* bindings,     int         stdin_type,
-                        bool            auto_desktop, bool        verbose) {
+                        bool            auto_desktop, bool        verbose,
+                        bool            test_mode) {
     
     xwin_wait_for_wm();
     
@@ -850,9 +854,21 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
         .clickthrough      = false,
         .stdin_type        = stdin_type,
         .binds             = bindings,
+        .bg_setup          = false,
+        .sm_setup          = false,
         #ifdef GLAVA_DEBUG
         .test_eval_color   = { 0.0F, 0.0F, 0.0F, 0.0F },
-        .debug_verbose     = verbose
+        .debug_verbose     = verbose,
+        .assigned_debug_cb = false,
+        .test_mode         = test_mode,
+        .test_sfbo         = {
+            .name       = "test",
+            .shader     = 0,
+            .indirect   = false,
+            .nativeonly = false,
+            .binds      = NULL,
+            .binds_sz   = 0
+        }
         #endif
     };
 
@@ -901,10 +917,9 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
     
     #ifdef GLAD_DEBUG
     if (verbose) printf("Assigning debug callback\n");
-    static bool assigned_debug_cb = false;
-    if (!assigned_debug_cb) {
+    if (!gl->assigned_debug_cb) {
         glad_set_post_callback(glad_debugcb);
-        assigned_debug_cb = true;
+        gl->assigned_debug_cb = true;
     }
     #endif
     
@@ -1314,7 +1329,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
     
     gl->w = gl->wcb->create_and_bind(wintitle, "GLava", xwintype, (const char**) xwinstates, xwinstates_sz,
                                      gl->geometry[2], gl->geometry[3], gl->geometry[0], gl->geometry[1],
-                                     context_version_major, context_version_minor, gl->clickthrough);
+                                     context_version_major, context_version_minor, gl->clickthrough, gl->test_mode);
     if (!gl->w) abort();
 
     for (size_t t = 0; t < xwinstates_sz; ++t)
@@ -1470,7 +1485,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
     {
         int w, h;
         gl->wcb->get_fbsize(gl->w, &w, &h);
-        setup_sfbo(&test_sfbo, w, h);
+        setup_sfbo(&gl->test_sfbo, w, h);
     }
     #endif
     
@@ -1621,7 +1636,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             }
         }
         #ifdef GLAVA_DEBUG
-        setup_sfbo(&test_sfbo, ww, wh);
+        setup_sfbo(&gl->test_sfbo, ww, wh);
         #endif
     }
 
@@ -1817,17 +1832,14 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
         
         #ifdef GLAVA_DEBUG
-        if (!current->indirect && test_mode) {
-            glBindFramebuffer(GL_FRAMEBUFFER, test_sfbo.fbo);
+        if (!current->indirect && gl->test_mode) {
+            glBindFramebuffer(GL_FRAMEBUFFER, gl->test_sfbo.fbo);
         }
         #endif
         
         glClear(GL_COLOR_BUFFER_BIT);
         
         if (!current->indirect && gl->copy_desktop) {
-            /* Self-contained code for drawing background image */
-            static GLuint bg_prog, bg_utex, bg_screen;
-            static bool setup = false;
             /* Shader to flip texture and override alpha channel */
             static const char* frag_shader =
                 "uniform sampler2D tex;"                                                             "\n"
@@ -1839,21 +1851,21 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 "                       screen.y - gl_FragCoord.y), 0);"                             "\n"
                 "    fragment.a = 1.0F;"                                                             "\n"
                 "}"                                                                                  "\n";
-            if (!setup) {
-                bg_prog = shaderlink(shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC,
+            if (!gl->bg_setup) {
+                gl->bg_prog = shaderlink(shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC,
                                                 NULL, NULL, NULL, 330, true, NULL, gl),
                                      shaderload(NULL, GL_FRAGMENT_SHADER, frag_shader,
                                                 NULL, NULL, NULL, 330, true, NULL, gl));
-                bg_utex   = glGetUniformLocation(bg_prog, "tex");
-                bg_screen = glGetUniformLocation(bg_prog, "screen");
-                glBindFragDataLocation(bg_prog, 1, "fragment");
-                setup = true;
+                gl->bg_utex   = glGetUniformLocation(gl->bg_prog, "tex");
+                gl->bg_screen = glGetUniformLocation(gl->bg_prog, "screen");
+                glBindFragDataLocation(gl->bg_prog, 1, "fragment");
+                gl->bg_setup = true;
             }
-            glUseProgram(bg_prog);
+            glUseProgram(gl->bg_prog);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, gl->bg_tex);
-            glUniform2i(bg_screen, (GLint) ww, (GLint) wh);
-            glUniform1i(bg_utex, 0);
+            glUniform2i(gl->bg_screen, (GLint) ww, (GLint) wh);
+            glUniform1i(gl->bg_utex, 0);
             /* We need to disable blending, we might read in bogus alpha values due
                to how we obtain the background texture (format is four byte `rgb_`, 
                where the last value is skipped) */
@@ -1936,16 +1948,14 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 
                 /* Apply pre-smoothing shader pass if configured */
                 if (audio && gl->smooth_pass) {
-                    static bool setup = false;
-                    static GLuint sm_utex, sm_usz, sm_uw;
                     
                     /* Compile preprocess shader and handle uniform locations */
-                    if (!setup) {
-                        sm_utex = glGetUniformLocation(gl->sm_prog, "tex");
-                        sm_usz  = glGetUniformLocation(gl->sm_prog, "sz");
-                        sm_uw   = glGetUniformLocation(gl->sm_prog, "w");
+                    if (!gl->sm_setup) {
+                        gl->sm_utex = glGetUniformLocation(gl->sm_prog, "tex");
+                        gl->sm_usz  = glGetUniformLocation(gl->sm_prog, "sz");
+                        gl->sm_uw   = glGetUniformLocation(gl->sm_prog, "w");
                         glBindFragDataLocation(gl->sm_prog, 1, "fragment");
-                        setup = true;
+                        gl->sm_setup = true;
                     }
 
                     /* Allocate and setup our per-bind data, if needed */
@@ -1983,9 +1993,9 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                     glUseProgram(gl->sm_prog);
                     glActiveTexture(GL_TEXTURE0 + offset);
                     glBindTexture(GL_TEXTURE_1D, tex);
-                    glUniform1i(sm_uw, sz);  /* target texture width */
-                    glUniform1i(sm_usz, sz); /* source texture width */
-                    glUniform1i(sm_utex, offset);
+                    glUniform1i(gl->sm_uw, sz);  /* target texture width */
+                    glUniform1i(gl->sm_usz, sz); /* source texture width */
+                    glUniform1i(gl->sm_utex, offset);
                     if (!gl->premultiply_alpha) glDisable(GL_BLEND);
                     glViewport(0, 0, sz, 1);
                     drawoverlay(&gl->overlay);

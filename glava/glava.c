@@ -73,6 +73,8 @@
 #define ACCESSPERMS (S_IRWXU|S_IRWXG|S_IRWXO) /* 0777 */
 #endif
 
+static bool reload = false;
+
 /* Copy installed shaders/configuration from the installed location
    (usually /etc/xdg). Modules (folders) will be linked instead of
    copied. */
@@ -237,6 +239,14 @@ static void handle_term(int signum) {
     }
 }
 
+static void handle_reload(int signum) {
+    if (rd->alive) {
+        puts("\nSIGUSR1 recieved, reloading...");
+        rd->alive = false;
+    }
+    reload = true;
+}
+
 #define append_buf(buf, sz_store, ...)                      \
     ({                                                      \
         buf = realloc(buf, ++(*sz_store) * sizeof(*buf));   \
@@ -261,7 +271,7 @@ int main(int argc, char** argv) {
     struct rd_bind* binds       = malloc(1);
     size_t          binds_sz    = 0;
     
-    bool verbose = false, copy_mode = false, desktop = false;
+    bool verbose = false, copy_mode = false, desktop = false, test = false;
     
     int c, idx;
     while ((c = getopt_long(argc, argv, opt_str, p_opts, &idx)) != -1) {
@@ -391,7 +401,7 @@ int main(int argc, char** argv) {
                 #ifdef GLAVA_DEBUG
             case 'T': {
                 entry = "test_rc.glsl";
-                rd_enable_test_mode();
+                test  = true;
             }
                 #endif
         }
@@ -413,22 +423,47 @@ int main(int argc, char** argv) {
     /* Null terminate array arguments */
     append_buf(requests, &requests_sz, NULL);
     append_buf(binds,    &binds_sz,    (struct rd_bind) { .name = NULL });
-
-    rd = rd_new(system_shader_paths, entry, (const char**) requests,
-                backend, binds, stdin_type, desktop, verbose);
     
-    struct sigaction action = { .sa_handler = handle_term };
-    sigaction(SIGTERM, &action, NULL);
-    sigaction(SIGINT, &action, NULL);
+    const struct sigaction term_action   = { .sa_handler = handle_term };
+    const struct sigaction reload_action = { .sa_handler = handle_reload };
+    sigaction(SIGTERM, &term_action,   NULL);
+    sigaction(SIGINT,  &term_action,   NULL);
+    sigaction(SIGUSR1, &reload_action, NULL);
     
-    float b0[rd->bufsize_request], b1[rd->bufsize_request];
+    float* b0, * b1, * lb, * rb;
     size_t t;
+    struct audio_data audio;
+    struct audio_impl* impl = NULL;
+    pthread_t thread;
+    int return_status;
+    
+    for (t = 0; t < audio_impls_idx; ++t) {
+        if (!strcmp(audio_impls[t]->name, audio_impl_name)) {
+            impl = audio_impls[t];
+            break;
+        }
+    }
+
+    if (!impl) {
+        fprintf(stderr, "The specified audio backend (\"%s\") is not available.\n", audio_impl_name);
+        exit(EXIT_FAILURE);
+    }
+
+instantiate:
+    reload = false;
+    rd     = rd_new(system_shader_paths, entry, (const char**) requests,
+                    backend, binds, stdin_type, desktop, verbose, test);
+    
+    b0 = malloc(rd->bufsize_request * sizeof(float));
+    b1 = malloc(rd->bufsize_request * sizeof(float));
+    lb = malloc(rd->bufsize_request * sizeof(float));
+    rb = malloc(rd->bufsize_request * sizeof(float));
     for (t = 0; t < rd->bufsize_request; ++t) {
         b0[t] = 0.0F;
         b1[t] = 0.0F;
     }
     
-    struct audio_data audio = {
+    audio = (struct audio_data) {
         .source = ({
                 char* src = NULL;
                 if (rd->audio_source_request && strcmp(rd->audio_source_request, "auto") != 0) {
@@ -447,29 +482,12 @@ int main(int argc, char** argv) {
         .sample_sz    = rd->samplesize_request,
         .modified     = false
     };
-
-    struct audio_impl* impl = NULL;
-    
-    for (size_t t = 0; t < audio_impls_idx; ++t) {
-        if (!strcmp(audio_impls[t]->name, audio_impl_name)) {
-            impl = audio_impls[t];
-            break;
-        }
-    }
-
-    if (!impl) {
-        fprintf(stderr, "The specified audio backend (\"%s\") is not available.\n", audio_impl_name);
-        exit(EXIT_FAILURE);
-    }
     
     impl->init(&audio);
     
     if (verbose) printf("Using audio source: %s\n", audio.source);
     
-    pthread_t thread;
     pthread_create(&thread, NULL, impl->entry, (void*) &audio);
-    
-    float lb[rd->bufsize_request], rb[rd->bufsize_request];
     while (rd->alive) {
 
         rd_time(rd); /* update timer for this frame */
@@ -498,13 +516,13 @@ int main(int argc, char** argv) {
             nanosleep(&tv, NULL);
         }
         #ifdef GLAVA_DEBUG
-        if (ret && rd_get_test_mode())
+        if (ret && rd_get_test_mode(rd))
             break;
         #endif
     }
 
     #ifdef GLAVA_DEBUG
-    if (rd_get_test_mode()) {
+    if (rd_get_test_mode(rd)) {
         if (rd_test_evaluate(rd)) {
             fprintf(stderr, "Test results did not match expected output\n");
             fflush(stderr);
@@ -514,11 +532,16 @@ int main(int argc, char** argv) {
     #endif
 
     audio.terminate = 1;
-    int return_status;
     if ((return_status = pthread_join(thread, NULL))) {
         fprintf(stderr, "Failed to join with audio thread: %s\n", strerror(return_status));
     }
 
     free(audio.source);
+    free(b0);
+    free(b1);
+    free(lb);
+    free(rb);
     rd_destroy(rd);
+    if (reload)
+        goto instantiate;
 }

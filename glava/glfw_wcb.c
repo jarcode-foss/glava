@@ -71,7 +71,7 @@ static void* create_and_bind(const char* name, const char* class,
                              int d, int h,
                              int x, int y,
                              int version_major, int version_minor,
-                             bool clickthrough) {
+                             bool clickthrough, bool offscreen) {
 
     GLFWwindow* w;
     
@@ -93,7 +93,10 @@ static void* create_and_bind(const char* name, const char* class,
     glfwSetWindowPos(w, x, y);
     glfwMakeContextCurrent(w);
     
-    gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+    if (!glad_instantiated) {
+        gladLoadGL();
+        glad_instantiated = true;
+    }
     
     return w;
 }

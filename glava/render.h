@@ -6,6 +6,7 @@ extern const struct {
     const char* n;
     int i;
 } bind_types[];
+extern bool glad_instantiated;
 
 #define STDIN_TYPE_NONE  0
 #define STDIN_TYPE_INT   1
@@ -33,15 +34,15 @@ struct rd_bind {
 };
 
 #ifdef GLAVA_DEBUG
-void rd_enable_test_mode(void);
-bool rd_get_test_mode   (void);
+bool rd_get_test_mode   (struct renderer*);
 bool rd_test_evaluate   (struct renderer*);
 #endif
 
 struct renderer* rd_new            (const char**    paths,        const char* entry,
                                     const char**    requests,     const char* force_backend,
                                     struct rd_bind* bindings,     int         stdin_type,
-                                    bool            auto_desktop, bool        verbose);
+                                    bool            auto_desktop, bool        verbose,
+                                    bool            test_mode);
 bool             rd_update         (struct renderer*, float* lb, float* rb,
                                     size_t bsz, bool modified);
 void             rd_destroy        (struct renderer*);
@@ -59,7 +60,7 @@ struct gl_wcb {
                                 int w, int h,
                                 int x, int y,
                                 int version_major, int version_minor,
-                                bool clickthrough);
+                                bool clickthrough, bool offscreen);
     bool     (*should_close)   (void* ptr);
     bool     (*should_render)  (void* ptr);
     bool     (*bg_changed)     (void* ptr);

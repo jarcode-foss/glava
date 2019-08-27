@@ -20,7 +20,7 @@ if get_option('buildtype').startswith('debug')
 else
 	add_project_arguments(
 		'-O2',
-		'-Wstringpop-overflow=0',
+		'-Wstringop-overflow=0',
 		language: 'c'
 	)
 	if get_option('glad')
