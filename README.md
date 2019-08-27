@@ -95,7 +95,7 @@ Note the `22050` sample rate -- this is the reccommended setting for GLava. Rest
 
 ## Using GLava with OBS
 
-OBS is able to record X window pixmaps directly, thus copying the alpha bits rather than the relevant section of the screen. This makes GLava useful for streams and recordings, but requires GLava to be a normal X11 client in order to be selected in the software. Use the following config options :
+OBS (and some other recording software) is able to record X window pixmaps directly, thus copying the alpha bits rather than the relevant section of the screen. This makes GLava useful for streams and recordings, but requires GLava to be a normal X11 client in order to be selected in the software. Use the following config options to fix this:
 
 ```GLSL
 #request setxwintype "normal"
@@ -107,7 +107,7 @@ OBS is able to record X window pixmaps directly, thus copying the alpha bits rat
 
 This usually allows your window manager and pager to ignore GLava while it remaining a regular window. From here you have two options:
 
-* Force the window into your background using:
+* If you wish to use GLava on your desktop and scene, force the window into your background using:
   ```GLSL
   #request addxwinstate "below"
   #request setdecorated false
