@@ -162,11 +162,7 @@ __GLXextFuncPtr (*glXGetProcAddressARB)    (const GLubyte *);
 void            (*glXSwapBuffers)          (Display* dpy, GLXDrawable drawable);
 void            (*glXDestroyContext)       (Display* dpy, GLXContext ctx);
 Bool            (*glXQueryVersion)         (Display* dpy, int* major, int* minor);
-#ifdef GLAVA_DEBUG
 GLXPixmap       (*glXCreateGLXPixmap)      (Display* dpy, XVisualInfo* vis, Pixmap pixmap);
-static Pixmap    off_pixmap;
-static GLXPixmap off_glxpm;
-#endif
 
 extern struct gl_wcb wcb_glx;
 
@@ -182,6 +178,8 @@ struct glxwin {
     double time;
     bool should_close, should_render, bg_changed, clickthrough, offscreen;
     char override_state;
+    Pixmap    off_pixmap;
+    GLXPixmap off_glxpm;
 };
 
 static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM__NET_ACTIVE_WINDOW, ATOM__XROOTPMAP_ID;
@@ -232,9 +230,7 @@ static void init(void) {
     resolve(glXSwapBuffers);
     resolve(glXDestroyContext);
     resolve(glXQueryVersion);
-    #ifdef GLAVA_DEBUG
     resolve(glXCreateGLXPixmap);
-    #endif
 
     intern(_MOTIF_WM_HINTS,    false);
     intern(WM_DELETE_WINDOW,   true);
@@ -496,18 +492,14 @@ static void* create_and_bind(const char* name, const char* class,
     }
     
     XSync(display, False);
-
-    #ifdef GLAVA_DEBUG
+    
     if (w->offscreen) {
-        off_pixmap = XCreatePixmap(display, w->w, d, h,
+        w->off_pixmap = XCreatePixmap(display, w->w, d, h,
                                     DefaultDepth(display, DefaultScreen(display)));
-        off_glxpm  = glXCreateGLXPixmap(display, vi, off_pixmap);
-        glXMakeCurrent(display, off_glxpm, w->context);
+        w->off_glxpm  = glXCreateGLXPixmap(display, vi, w->off_pixmap);
+        glXMakeCurrent(display, w->off_glxpm, w->context);
     } else
         glXMakeCurrent(display, w->w, w->context);
-    #else
-    glXMakeCurrent(display, w->w, w->context);
-    #endif
 
     if (!glad_instantiated) {
         gladLoadGL();
@@ -561,10 +553,8 @@ static void set_geometry(struct glxwin* w, int x, int y, int d, int h) {
 }
 
 static void set_visible(struct glxwin* w, bool visible) {
-    #ifdef GLAVA_DEBUG
     if (w->offscreen)
         return;
-    #endif
     if (visible) {
         XMapWindow(display, w->w);
         switch (w->override_state) {
@@ -580,10 +570,8 @@ static void set_visible(struct glxwin* w, bool visible) {
 static bool should_close (struct glxwin* w) { return w->should_close; }
 static bool bg_changed   (struct glxwin* w) { return w->bg_changed; }
 static bool should_render(struct glxwin* w) {
-    #ifdef GLAVA_DEBUG
     if (w->offscreen)
         return true;
-    #endif
     /* For nearly all window managers, windows are 'minimized' by unmapping parent windows.
        VisibilityNotify events are not sent in these instances, so we have to read window
        attributes to see if our window isn't viewable. */
@@ -594,14 +582,10 @@ static bool should_render(struct glxwin* w) {
 }
 
 static void swap_buffers(struct glxwin* w) {
-    #ifdef GLAVA_DEBUG
     if (w->offscreen)
-        glXSwapBuffers(display, off_glxpm);
+        glXSwapBuffers(display, w->off_glxpm);
     else
         glXSwapBuffers(display, w->w);
-    #else
-    glXSwapBuffers(display, w->w);
-    #endif
     process_events(w);
 }
 
@@ -628,6 +612,11 @@ static double get_timert(void) {
 static void destroy(struct glxwin* w) {
     glXMakeCurrent(display, None, NULL); /* release context */
     glXDestroyContext(display, w->context);
+    /* Some picking around indicates the GLX pixmap (for offscreen rendering) is 
+       actually associated with the X pixmap and simply returns a handle, so we
+       do not have to free the GLX pixmap. */
+    if (w->offscreen)
+        XFreePixmap(display, w->off_pixmap);
     XDestroyWindow(display, w->w);
     free(w);
 }
