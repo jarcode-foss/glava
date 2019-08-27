@@ -8,18 +8,14 @@
 ```bash
 $ git clone https://github.com/wacossusca34/glava
 $ cd glava
-$ CFLAGS="-march=native" meson build
-$ ninja -C build
-$ cd build
-$ sudo meson install
+$ make
+$ sudo make install
 $ glava
 ```
 
-Note: If you're using an old version of meson, and `sudo meson install` [does not work](https://github.com/wacossusca34/glava/issues/119), try running `ninja install` instead.
+You can pass `BUILD=debug` to the makefile for debug builds of glava, and `INSTALL=standalone` to run glava directly from the `build` directory.
 
-You can run `meson configure` in the project directory to get a list of available compile-time configuration options.  
-
-You can pass `-DDEBUG` to meson for debug builds of both glad (only with `-Dglad`) and glava, `-Dstandalone` allows you to run GLava in the build directory.
+Note that versions since `v1.6.3` use Meson for the build system, although the `Makefile` will remain to work identically. Package maintainers are encouraged to use `meson build`, `ninja -C build`, and `meson install` instead of the Make wrapper.
 
 **Requirements:**
 
