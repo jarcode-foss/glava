@@ -25,7 +25,7 @@
 /* Whether to switch left/right audio buffers */
 #define INVERT 0
 /* Whether to flip the output vertically */
-#define FLIP 1
+#define FLIP 0
 /* Whether to mirror output along `Y = X`, causing output to render on the left side of the window */
 /* Use with `FLIP 1` to render on the right side */
 #define MIRROR_YX 0
