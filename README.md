@@ -15,7 +15,7 @@ $ glava
 
 You can pass `BUILD=debug` to the makefile for debug builds of glava, and `INSTALL=standalone` to run glava directly from the `build` directory.
 
-Note that versions since `v1.6.3` use Meson for the build system, although the `Makefile` will remain to work identically. Package maintainers are encouraged to use `meson build`, `ninja -C build`, and `meson install` instead of the Make wrapper.
+Note that versions since `v1.6.4` use Meson for the build system, although the `Makefile` will remain to work identically. Package maintainers are encouraged to use `meson build`, `ninja -C build`, and `meson install` instead of the Make wrapper.
 
 **Requirements:**
 
@@ -92,6 +92,30 @@ audio_output {
 ```
 
 Note the `22050` sample rate -- this is the reccommended setting for GLava. Restart MPD (if nessecary) and start GLava with `glava --audio=fifo`.
+
+## Using GLava with OBS
+
+OBS is able to record X window pixmaps directly, thus copying the alpha bits rather than the relevant section of the screen. This makes GLava useful for streams and recordings, but requires GLava to be a normal X11 client in order to be selected in the software. Use the following config options :
+
+```GLSL
+#request setxwintype "normal"
+#request addxwinstate "pinned"
+#request addxwinstate "skip_taskbar"
+#request addxwinstate "skip_pager"
+#request setforcegeometry true
+```
+
+This usually allows your window manager and pager to ignore GLava while it remaining a regular window. From here you have two options:
+
+* Force the window into your background using:
+  ```GLSL
+  #request addxwinstate "below"
+  #request setdecorated false
+  #request setclickthrough true
+  ```
+* Place the window _offscreen_ using `#request setgeometry x y w h` if you wish to hide GLava from your desktop but want it present on the scene
+
+You may also have to use `#request setfloating true` if you are using a tiling window manager.
 
 ## Performance
 
