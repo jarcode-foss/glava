@@ -6,12 +6,12 @@ export CFLAGS
 
 BUILD_DIR = build
 
-MESON_CONF = $(BUILD_DIR) -Ddisable_obs=true
+MESON_CONF = $(BUILD_DIR) -Ddisable_obs=true --prefix /usr
 
 # Support assigning standalone/debug builds as the old Makefile did, otherwise complain
 
 ifneq ($(BUILD),debug)
-	MESON_CONF += --prefix /usr --buildtype=release
+	MESON_CONF += --buildtype=release
     ifdef BUILD
 		@echo "WARNING: ignoring build option '$(BUILD)' in compatibility Makefile"
     endif
