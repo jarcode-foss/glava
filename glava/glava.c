@@ -234,7 +234,7 @@ static struct option p_opts[] = {
     {0,             0,                 0,  0 }
 };
 
-static renderer* rd = NULL;
+static glava_renderer* rd = NULL;
 
 #define append_buf(buf, sz_store, ...)                      \
     ({                                                      \
@@ -242,8 +242,8 @@ static renderer* rd = NULL;
         buf[*sz_store - 1] = __VA_ARGS__;                   \
     })
 
-/* Wait for renderer target texture to be initialized and valid */
-__attribute__((visibility("default"))) void glava_wait(renderer_handle* ref) {
+/* Wait for glava_renderer target texture to be initialized and valid */
+__attribute__((visibility("default"))) void glava_wait(glava_handle* ref) {
     while(__atomic_load_n(ref, __ATOMIC_SEQ_CST) == NULL) {
         /* Edge case: handle has not been assigned */
         struct timespec tv = {
@@ -257,27 +257,27 @@ __attribute__((visibility("default"))) void glava_wait(renderer_handle* ref) {
 }
 
 /* Atomic size request */
-__attribute__((visibility("default"))) void glava_sizereq(renderer_handle r, int x, int y, int w, int h) {
+__attribute__((visibility("default"))) void glava_sizereq(glava_handle r, int x, int y, int w, int h) {
     r->sizereq = (typeof(r->sizereq)) { .x = x, .y = y, .w = w, .h = h };
     __atomic_store_n(&r->sizereq_flag, GLAVA_REQ_RESIZE, __ATOMIC_SEQ_CST);
 }
 
 /* Atomic terminate request */
-__attribute__((visibility("default"))) void glava_terminate(renderer_handle* ref) {
-    renderer_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
+__attribute__((visibility("default"))) void glava_terminate(glava_handle* ref) {
+    glava_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
     __atomic_store_n(&store->alive, false, __ATOMIC_SEQ_CST);
 }
 
 /* Atomic reload request */
-__attribute__((visibility("default"))) void glava_reload(renderer_handle* ref) {
-    renderer_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
+__attribute__((visibility("default"))) void glava_reload(glava_handle* ref) {
+    glava_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
     __atomic_store_n(&reload,       true,  __ATOMIC_SEQ_CST);
     __atomic_store_n(&store->alive, false, __ATOMIC_SEQ_CST);
 }
 
 
 /* Main entry */
-__attribute__((visibility("default"))) void glava_entry(int argc, char** argv, renderer_handle* ret) {
+__attribute__((visibility("default"))) void glava_entry(int argc, char** argv, glava_handle* ret) {
 
     /* Evaluate these macros only once, since they allocate */
     const char

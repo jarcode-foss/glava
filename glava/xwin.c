@@ -265,7 +265,7 @@ static Drawable get_drawable(Display* d, Window w) {
     return p;
 }
 
-unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
+unsigned int xwin_copyglbg(struct glava_renderer* rd, unsigned int tex) {
     GLuint texture = (GLuint) tex;
     if (!texture)
         glGenTextures(1, &texture);

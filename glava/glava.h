@@ -10,7 +10,7 @@
 
 struct gl_data;
 
-typedef struct renderer {
+typedef struct glava_renderer {
     volatile bool alive;
     bool    mirror_input;
     size_t  bufsize_request, rate_request, samplesize_request;
@@ -23,18 +23,18 @@ typedef struct renderer {
     } sizereq;
     volatile int sizereq_flag;
     struct gl_data* gl;
-} renderer;
+} glava_renderer;
 
 /* External API */
 
-typedef struct renderer* volatile renderer_handle;
+typedef struct glava_renderer* volatile glava_handle;
 __attribute__((noreturn, visibility("default"))) void (*glava_abort)            (void);
 __attribute__((noreturn, visibility("default"))) void (*glava_return)           (void);
 __attribute__((visibility("default")))           void glava_assign_external_ctx (void* ctx);
-__attribute__((visibility("default")))           void glava_entry               (int argc, char** argv, renderer_handle* ret);
-__attribute__((visibility("default")))           void glava_terminate           (renderer_handle* ref);
-__attribute__((visibility("default")))           void glava_reload              (renderer_handle* ref);
-__attribute__((visibility("default")))           void glava_sizereq             (renderer_handle r, int x, int y, int w, int h);
-__attribute__((visibility("default")))           void glava_wait                (renderer_handle* ref);
+__attribute__((visibility("default")))           void glava_entry               (int argc, char** argv, glava_handle* ret);
+__attribute__((visibility("default")))           void glava_terminate           (glava_handle* ref);
+__attribute__((visibility("default")))           void glava_reload              (glava_handle* ref);
+__attribute__((visibility("default")))           void glava_sizereq             (glava_handle r, int x, int y, int w, int h);
+__attribute__((visibility("default")))           void glava_wait                (glava_handle* ref);
 
 #endif /* _GLAVA_H */

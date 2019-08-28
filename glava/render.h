@@ -30,21 +30,21 @@ struct rd_bind {
 };
 
 #ifdef GLAVA_DEBUG
-bool rd_get_test_mode   (struct renderer*);
-bool rd_test_evaluate   (struct renderer*);
+bool rd_get_test_mode   (struct glava_renderer*);
+bool rd_test_evaluate   (struct glava_renderer*);
 #endif
 
-struct renderer* rd_new            (const char**    paths,        const char* entry,
+struct glava_renderer* rd_new            (const char**    paths,        const char* entry,
                                     const char**    requests,     const char* force_backend,
                                     struct rd_bind* bindings,     int         stdin_type,
                                     bool            auto_desktop, bool        verbose,
                                     bool            test_mode);
-bool             rd_update         (struct renderer*, float* lb, float* rb,
+bool             rd_update         (struct glava_renderer*, float* lb, float* rb,
                                     size_t bsz, bool modified);
-void             rd_destroy        (struct renderer*);
-void             rd_time           (struct renderer*);
-void*            rd_get_impl_window(struct renderer*);
-struct gl_wcb*   rd_get_wcb        (struct renderer*);
+void             rd_destroy        (struct glava_renderer*);
+void             rd_time           (struct glava_renderer*);
+void*            rd_get_impl_window(struct glava_renderer*);
+struct gl_wcb*   rd_get_wcb        (struct glava_renderer*);
 
 /* gl_wcb - OpenGL Window Creation Backend interface */
 struct gl_wcb {

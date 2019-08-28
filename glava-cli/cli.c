@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static renderer_handle handle;
+static glava_handle handle;
 
 static void handle_term  (int _) {
     printf("Interrupt recieved, closing...\n");

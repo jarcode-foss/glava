@@ -159,7 +159,7 @@ struct gl_data {
     #endif
 };
 
-bool rd_get_test_mode(struct renderer* r) {
+bool rd_get_test_mode(struct glava_renderer* r) {
     struct gl_data* gl = r->gl;
     return gl->test_mode;
 }
@@ -801,7 +801,7 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
     return NULL;
 }
 
-struct renderer* rd_new(const char**    paths,        const char* entry,
+struct glava_renderer* rd_new(const char**    paths,        const char* entry,
                         const char**    requests,     const char* force_backend,
                         struct rd_bind* bindings,     int         stdin_type,
                         bool            auto_desktop, bool        verbose,
@@ -809,8 +809,8 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
     
     xwin_wait_for_wm();
     
-    renderer* r = malloc(sizeof(struct renderer));
-    *r = (struct renderer) {
+    glava_renderer* r = malloc(sizeof(struct glava_renderer));
+    *r = (struct glava_renderer) {
         .alive                = true,
         .mirror_input         = false,
         .gl                   = malloc(sizeof(struct gl_data)),
@@ -1568,13 +1568,13 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
     return r;
 }
 
-void rd_time(struct renderer* r) {
+void rd_time(struct glava_renderer* r) {
     struct gl_data* gl = r->gl;
     
     gl->wcb->set_time(gl->w, 0.0D); /* reset time for measuring this frame */
 }
 
-bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
+bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
     struct gl_data* gl = r->gl;
     size_t t, a, fbsz = bsz * sizeof(float);
     
@@ -2145,7 +2145,7 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
 }
 
 #ifdef GLAVA_DEBUG
-bool rd_test_evaluate(struct renderer* r) {
+bool rd_test_evaluate(struct glava_renderer* r) {
     int w, h;
     struct gl_data* gl = r->gl;
     gl->wcb->get_fbsize(gl->w, &w, &h);
@@ -2181,10 +2181,10 @@ end_test:
 }
 #endif
 
-void*          rd_get_impl_window (struct renderer* r)  { return r->gl->w;   }
-struct gl_wcb* rd_get_wcb         (struct renderer* r)  { return r->gl->wcb; }
+void*          rd_get_impl_window (struct glava_renderer* r)  { return r->gl->w;   }
+struct gl_wcb* rd_get_wcb         (struct glava_renderer* r)  { return r->gl->wcb; }
 
-void rd_destroy(struct renderer* r) {
+void rd_destroy(struct glava_renderer* r) {
     r->gl->wcb->destroy(r->gl->w);
     if (r->gl->interpolate) free(r->gl->interpolate_buf[0]);
     size_t t, b;
