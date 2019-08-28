@@ -15,7 +15,7 @@ $ glava
 
 You can pass `BUILD=debug` to the makefile for debug builds of glava, and `INSTALL=standalone` to run glava directly from the `build` directory.
 
-Note that versions since `v1.6.4` use Meson for the build system, although the `Makefile` will remain to work identically. Package maintainers are encouraged to use `meson build`, `ninja -C build`, and `meson install` instead of the Make wrapper.
+Note that versions since `2.0` use Meson for the build system, although the `Makefile` will remain to work identically to earlier `1.xx` releases. Package maintainers are encouraged to use `meson build`, `ninja -C build`, and `meson install` instead of the Make wrapper.
 
 **Requirements:**
 
