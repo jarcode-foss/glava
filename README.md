@@ -1,7 +1,7 @@
 
 <img align="left" width="200" height="200" src="https://thumbs.gfycat.com/DefiantInformalIndianspinyloach-size_restricted.gif" />
 
-**GLava** is an OpenGL audio spectrum visualizer primarily used for desktop windows or backgrounds. Displayed to the left is the `radial` shader module, and a more extensive demonstration [can be seen here](https://streamable.com/dgpj8). Development is active, and reporting issues is encouranged.
+**GLava** is a general-purpose, highly configurable OpenGL audio spectrum visualizer for X11. Displayed to the left is the `radial` shader module, or for a more extensive demonstration [see this demo](https://streamable.com/dgpj8). Development is active, and reporting issues is encouranged.
 
 **Compiling:**
 
@@ -27,10 +27,11 @@ Note that versions since `2.0` use Meson for the build system, although the `Mak
 
 - Meson
 - GCC (this program uses GNU C features)
+- OBS (disable with `-Ddisable-obs=true`, disabled by default in `Makefile`)
 
 **Optional requirements:**
 
-- GLFW 3.1+ (optional, enable with `ENABLE_GLFW=1`)
+- GLFW 3.1+ (optional, enable with `-Denable_glfw=true`)
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
 ```bash
@@ -95,27 +96,11 @@ Note the `22050` sample rate -- this is the reccommended setting for GLava. Rest
 
 ## Using GLava with OBS
 
-OBS (and some other recording software) is able to record X window pixmaps directly, thus copying the alpha bits rather than the relevant section of the screen. This makes GLava useful for streams and recordings, but requires GLava to be a normal X11 client in order to be selected in the software. Use the following config options to fix this:
+GLava installs an OBS plugin if support was enabled at compile-time. This should be enabled by default in Meson, but it is overridden to disabled in the `Makefile` for build compatibility.
 
-```GLSL
-#request setxwintype "normal"
-#request addxwinstate "pinned"
-#request addxwinstate "skip_taskbar"
-#request addxwinstate "skip_pager"
-#request setforcegeometry true
-```
+To use the plugin, simply select `GLava Source` from the source list in OBS and position the output accordingly. You can provide options to GLava in the source settings.
 
-This usually allows your window manager and pager to ignore GLava while it remaining a regular window. From here you have two options:
-
-* If you wish to use GLava on your desktop and scene, force the window into your background using:
-  ```GLSL
-  #request addxwinstate "below"
-  #request setdecorated false
-  #request setclickthrough true
-  ```
-* Place the window _offscreen_ using `#request setgeometry x y w h` if you wish to hide GLava from your desktop but want it present on the scene
-
-You may also have to use `#request setfloating true` if you are using a tiling window manager.
+Note that this only works for the default GLX builds of both OBS and GLava. This feature will not work if OBS was compiled with EGL for context creation, or if GLava is using GLFW.
 
 ## Performance
 
