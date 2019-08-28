@@ -5,7 +5,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <dirent.h>
-#include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <limits.h>
@@ -73,7 +72,12 @@
 #define ACCESSPERMS (S_IRWXU|S_IRWXG|S_IRWXO) /* 0777 */
 #endif
 
-static bool reload = false;
+static volatile bool reload = false;
+
+__attribute__((noreturn, visibility("default"))) void glava_return_builtin(void) { exit(EXIT_SUCCESS); }
+__attribute__((noreturn, visibility("default"))) void glava_abort_builtin (void) { exit(EXIT_FAILURE); }
+__attribute__((noreturn, visibility("default"))) void (*glava_return)     (void) = glava_return_builtin;
+__attribute__((noreturn, visibility("default"))) void (*glava_abort)      (void) = glava_abort_builtin;
 
 /* Copy installed shaders/configuration from the installed location
    (usually /etc/xdg). Modules (folders) will be linked instead of
@@ -86,13 +90,13 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
     DIR* dir = opendir(path);
     if (!dir) {
         fprintf(stderr, "'%s' does not exist\n", path);
-        exit(EXIT_FAILURE);
+        glava_abort();
     }
 
     umask(~(S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH));
     if (mkdir(dest, ACCESSPERMS) && errno != EEXIST) {
         fprintf(stderr, "could not create directory '%s': %s\n", dest, strerror(errno));
-        exit(EXIT_FAILURE);
+        glava_abort();
     }
     
     struct dirent* d;
@@ -232,28 +236,48 @@ static struct option p_opts[] = {
 
 static renderer* rd = NULL;
 
-static void handle_term(int signum) {
-    if (rd->alive) {
-        puts("\nInterrupt recieved, closing...");
-        rd->alive = false;
-    }
-}
-
-static void handle_reload(int signum) {
-    if (rd->alive) {
-        puts("\nSIGUSR1 recieved, reloading...");
-        rd->alive = false;
-    }
-    reload = true;
-}
-
 #define append_buf(buf, sz_store, ...)                      \
     ({                                                      \
         buf = realloc(buf, ++(*sz_store) * sizeof(*buf));   \
         buf[*sz_store - 1] = __VA_ARGS__;                   \
     })
 
-int main(int argc, char** argv) {
+/* Wait for renderer target texture to be initialized and valid */
+__attribute__((visibility("default"))) void glava_wait(renderer_handle* ref) {
+    while(__atomic_load_n(ref, __ATOMIC_SEQ_CST) == NULL) {
+        /* Edge case: handle has not been assigned */
+        struct timespec tv = {
+            .tv_sec = 0, .tv_nsec = 10 * 1000000
+        };
+        nanosleep(&tv, NULL);
+    }
+    pthread_mutex_lock(&(*ref)->lock);
+    pthread_cond_wait(&(*ref)->cond, &(*ref)->lock);
+    pthread_mutex_unlock(&(*ref)->lock);
+}
+
+/* Atomic size request */
+__attribute__((visibility("default"))) void glava_sizereq(renderer_handle r, int x, int y, int w, int h) {
+    r->sizereq = (typeof(r->sizereq)) { .x = x, .y = y, .w = w, .h = h };
+    __atomic_store_n(&r->sizereq_flag, GLAVA_REQ_RESIZE, __ATOMIC_SEQ_CST);
+}
+
+/* Atomic terminate request */
+__attribute__((visibility("default"))) void glava_terminate(renderer_handle* ref) {
+    renderer_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
+    __atomic_store_n(&store->alive, false, __ATOMIC_SEQ_CST);
+}
+
+/* Atomic reload request */
+__attribute__((visibility("default"))) void glava_reload(renderer_handle* ref) {
+    renderer_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
+    __atomic_store_n(&reload,       true,  __ATOMIC_SEQ_CST);
+    __atomic_store_n(&store->alive, false, __ATOMIC_SEQ_CST);
+}
+
+
+/* Main entry */
+__attribute__((visibility("default"))) void glava_entry(int argc, char** argv, renderer_handle* ret) {
 
     /* Evaluate these macros only once, since they allocate */
     const char
@@ -284,10 +308,10 @@ int main(int argc, char** argv) {
             case 'm': force           = optarg; break;
             case 'b': backend         = optarg; break;
             case 'a': audio_impl_name = optarg; break;
-            case '?': exit(EXIT_FAILURE); break;
+            case '?': glava_abort(); break;
             case 'V':
                 puts(GLAVA_VERSION_STRING);
-                exit(EXIT_SUCCESS);
+                glava_return();
                 break;
             default:
             case 'h': {
@@ -297,7 +321,7 @@ int main(int argc, char** argv) {
                     bsz += snprintf(buf + bsz, sizeof(buf) - bsz, "\t\"%s\"%s\n", audio_impls[t]->name,
                                     !strcmp(audio_impls[t]->name, audio_impl_name) ? " (default)" : "");
                 printf(help_str, argc > 0 ? argv[0] : "glava", buf);
-                exit(EXIT_SUCCESS);
+                glava_return();
                 break;
             }
             case 'p': {
@@ -323,7 +347,7 @@ int main(int argc, char** argv) {
                 if (*parsed_name == '\0') {
                     fprintf(stderr, "Error: invalid pipe binding name: \"%s\"\n"
                             "Zero length names are not permitted.\n", parsed_name);
-                    exit(EXIT_FAILURE);
+                    glava_abort();
                 }
                 for (char* c = parsed_name; *c != '\0'; ++c) {
                     switch (*c) {
@@ -331,7 +355,7 @@ int main(int argc, char** argv) {
                             if (c == parsed_name) {
                                 fprintf(stderr, "Error: invalid pipe binding name: \"%s\" ('%c')\n"
                                         "Valid names may not start with a number.\n", parsed_name, *c);
-                                exit(EXIT_FAILURE);
+                                glava_abort();
                             }
                         case 'a' ... 'z':
                         case 'A' ... 'Z':
@@ -340,13 +364,13 @@ int main(int argc, char** argv) {
                             fprintf(stderr, "Error: invalid pipe binding name: \"%s\" ('%c')\n"
                                     "Valid names may only contain [a..z], [A..Z], [0..9] "
                                     "and '_' characters.\n", parsed_name, *c);
-                            exit(EXIT_FAILURE);
+                            glava_abort();
                     }
                 }
                 for (size_t t = 0; t < binds_sz; ++t) {
                     if (!strcmp(binds[t].name, parsed_name)) {
                         fprintf(stderr, "Error: attempted to re-bind pipe argument: \"%s\"\n", parsed_name);
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                 }
                 int type = -1;
@@ -364,7 +388,7 @@ int main(int argc, char** argv) {
                 }
                 if (type == -1) {
                     fprintf(stderr, "Error: Unsupported `--pipe` GLSL type: \"%s\"\n", parsed_type);
-                    exit(EXIT_FAILURE);
+                    glava_abort();
                 }
                 struct rd_bind bd = {
                     .name  = parsed_name,
@@ -391,13 +415,13 @@ int main(int argc, char** argv) {
                 }
                 if (stdin_type == -1) {
                     fprintf(stderr, "Error: Unsupported `--stdin` GLSL type: \"%s\"\n", optarg);
-                    exit(EXIT_FAILURE);
+                    glava_abort();
                 }
                 break;
             }
             conflict_error:
                 fprintf(stderr, "Error: cannot use `--pipe` and `--stdin` together\n");
-                exit(EXIT_FAILURE);
+                glava_abort();
                 #ifdef GLAVA_DEBUG
             case 'T': {
                 entry = "test_rc.glsl";
@@ -409,7 +433,7 @@ int main(int argc, char** argv) {
 
     if (copy_mode) {
         copy_cfg(install_path, user_path, verbose);
-        exit(EXIT_SUCCESS);
+        glava_return();
     }
 
     /* Handle `--force` argument as a request override */
@@ -423,12 +447,6 @@ int main(int argc, char** argv) {
     /* Null terminate array arguments */
     append_buf(requests, &requests_sz, NULL);
     append_buf(binds,    &binds_sz,    (struct rd_bind) { .name = NULL });
-    
-    const struct sigaction term_action   = { .sa_handler = handle_term };
-    const struct sigaction reload_action = { .sa_handler = handle_reload };
-    sigaction(SIGTERM, &term_action,   NULL);
-    sigaction(SIGINT,  &term_action,   NULL);
-    sigaction(SIGUSR1, &reload_action, NULL);
     
     float* b0, * b1, * lb, * rb;
     size_t t;
@@ -446,13 +464,14 @@ int main(int argc, char** argv) {
 
     if (!impl) {
         fprintf(stderr, "The specified audio backend (\"%s\") is not available.\n", audio_impl_name);
-        exit(EXIT_FAILURE);
+        glava_abort();
     }
 
-instantiate:
-    reload = false;
-    rd     = rd_new(system_shader_paths, entry, (const char**) requests,
+instantiate: {}
+    rd = rd_new(system_shader_paths, entry, (const char**) requests,
                     backend, binds, stdin_type, desktop, verbose, test);
+    if (ret)
+        __atomic_store_n(ret, rd, __ATOMIC_SEQ_CST);
     
     b0 = malloc(rd->bufsize_request * sizeof(float));
     b1 = malloc(rd->bufsize_request * sizeof(float));
@@ -488,7 +507,7 @@ instantiate:
     if (verbose) printf("Using audio source: %s\n", audio.source);
     
     pthread_create(&thread, NULL, impl->entry, (void*) &audio);
-    while (rd->alive) {
+    while (__atomic_load_n(&rd->alive, __ATOMIC_SEQ_CST)) {
 
         rd_time(rd); /* update timer for this frame */
         
@@ -526,7 +545,7 @@ instantiate:
         if (rd_test_evaluate(rd)) {
             fprintf(stderr, "Test results did not match expected output\n");
             fflush(stderr);
-            exit(EXIT_FAILURE);
+            glava_abort();
         }
     }
     #endif
@@ -542,6 +561,6 @@ instantiate:
     free(lb);
     free(rb);
     rd_destroy(rd);
-    if (reload)
+    if (__atomic_exchange_n(&reload, false, __ATOMIC_SEQ_CST))
         goto instantiate;
 }

@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <math.h>
 #include <time.h>
+#include <pthread.h>
 
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -147,24 +148,21 @@ struct gl_data {
     bool bg_setup;
     GLuint sm_utex, sm_usz, sm_uw;
     bool sm_setup;
+    bool test_mode;
+    struct gl_sfbo off_sfbo;
     #ifdef GLAVA_DEBUG
     struct {
         float r, g, b, a;
     } test_eval_color;
     bool debug_verbose;
     bool assigned_debug_cb;
-    bool test_mode;
-    struct gl_sfbo test_sfbo;
     #endif
 };
 
-
-#ifdef GLAVA_DEBUG
 bool rd_get_test_mode(struct renderer* r) {
     struct gl_data* gl = r->gl;
     return gl->test_mode;
 }
-#endif
 
 /* load shader file */
 static GLuint shaderload(const char*             rpath,
@@ -819,8 +817,14 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
         .bufsize_request      = 8192,
         .rate_request         = 22000,
         .samplesize_request   = 1024,
-        .audio_source_request = NULL
+        .audio_source_request = NULL,
+        .off_tex              = 0,
+        .lock                 = PTHREAD_MUTEX_INITIALIZER,
+        .cond                 = PTHREAD_COND_INITIALIZER,
+        .sizereq_flag         = 0
     };
+
+    pthread_mutex_lock(&r->lock);
     
     struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
@@ -863,19 +867,19 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
         .binds             = bindings,
         .bg_setup          = false,
         .sm_setup          = false,
-        #ifdef GLAVA_DEBUG
-        .test_eval_color   = { 0.0F, 0.0F, 0.0F, 0.0F },
-        .debug_verbose     = verbose,
-        .assigned_debug_cb = false,
         .test_mode         = test_mode,
-        .test_sfbo         = {
+        .off_sfbo          = {
             .name       = "test",
             .shader     = 0,
             .indirect   = false,
             .nativeonly = false,
             .binds      = NULL,
             .binds_sz   = 0
-        }
+        },
+        #ifdef GLAVA_DEBUG
+        .test_eval_color   = { 0.0F, 0.0F, 0.0F, 0.0F },
+        .debug_verbose     = verbose,
+        .assigned_debug_cb = false,
         #endif
     };
 
@@ -905,7 +909,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                 fprintf(stderr, "\t\"%s\"\n", wcbs[t]->name);
             }
         }
-        exit(EXIT_FAILURE);
+        glava_abort();
     }
 
     if (verbose) printf("Using backend: '%s'\n", backend);
@@ -966,7 +970,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
 
                     if (!gl->copy_desktop && !native_opacity && strcmp("none", (char*) args[0])) {
                         fprintf(stderr, "Invalid opacity option: '%s'\n", (char*) args[0]);
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                 })
         },
@@ -992,7 +996,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                     };
                     if (!ext_parse_color((char*) args[0], 2, results)) {
                         fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                 })
         },
@@ -1008,7 +1012,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                     };
                     if (!ext_parse_color((char*) args[0], 2, results)) {
                         fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                 })
         },
@@ -1042,7 +1046,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                         current->nativeonly = *(bool*) args[0];
                     else {
                         fprintf(stderr, "`nativeonly` request needs module context\n");
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                 })
         },
@@ -1157,7 +1161,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                         fprintf(stderr, "Cannot add transformation to uniform '%s':"
                                 " uniform does not exist! (%d present in this unit)\n",
                                 (const char*) args[0], (int) current->binds_sz);
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                     struct gl_transform* tran = NULL;
                     for (t = 0; t < sizeof(transform_functions) / sizeof(struct gl_transform); ++t) {
@@ -1170,12 +1174,12 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                         fprintf(stderr, "Cannot add transformation '%s' to uniform '%s':"
                                 " transform function does not exist!\n",
                                 (const char*) args[1], (const char*) args[0]);
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                     if (tran->type != bind->type) {
                         fprintf(stderr, "Cannot apply '%s' to uniform '%s': mismatching types\n",
                                 (const char*) args[1], (const char*) args[0]);
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                     ++bind->t_sz;
                     bind->transformations =
@@ -1190,13 +1194,13 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                     if (!current) {
                         fprintf(stderr, "Cannot bind uniform '%s' outside of a context"
                                 " (load a module first!)\n", (const char*) args[0]);
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                     struct gl_bind_src* src = lookup_bind_src((const char*) args[0]);
                     if (!src) {
                         fprintf(stderr, "Cannot bind uniform '%s': bind type does not exist!\n",
                                 (const char*) args[0]);
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     }
                     ++current->binds_sz;
                     current->binds = realloc(current->binds, current->binds_sz * sizeof(struct gl_bind));
@@ -1246,7 +1250,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                 errno != ENOTDIR &&
                 errno != ELOOP     ) {
                 fprintf(stderr, "Failed to load entry '%s': %s\n", se_buf, strerror(errno));
-                exit(EXIT_FAILURE);
+                glava_abort();
             } else continue;
         }
         fstat(fd, &st);
@@ -1275,7 +1279,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                         errno != ELOOP) {
                         fprintf(stderr, "Failed to load desktop environment specific presets "
                                 "at '%s': %s\n", se_buf, strerror(errno));
-                        exit(EXIT_FAILURE);
+                        glava_abort();
                     } else {
                         printf("No presets for current desktop environment (\"%s\"), "
                                "using default presets for embedding\n", env);
@@ -1284,7 +1288,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                         if (fd == -1) {
                             fprintf(stderr, "Failed to load default presets at '%s': %s\n",
                                     se_buf, strerror(errno));
-                            exit(EXIT_FAILURE);
+                            glava_abort();
                         }
                     }
                 }
@@ -1336,7 +1340,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                 "No module was selected, edit '%s' to load "
                 "a module with `#request mod [name]`\n",
                 entry);
-        exit(EXIT_FAILURE);
+        glava_abort();
     }
     
     gl->w = gl->wcb->create_and_bind(wintitle, "GLava", xwintype, (const char**) xwinstates, xwinstates_sz,
@@ -1442,7 +1446,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                             if (skip && verbose) printf("disabled: '%s'\n", d->d_name);
                             /* check for compilation failure */
                             if (!id && !skip)
-                                exit(EXIT_FAILURE);
+                                glava_abort();
 
                             s->shader = id;
 
@@ -1472,7 +1476,7 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
                                         s->pipe_uniforms[u] = glGetUniformLocation(id, buf);
                                     } else {
                                         fprintf(stderr, "failed to format binding: \"%s\"\n", bd->name);
-                                        exit(EXIT_FAILURE);
+                                        glava_abort();
                                     }
                                     ++u;
                                 }
@@ -1492,14 +1496,15 @@ struct renderer* rd_new(const char**    paths,        const char* entry,
     
     gl->stages = stages;
     gl->stages_sz = count;
-
-    #ifdef GLAVA_DEBUG
-    {
+    
+    if (gl->test_mode || gl->wcb->offscreen()) {
         int w, h;
         gl->wcb->get_fbsize(gl->w, &w, &h);
-        setup_sfbo(&gl->test_sfbo, w, h);
+        setup_sfbo(&gl->off_sfbo, w, h);
+        r->off_tex = gl->off_sfbo.tex;
+        pthread_cond_signal(&r->cond);
+        pthread_mutex_unlock(&r->lock);
     }
-    #endif
     
     {
         struct gl_sfbo* final = NULL;
@@ -1636,6 +1641,13 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
             irb[t] = irbs + ((irbe - irbs) * mod);
         }
     }
+    
+    /* Handle external resize requests */
+    if (gl->wcb->offscreen()) {
+        if (__atomic_exchange_n(&r->sizereq_flag, GLAVA_REQ_NONE, __ATOMIC_SEQ_CST) == GLAVA_REQ_RESIZE)
+            gl->wcb->set_geometry(gl->w, r->sizereq.x, r->sizereq.y, r->sizereq.w, r->sizereq.h);
+    }
+    
     int ww, wh, wx, wy;
     gl->wcb->get_fbsize(gl->w, &ww, &wh);
     gl->wcb->get_pos(gl->w, &wx, &wy);
@@ -1647,9 +1659,8 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
                 setup_sfbo(&gl->stages[t], ww, wh);
             }
         }
-        #ifdef GLAVA_DEBUG
-        setup_sfbo(&gl->test_sfbo, ww, wh);
-        #endif
+        if (gl->test_mode || gl->wcb->offscreen())
+            setup_sfbo(&gl->off_sfbo, ww, wh);
     }
 
     /* Resize and grab new background data if needed */
@@ -1843,11 +1854,9 @@ bool rd_update(struct renderer* r, float* lb, float* rb, size_t bsz, bool modifi
         if (current->indirect)
             glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
         
-        #ifdef GLAVA_DEBUG
-        if (!current->indirect && gl->test_mode) {
-            glBindFramebuffer(GL_FRAMEBUFFER, gl->test_sfbo.fbo);
+        if (!current->indirect && (gl->test_mode || gl->wcb->offscreen())) {
+            glBindFramebuffer(GL_FRAMEBUFFER, gl->off_sfbo.fbo);
         }
-        #endif
         
         glClear(GL_COLOR_BUFFER_BIT);
         

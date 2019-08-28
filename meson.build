@@ -21,7 +21,6 @@ else
 	add_project_arguments(
 		'-O2',
 		'-Wstringop-overflow=0',
-        '-Wmaybe-uninitialized=0',
 		language: 'c'
 	)
 	if get_option('glad')
@@ -83,15 +82,25 @@ endif
 
 add_project_arguments(
 	'-DGLAVA_VERSION="'+glava_version+'"',
-	'-DSHADER_INSTALL_PATH="'+shaderdir+'"',
+	'-DSHADER_INSTALL_PATH="'+shaderdir+'/glava"',
+    '-I/usr/include/obs',
+    '-fvisibility=hidden',
 	language: 'c'
 )
 
-executable(
+libglava = shared_library(
 	'glava',
 	sources: run_command('find', 'glava', '-type', 'f', '-name', '*.c', '-print').stdout().strip().split('\n'),
 	dependencies: glava_dependencies,
 	install: true
+)
+
+executable(
+    'glava',
+    sources: run_command('find', 'glava-cli', '-type', 'f', '-name', '*.c', '-print').stdout().strip().split('\n'),
+    link_with: libglava,
+    include_directories: 'glava',
+    install: true
 )
 
 executable(
@@ -105,4 +114,22 @@ executable(
 	install: true
 )
 
-install_subdir('shaders/glava', install_dir: shaderdir+'/../')
+if not get_option('disable_obs')
+    shared_library(
+        'glava-obs',
+        sources: run_command('find', 'glava-obs', '-type', 'f', '-name', '*.c', '-print').stdout().strip().split('\n'),
+        link_with: libglava,
+        dependencies: [
+	        dependency('threads'),
+		    cc.find_library('GL'),
+		    cc.find_library('X11'),
+            cc.find_library('obs'),
+	        cc.find_library('dl')
+	    ],
+	    install: true,
+        install_dir : '/usr/lib/obs-plugins'
+    )
+endif
+
+install_subdir('shaders/glava', install_dir: shaderdir)
+install_headers('glava/glava.h')

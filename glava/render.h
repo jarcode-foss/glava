@@ -2,6 +2,11 @@
 #ifndef RENDER_H
 #define RENDER_H
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <pthread.h>
+#include "glava.h"
+
 extern const struct {
     const char* n;
     int i;
@@ -17,15 +22,6 @@ extern bool glad_instantiated;
 #define STDIN_TYPE_VEC4  6
 
 #define PIPE_DEFAULT "_"
-
-struct gl_data;
-
-typedef struct renderer {
-    bool    alive, mirror_input;
-    size_t  bufsize_request, rate_request, samplesize_request;
-    char*   audio_source_request;
-    struct gl_data* gl;
-} renderer;
 
 struct rd_bind {
     const char* name;
@@ -53,6 +49,7 @@ struct gl_wcb*   rd_get_wcb        (struct renderer*);
 /* gl_wcb - OpenGL Window Creation Backend interface */
 struct gl_wcb {
     const char* name;
+    bool     (*offscreen)      (void);
     void     (*init)           (void);
     void*    (*create_and_bind)(const char* name, const char* class,
                                 const char* type, const char** states,
@@ -96,6 +93,7 @@ struct gl_wcb {
 #define WCB_ATTACH(B, N)                        \
     struct gl_wcb N = {                         \
         .name = B,                              \
+        WCB_FUNC(offscreen),                    \
         WCB_FUNC(init),                         \
         WCB_FUNC(create_and_bind),              \
         WCB_FUNC(should_close),                 \

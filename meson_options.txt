@@ -1,5 +1,6 @@
-option('shaderdir', type: 'string', value: '/etc/xdg/glava/', description: 'Default shader directory')
+option('shaderdir', type: 'string', value: '/etc/xdg', description: 'System shader directory location')
 option('enable_glfw', type: 'boolean', value: false, description: 'Enable GLFW backend')
 option('disable_glx', type: 'boolean', value: false, description: 'Disable GLX')
 option('standalone', type: 'boolean', value: false, description: 'OS-independent build')
 option('glad', type: 'boolean', value: false, description: 'Regenerate GLAD')
+option('disable_obs', type: 'boolean', value: false, description: 'Dsiable OBS plugin support')

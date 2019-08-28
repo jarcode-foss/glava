@@ -25,14 +25,14 @@
 #include "render.h"
 #include "xwin.h"
 
-typedef struct __GLXcontextRec *GLXContext;
+typedef struct __GLXcontextRec* GLXContext;
 typedef XID GLXPixmap;
 typedef XID GLXDrawable;
 
 typedef void (*__GLXextFuncPtr)(void);
 
 /* GLX 1.3 and later */
-typedef struct __GLXFBConfigRec *GLXFBConfig;
+typedef struct __GLXFBConfigRec* GLXFBConfig;
 typedef XID GLXFBConfigID;
 typedef XID GLXContextID;
 typedef XID GLXWindow;
@@ -58,7 +58,6 @@ typedef XID GLXPbuffer;
 #define GLX_ACCUM_GREEN_SIZE	15
 #define GLX_ACCUM_BLUE_SIZE	16
 #define GLX_ACCUM_ALPHA_SIZE	17
-
 
 /*
  * Error codes returned by glXGetConfig:
@@ -184,6 +183,20 @@ struct glxwin {
 
 static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM__NET_ACTIVE_WINDOW, ATOM__XROOTPMAP_ID;
 
+static GLXContext sharelist_ctx;
+static bool       sharelist_assigned = false;
+
+static bool offscreen(void) {
+    return sharelist_assigned;
+}
+
+/* Public function that can be called before GLava instantiation for offscreen rendering hooks */
+/* This hook resides here since it relies on GLX functionality. */
+__attribute__((visibility("default"))) void glava_assign_external_ctx(void* ctx) {
+    sharelist_ctx      = (GLXContext) ctx;
+    sharelist_assigned = true;
+}
+
 static void init(void) {
     display = XOpenDisplay(NULL);
     if (!display) {
@@ -201,7 +214,7 @@ static void init(void) {
 
     if (!hgl && !hglx) {
         fprintf(stderr, "Failed to load GLX functions (libGL and libGLX do not exist!)\n");
-        exit(EXIT_FAILURE);
+        glava_abort();
     }
 
     /* Depending on the graphics driver, the GLX functions that we need may either be in libGL or
@@ -212,7 +225,7 @@ static void init(void) {
         if (!s && hglx) s = dlsym(hglx, symbol);
         if (!s) {
             fprintf(stderr, "Failed to resolve GLX symbol: `%s`\n", symbol);
-            exit(EXIT_FAILURE);
+            glava_abort();
         }
         return s;
     }
@@ -338,7 +351,12 @@ static void* create_and_bind(const char* name, const char* class,
                              int d, int h,
                              int x, int y,
                              int version_major, int version_minor,
-                             bool clickthrough, bool offscreen) {
+                             bool clickthrough, bool off) {
+
+    /* Assume offscreen rendering if hook has been used */
+    if (offscreen())
+        off = true;
+    
     struct glxwin* w = malloc(sizeof(struct glxwin));
     *w = (struct glxwin) {
         .override_state = '\0',
@@ -347,7 +365,7 @@ static void* create_and_bind(const char* name, const char* class,
         .should_render  = true,
         .bg_changed     = false,
         .clickthrough   = false,
-        .offscreen      = offscreen
+        .offscreen      = off
     };
 
     XVisualInfo* vi;
@@ -362,7 +380,7 @@ static void* create_and_bind(const char* name, const char* class,
                 "\nGLX extension version mismatch on the current display (1.4+ required, %d.%d available)\n"
                 "This is usually due to an outdated X server or graphics drivers.\n\n",
                 glx_minor, glx_major);
-        exit(EXIT_FAILURE);
+        glava_abort();
     }
 
     static int gl_attrs[] = {
@@ -393,7 +411,7 @@ static void* create_and_bind(const char* name, const char* class,
                 "glXChooseFBConfig(): failed with attrs "
                 "(GLX_CONTEXT_MAJOR_VERSION_ARB, GLX_CONTEXT_MINOR_VERSION_ARB)\n\n",
                 version_major, version_minor);
-        exit(EXIT_FAILURE);
+        glava_abort();
     }
     
     for (int t = 0; t < fb_sz; ++t) {
@@ -486,7 +504,7 @@ static void* create_and_bind(const char* name, const char* class,
         abort();
     }
     
-    if (!(w->context = glXCreateContextAttribsARB(display, config, 0, True, context_attrs))) {
+    if (!(w->context = glXCreateContextAttribsARB(display, config, sharelist_assigned ? sharelist_ctx : 0, True, context_attrs))) {
         fprintf(stderr, "glXCreateContextAttribsARB(): failed\n");
         abort();
     }

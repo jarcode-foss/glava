@@ -65,6 +65,8 @@ DECL_WINDOW_HINT_STUB(set_maximized);
 
 extern struct gl_wcb wcb_glfw;
 
+static bool offscreen(void) { return false; }
+
 static void* create_and_bind(const char* name, const char* class,
                              const char* type, const char** states,
                              size_t states_sz,

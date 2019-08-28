@@ -1,4 +1,4 @@
-.PHONY: all install clean
+.PHONY: all install clean ninja build
 
 # In case these were specified explicitly as options instead of environment variables, export them to child processes
 export DESTDIR
@@ -6,12 +6,12 @@ export CFLAGS
 
 BUILD_DIR = build
 
-MESON_CONF = $(BUILD_DIR)
+MESON_CONF = $(BUILD_DIR) -Ddisable_obs=true
 
 # Support assigning standalone/debug builds as the old Makefile did, otherwise complain
 
 ifneq ($(BUILD),debug)
-	MESON_CONF += --buildtype=release
+	MESON_CONF += --prefix /usr --buildtype=release
     ifdef BUILD
 		@echo "WARNING: ignoring build option '$(BUILD)' in compatibility Makefile"
     endif
@@ -34,6 +34,7 @@ $(shell if [ '$(STATE)' != "`cat build_state`" ]; then echo '$(STATE)' > build_s
 ifndef BUILD
 	@echo ""
 	@echo "PACKAGE MAINTAINER NOTICE: Configuring release build for compatibility with old makefile."
+	@echo "                           Some new features may be missing."
 	@echo "                           If you are a package maintainer consider using meson directly!"
 	@echo ""
 endif
@@ -50,7 +51,7 @@ ninja: build
 	ninja -C $(BUILD_DIR)
 
 install:
-	cd $(BUILD_DIR) && meson install
+	ninja -C build install
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -295,7 +295,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
         if ((shminfo.shmid = shmget(IPC_PRIVATE, image->bytes_per_line * image->height,
                                     IPC_CREAT | 0777)) == -1) {
             fprintf(stderr, "shmget() failed: %s\n", strerror(errno));
-            exit(EXIT_FAILURE);
+            glava_abort();
         }
         shminfo.shmaddr = image->data = shmat(shminfo.shmid, 0, 0);
         shminfo.readOnly = false;
@@ -314,7 +314,7 @@ unsigned int xwin_copyglbg(struct renderer* rd, unsigned int tex) {
 
     if (image) {
         bool invalid = false, aligned = false;
-        GLenum type;
+        GLenum type = 0;
         switch (image->bits_per_pixel) {
             case 16:
                 switch (image->depth) {
