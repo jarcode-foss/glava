@@ -234,8 +234,6 @@ static struct option p_opts[] = {
     {0,             0,                 0,  0 }
 };
 
-static glava_renderer* rd = NULL;
-
 #define append_buf(buf, sz_store, ...)                      \
     ({                                                      \
         buf = realloc(buf, ++(*sz_store) * sizeof(*buf));   \
@@ -254,6 +252,10 @@ __attribute__((visibility("default"))) void glava_wait(glava_handle* ref) {
     pthread_mutex_lock(&(*ref)->lock);
     pthread_cond_wait(&(*ref)->cond, &(*ref)->lock);
     pthread_mutex_unlock(&(*ref)->lock);
+}
+
+__attribute__((visibility("default"))) int glava_tex(glava_handle r) {
+    return r->off_tex;
 }
 
 /* Atomic size request */
@@ -468,7 +470,7 @@ __attribute__((visibility("default"))) void glava_entry(int argc, char** argv, g
     }
 
 instantiate: {}
-    rd = rd_new(system_shader_paths, entry, (const char**) requests,
+    glava_renderer* rd = rd_new(system_shader_paths, entry, (const char**) requests,
                     backend, binds, stdin_type, desktop, verbose, test);
     if (ret)
         __atomic_store_n(ret, rd, __ATOMIC_SEQ_CST);

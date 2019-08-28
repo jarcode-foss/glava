@@ -4,7 +4,9 @@
 #include <util/threading.h>
 #include <util/platform.h>
 
+#pragma GCC visibility push(default)
 OBS_DECLARE_MODULE();
+#pragma GCC visibility pop
 
 struct mod_state {
 	obs_source_t* source;
@@ -52,7 +54,7 @@ static void* create(obs_data_t* settings, obs_source_t* source) {
     return s;
 }
 
-struct obs_source_info glava_src = {
+static struct obs_source_info glava_src = {
     .id           = "glava",
     .type         = OBS_SOURCE_TYPE_INPUT,
     .output_flags = OBS_SOURCE_ASYNC_VIDEO,
@@ -61,7 +63,7 @@ struct obs_source_info glava_src = {
     .destroy      = destroy
 };
 
-bool obs_module_load(void) {
+__attribute__((visibility("default"))) bool obs_module_load(void) {
     obs_register_source(&glava_src);
     return true;
 }
