@@ -25,9 +25,9 @@ typedef XID GLXDrawable;
 typedef XID GLXPbuffer;
 
 struct gl_platform_internal {
-	Display *display;
-	GLXContext context;
-	GLXPbuffer pbuffer;
+    Display *display;
+    GLXContext context;
+    GLXPbuffer pbuffer;
 };
 
 struct gs_device_internal {
@@ -37,42 +37,42 @@ struct gs_device_internal {
 
 
 struct gs_subsystem_internal {
-	void*                      module;
-	struct gs_device_internal* device;
+    void*                      module;
+    struct gs_device_internal* device;
     /* trailing members present */
 };
 
 struct gs_texture {
-	struct gs_device_internal* device;
-	int                        type;
-	int                        format;
-	int                        gl_format;
-	int                        gl_target;
-	int                        gl_internal_format;
-	int                        gl_type;
-	unsigned int               texture;
-	uint32_t                   levels;
-	bool                       is_dynamic;
-	bool                       is_render_target;
-	bool                       is_dummy;
-	bool                       gen_mipmaps;
-	void*                      cur_sampler;
-	void*                      fbo;
+    struct gs_device_internal* device;
+    int                        type;
+    int                        format;
+    int                        gl_format;
+    int                        gl_target;
+    int                        gl_internal_format;
+    int                        gl_type;
+    unsigned int               texture;
+    uint32_t                   levels;
+    bool                       is_dynamic;
+    bool                       is_render_target;
+    bool                       is_dummy;
+    bool                       gen_mipmaps;
+    void*                      cur_sampler;
+    void*                      fbo;
 };
 
 struct gs_texture_2d_internal {
-	struct gs_texture    base;
-	uint32_t             width;
-	uint32_t             height;
+    struct gs_texture    base;
+    uint32_t             width;
+    uint32_t             height;
     /* trailing members present */
 };
 
 /* END OBS INTERNAL DEFS */
 
 struct mod_state {
-	obs_source_t* source;
-	pthread_t     thread;
-	bool          initialized;
+    obs_source_t* source;
+    pthread_t     thread;
+    bool          initialized;
     gs_texture_t* gs_tex;
     unsigned int  old_tex;
     struct {
@@ -146,10 +146,10 @@ static void glava_start(void* data) {
         return;
     }
     
-	if (pthread_create(&s->thread, NULL, work_thread, s) != 0) {
+    if (pthread_create(&s->thread, NULL, work_thread, s) != 0) {
         blog(LOG_ERROR, "Failed to create GLava thread");
-		return;
-	}
+        return;
+    }
     
     s->initialized = true;
     
@@ -206,14 +206,7 @@ static void video_render(void* data, gs_effect_t* effect) {
     gs_eparam_t* img = gs_effect_get_param_by_name(effect, "image");
     gs_effect_set_texture(img, s->gs_tex);
     while (gs_effect_loop(effect, "Draw"))
-        // gs_draw_sprite(s->gs_tex, 0, 0, 0);
         obs_source_draw(s->gs_tex, 0, 0, 0, 0, true);
-
-    /*
-    while (gs_effect_loop(effect, "Draw")) {
-        obs_source_draw(s->gs_tex, 0, 0, 0, 0, 0);
-	}
-    */
 }
 
 static void* create(obs_data_t* settings, obs_source_t* source) {
@@ -255,9 +248,9 @@ static struct obs_source_info glava_src = {
     .destroy        = destroy,
     .update         = update,
     .video_render   = video_render,
-	.get_width      = get_width,
-	.get_height     = get_height,
-	.get_properties = get_properties
+    .get_width      = get_width,
+    .get_height     = get_height,
+    .get_properties = get_properties
 };
 
 __attribute__((visibility("default"))) bool obs_module_load(void) {
