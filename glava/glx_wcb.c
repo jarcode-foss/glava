@@ -481,8 +481,6 @@ static void* create_and_bind(const char* name, const char* class,
     XSetClassHint(display, w->w, &((XClassHint) { .res_name = (char*) class, .res_class = (char*) class }));
 
     apply_decorations(w->w);
-
-    XFree(vi);
     
     XStoreName(display, w->w, name);
     
@@ -530,6 +528,8 @@ static void* create_and_bind(const char* name, const char* class,
 
     if (!transparent)
         XSelectInput(display, DefaultRootWindow(display), PropertyChangeMask);
+
+    XFree(vi);
     
     return w;
 }

@@ -12,9 +12,10 @@ typedef struct glava_renderer {
     bool    mirror_input;
     size_t  bufsize_request, rate_request, samplesize_request;
     char*   audio_source_request;
-    int     off_tex;      /* final GL texture for offscreen rendering */
+    unsigned int    off_tex; /* final GL texture for offscreen rendering */
     pthread_mutex_t lock; /* lock for reading from offscreen texture  */
     pthread_cond_t  cond; /* cond for reading from offscreen texture  */
+    bool            flag; /* vadility flag for reading from offscreen tecture */
     volatile struct {
         int x, y, w, h;
     } sizereq;

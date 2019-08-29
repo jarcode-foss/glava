@@ -250,11 +250,12 @@ __attribute__((visibility("default"))) void glava_wait(glava_handle* ref) {
         nanosleep(&tv, NULL);
     }
     pthread_mutex_lock(&(*ref)->lock);
-    pthread_cond_wait(&(*ref)->cond, &(*ref)->lock);
+    while ((*ref)->flag == false)
+        pthread_cond_wait(&(*ref)->cond, &(*ref)->lock);
     pthread_mutex_unlock(&(*ref)->lock);
 }
 
-__attribute__((visibility("default"))) int glava_tex(glava_handle r) {
+__attribute__((visibility("default"))) unsigned int glava_tex(glava_handle r) {
     return r->off_tex;
 }
 
@@ -267,14 +268,17 @@ __attribute__((visibility("default"))) void glava_sizereq(glava_handle r, int x,
 /* Atomic terminate request */
 __attribute__((visibility("default"))) void glava_terminate(glava_handle* ref) {
     glava_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
-    __atomic_store_n(&store->alive, false, __ATOMIC_SEQ_CST);
+    if (store)
+        __atomic_store_n(&store->alive, false, __ATOMIC_SEQ_CST);
 }
 
 /* Atomic reload request */
 __attribute__((visibility("default"))) void glava_reload(glava_handle* ref) {
     glava_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
-    __atomic_store_n(&reload,       true,  __ATOMIC_SEQ_CST);
-    __atomic_store_n(&store->alive, false, __ATOMIC_SEQ_CST);
+    if (store) {
+        __atomic_store_n(&reload,       true,  __ATOMIC_SEQ_CST);
+        __atomic_store_n(&store->alive, false, __ATOMIC_SEQ_CST);
+    }
 }
 
 

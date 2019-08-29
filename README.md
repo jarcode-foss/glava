@@ -96,9 +96,9 @@ Note the `22050` sample rate -- this is the reccommended setting for GLava. Rest
 
 ## Using GLava with OBS
 
-GLava installs an OBS plugin if support was enabled at compile-time. This should be enabled by default in Meson, but it is overridden to disabled in the `Makefile` for build compatibility.
+GLava installs a plugin for rendering directly to an OBS scene, if support was enabled at compile-time. This is enabled by default in Meson, but it is overridden to disabled in the `Makefile` for build compatibility.
 
-To use the plugin, simply select `GLava Source` from the source list in OBS and position the output accordingly. You can provide options to GLava in the source settings.
+To use the plugin, simply select `GLava Direct Source` from the source list in OBS and position the output accordingly. You can provide options to GLava in the source properties.
 
 Note that this only works for the default GLX builds of both OBS and GLava. This feature will not work if OBS was compiled with EGL for context creation, or if GLava is using GLFW.
 

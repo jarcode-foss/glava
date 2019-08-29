@@ -22,6 +22,6 @@ __attribute__((visibility("default")))           void glava_terminate           
 __attribute__((visibility("default")))           void glava_reload              (glava_handle* ref);
 __attribute__((visibility("default")))           void glava_sizereq             (glava_handle r, int x, int y, int w, int h);
 __attribute__((visibility("default")))           void glava_wait                (glava_handle* ref);
-__attribute__((visibility("default")))           int  glava_tex                 (glava_handle r);
+__attribute__((visibility("default")))   unsigned int glava_tex                 (glava_handle r);
 
 #endif /* _GLAVA_H */

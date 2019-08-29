@@ -821,7 +821,8 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
         .off_tex              = 0,
         .lock                 = PTHREAD_MUTEX_INITIALIZER,
         .cond                 = PTHREAD_COND_INITIALIZER,
-        .sizereq_flag         = 0
+        .sizereq_flag         = 0,
+        .flag                 = false
     };
 
     pthread_mutex_lock(&r->lock);
@@ -1502,6 +1503,7 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
         gl->wcb->get_fbsize(gl->w, &w, &h);
         setup_sfbo(&gl->off_sfbo, w, h);
         r->off_tex = gl->off_sfbo.tex;
+        r->flag = true; 
         pthread_cond_signal(&r->cond);
         pthread_mutex_unlock(&r->lock);
     }
@@ -1853,10 +1855,8 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
         /* Bind framebuffer if this is not the final pass */
         if (current->indirect)
             glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
-        
-        if (!current->indirect && (gl->test_mode || gl->wcb->offscreen())) {
+        else if (gl->test_mode || gl->wcb->offscreen())
             glBindFramebuffer(GL_FRAMEBUFFER, gl->off_sfbo.fbo);
-        }
         
         glClear(GL_COLOR_BUFFER_BIT);
         
@@ -2027,8 +2027,9 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
                     glUseProgram(current->shader);
                     if (current->indirect)
                         glBindFramebuffer(GL_FRAMEBUFFER, current->fbo);
-                    else
-                        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                    else if (gl->test_mode || gl->wcb->offscreen())
+                        glBindFramebuffer(GL_FRAMEBUFFER, gl->off_sfbo.fbo);
+                    else glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
                     tex = sm->tex; /* replace input texture with our processed one */
                 }
@@ -2065,8 +2066,12 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
         drawoverlay(&gl->overlay); /* Fullscreen quad (actually just two triangles) */
 
         /* Reset some state */
-        if (current->indirect)
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        if (current->indirect) {
+            if (gl->test_mode || gl->wcb->offscreen())
+                glBindFramebuffer(GL_FRAMEBUFFER, gl->off_sfbo.fbo);
+            else
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
         glUseProgram(0);
 
         prev = current;
