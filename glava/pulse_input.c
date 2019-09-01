@@ -89,10 +89,8 @@ static void init(struct audio_data* audio) {
 
         exit(EXIT_FAILURE);
     }
-
+    
 	pa_mainloop_run(m_pulseaudio_mainloop, &ret);
-	
-
 }
 
 /* Sample format for native 'float' type */

@@ -888,18 +888,26 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
     const char* backend = force_backend;
 
     /* Window creation backend interfaces */
+
+    if (wcbs_idx == 0) {
+        #ifdef GLAVA_GLFW
+        DECL_WCB(wcb_glfw);
+        #endif
+        #ifdef GLAVA_GLX
+        DECL_WCB(wcb_glx);
+        #endif
+    }
+    
     #ifdef GLAVA_GLFW
-    DECL_WCB(wcb_glfw);
     if (!forced) backend = "glfw";
     #endif
-
+    
     #ifdef GLAVA_GLX
-    DECL_WCB(wcb_glx);
     if (!forced && getenv("DISPLAY")) {
         backend = "glx";
     }
     #endif
-
+    
     if (!backend) {
         fprintf(stderr, "No backend available for the active windowing system\n");
         if (wcbs_idx == 0) {
@@ -1269,6 +1277,7 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
         ext_free(&ext);
         
         munmap((void*) map, st.st_size);
+        close(fd);
 
         if (auto_desktop) {
             if (env) {
@@ -1305,6 +1314,7 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
                 loading_presets = false;
 
                 munmap((void*) map, st.st_size);
+                close(fd);
             } else {
                 fprintf(stderr, "Failed to detect the desktop environment! "
                         "Is the window manager EWMH compliant?");

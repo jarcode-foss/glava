@@ -212,6 +212,7 @@ static struct schar directive(struct glsl_ext* ext, char** args,
             ext_process(&next, target);
             inherit(ext, &next);
             munmap(map, st.st_size);
+            close(fd);
 
             ext->ss_lookup = next.ss_lookup;
             

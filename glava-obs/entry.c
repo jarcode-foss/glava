@@ -76,7 +76,7 @@ struct mod_state {
     gs_texture_t* gs_tex;
     unsigned int  old_tex;
     struct {
-        const char* opts;
+        char* opts;
         int w, h;
     } cfg;
 };
@@ -182,8 +182,12 @@ static void update(void* data, obs_data_t* settings) {
     s->cfg.w = (int) obs_data_get_int(settings, "width");
     s->cfg.h = (int) obs_data_get_int(settings, "height");
     const char* opts = obs_data_get_string(settings, "options");
-    bool opts_changed = s->cfg.opts == NULL || strcmp(opts, s->cfg.opts) != 0;
-    s->cfg.opts = opts;
+    printf("debug: input str '%s', set '%s'\n", opts, s->cfg.opts);
+    bool opts_changed = s->cfg.opts == NULL || strcmp(opts, s->cfg.opts);
+    if (s->cfg.opts != NULL) {
+        free(s->cfg.opts);
+    }
+    s->cfg.opts = strdup(opts);
 
     if (opts_changed) {
         blog(LOG_INFO, "Updating GLava state");
