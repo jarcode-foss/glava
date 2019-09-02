@@ -127,6 +127,8 @@ static void copy_cfg(const char* path, const char* dest, bool verbose) {
                 int source = -1, dest = -1;
                 uint8_t buf[pgsz];
                 ssize_t r, t, w, a;
+                if (!strncmp(p, "env_", 4))
+                    break;
                 if ((source = open(p, O_RDONLY)) < 0) {
                     fprintf(stderr, "failed to open (source) '%s': %s\n", p, strerror(errno));
                     goto cleanup;

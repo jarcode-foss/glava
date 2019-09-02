@@ -1281,7 +1281,7 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
 
         if (auto_desktop) {
             if (env) {
-                snprintf(se_buf, bsz, "%s/env_%s.glsl", data, env);
+                snprintf(se_buf, bsz, "%s/env_%s.glsl", dd, env);
                 fd = open(se_buf, O_RDONLY);
                 if (fd == -1) {
                     if (errno != ENOENT  &&
