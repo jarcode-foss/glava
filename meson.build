@@ -80,8 +80,6 @@ if get_option('standalone')
 		language: 'c')
 endif
 
-glava_headers = include_directories('glava')
-
 add_project_arguments(
 	'-DGLAVA_VERSION="'+glava_version+'"',
 	'-DSHADER_INSTALL_PATH="'+shaderdir+'/glava"',
@@ -101,7 +99,7 @@ executable(
     'glava',
     sources: run_command('find', 'glava-cli', '-type', 'f', '-name', '*.c', '-print').stdout().strip().split('\n'),
     link_with: libglava,
-    include_directories: glava_headers,
+    c_args: '-I' + meson.source_root() + '/glava',
     install: true
 )
 
