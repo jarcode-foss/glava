@@ -8,20 +8,27 @@
 ```bash
 $ git clone https://github.com/wacossusca34/glava
 $ cd glava
-$ make
-$ sudo make install
-$ glava
+$ meson build --prefix /usr
+$ ninja -C build
+$ sudo ninja -C build install
 ```
 
-You can pass `BUILD=debug` to the makefile for debug builds of glava, and `INSTALL=standalone` to run glava directly from the `build` directory.
+You can pass `-Dbuildtype=debug` to Meson for debug builds of glava, and `-Dstandalone=true` to run glava directly from the `build` directory.
 
-Note that versions since `2.0` use Meson for the build system, although the `Makefile` will remain to work identically to earlier `1.xx` releases. Package maintainers are encouraged to use `meson build`, `ninja -C build`, and `meson install` instead of the Make wrapper.
+Note that versions since `2.0` use Meson for the build system, although the `Makefile` will remain to work identically to earlier `1.xx` releases (with new features disabled). Package maintainers are encouraged to use Meson directly instead of the Make wrapper.
 
 **Requirements:**
 
 - X11 (Xext, Xcomposite, & Xrender)
 - PulseAudio
 - Linux or BSD
+
+**Configuration tool requirements:**
+
+- Lua 5.3, and the following lua libraries:
+  - Lua GObject Introspection (LGI)
+  - LuaFilesystem (LFS)
+- GTK+ 3
 
 **Additional compile time requirements:**
 
@@ -33,9 +40,9 @@ Note that versions since `2.0` use Meson for the build system, although the `Mak
 
 - GLFW 3.1+ (optional, enable with `-Denable_glfw=true`)
 
-**Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava:
+**Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava with the default feature set:
 ```bash
-sudo apt-get install libpulse0 libpulse-dev libxext6 libxext-dev libxrender-dev libxcomposite-dev meson gcc 
+sudo apt-get install libpulse0 libpulse-dev libxext6 libxext-dev libxrender-dev libxcomposite-dev liblua5.3-dev liblua5.3 lua-lgi lua-filesystem libobs0 libobs-dev meson gcc 
 ```
 
 ## Installation

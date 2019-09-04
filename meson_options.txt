@@ -1,6 +1,20 @@
-option('shaderdir', type: 'string', value: '/etc/xdg', description: 'System shader directory location')
-option('enable_glfw', type: 'boolean', value: false, description: 'Enable GLFW backend')
-option('disable_glx', type: 'boolean', value: false, description: 'Disable GLX')
-option('standalone', type: 'boolean', value: false, description: 'OS-independent build')
-option('glad', type: 'boolean', value: false, description: 'Regenerate GLAD')
-option('disable_obs', type: 'boolean', value: false, description: 'Dsiable OBS plugin support')
+option('enable_glfw', type: 'boolean', value: false,
+       description: 'Enable legacy GLFW backend')
+option('disable_glx', type: 'boolean', value: false,
+       description: 'Disable GLX backend')
+option('standalone', type: 'boolean', value: false,
+       description: 'Configure build to run without installation')
+option('glad', type: 'boolean', value: false,
+       description: 'Download and build GLAD headers (non-reproducable)')
+option('disable_obs', type: 'boolean', value: false,
+       description: 'Disable OBS Studio plugin support')
+option('disable_config', type: 'boolean', value: false,
+       description: 'Skip building GLava GTK+ configuration tool')
+option('shader_install_dir', type: 'string', value: '/etc/xdg',
+       description: 'GLSL config/module system install directory')
+option('lua_install_dir', type: 'string', value: '/usr/share/lua/5.3',
+       description: 'Location to install Lua 5.3 modules for glava-config')
+option('resource_install_dir', type: 'string', value: '/usr/share/glava',
+       description: 'Location to install generic GLava resources')
+option('obs_plugin_install_dir', type: 'string', value: '/usr/lib/obs-plugins',
+       description: 'Location to install OBS plugin if enabled')
