@@ -6,6 +6,7 @@
 
 typedef unsigned long int Window;
 
+void xwin_assign_icon_bmp(struct gl_wcb* wcb, void* impl, const char* path);
 bool xwin_should_render(struct gl_wcb* wcb, void* impl);
 void xwin_wait_for_wm(void);
 bool xwin_settype(struct gl_wcb* wcb, void* impl, const char* type);

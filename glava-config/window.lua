@@ -350,10 +350,10 @@ return function()
       model:remove(iter)
     end
   end
-
+  
   function window:on_destroy() os.exit(0) end
-
+  
   window:show_all()
-  window:set_icon_from_file(glava.resource_path .. "glava.ico")
+  window:set_icon_from_file(glava.resource_path .. "glava.bmp")
   Gtk.main()
 end

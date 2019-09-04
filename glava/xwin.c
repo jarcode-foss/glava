@@ -7,11 +7,15 @@
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
-
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -24,6 +28,79 @@
 #define GLAVA_RDX11
 #include "render.h"
 #include "xwin.h"
+
+/* BMP Image header */
+struct __attribute__((packed)) bmp_header {
+    uint16_t header;
+    uint32_t size;
+    uint16_t reserved0, reserved1;
+    uint32_t offset;
+    /* BITMAPINFOHEADER */
+    uint32_t header_size, width, height;
+    uint16_t planes, bits_per_pixel;
+    uint32_t compression, image_size, hres, vres, colors, colors_used;
+};
+
+#define BMP_HEADER_MAGIC 0x4D42
+#define BMP_BITFIELDS 3
+
+void xwin_assign_icon_bmp(struct gl_wcb* wcb, void* impl, const char* path) {
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) {
+        fprintf(stderr, "failed to load icon '%s': %s\n", path, strerror(errno));
+        return;
+    }
+    Display* d = wcb->get_x11_display();
+    Window w = wcb->get_x11_window(impl);
+    struct stat st;
+    fstat(fd, &st);
+    const struct bmp_header* header = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (header->header != BMP_HEADER_MAGIC) {
+        fprintf(stderr, "failed to load icon '%s': invalid BMP header.\n", path);
+        close(fd);
+        return;
+    }
+    if (header->bits_per_pixel != 32) {
+        fprintf(stderr, "failed to load icon '%s': wrong bit depth (%d).\n",
+                path, (int) header->bits_per_pixel);
+        close(fd);
+        return;
+    }
+    if (header->planes != 1 || header->compression != BMP_BITFIELDS) {
+        fprintf(stderr, "failed to load icon '%s': invalid BMP format, requires RGBA bitfields.\n", path);
+        close(fd);
+        return;
+    }
+    
+    /* Obtain image data pointer from offset */
+    const char* data = (const char*) (((const uint8_t*) header) + header->offset);
+
+    /* Assign icon using the older WMHints. Most window managers don't actually use this. */
+    XWMHints hints = {};
+    hints.flags = IconPixmapHint;
+    hints.icon_pixmap = XCreateBitmapFromData(d, w, data, header->width, header->height);
+    XSetWMHints(d, w, &hints);
+    
+    /* To assign the icon property we need to convert the image data to `unsigned long`, which
+       can be 64-bits and padded depending on the architecture. Additionally we need to flip the
+       Y-axis due to how BMP data is stored. */
+    size_t sz = header->width * header->height;
+    size_t asz = sz + 2;
+    unsigned long* off = malloc(asz * sizeof(unsigned long));
+    for (size_t x = 0; x < header->width; ++x) {
+        for (size_t y = 0; y < header->height; ++y) {
+            off[x + (((header->height - 1) - y) * header->height) + 2]
+                = ((const uint32_t*) data)[x + (y * header->height)];
+        }
+    }
+    /* The first two elements represent the icon dimensions */
+    off[0] = header->width;
+    off[1] = header->height;
+    XChangeProperty(d, w, XInternAtom(d, "_NET_WM_ICON", true),
+                    XA_CARDINAL, 32, PropModeReplace, (const unsigned char*) off, asz);
+    free(off);
+    close(fd);
+};
 
 /* Note: currently unused */
 Window* __attribute__ ((unused)) xwin_get_desktop_layer(struct gl_wcb* wcb) {

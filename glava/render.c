@@ -1354,9 +1354,10 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
         glava_abort();
     }
     
-    gl->w = gl->wcb->create_and_bind(wintitle, "GLava", xwintype, (const char**) xwinstates, xwinstates_sz,
-                                     gl->geometry[2], gl->geometry[3], gl->geometry[0], gl->geometry[1],
-                                     context_version_major, context_version_minor, gl->clickthrough, test_mode);
+    gl->w = gl->wcb->create_and_bind(
+        wintitle, "GLava", xwintype, (const char**) xwinstates, xwinstates_sz,
+        gl->geometry[2], gl->geometry[3], gl->geometry[0], gl->geometry[1],
+        context_version_major, context_version_minor, gl->clickthrough, test_mode);
     if (!gl->w) abort();
 
     for (size_t t = 0; t < xwinstates_sz; ++t)
@@ -1365,6 +1366,8 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
     if (xwintype)   free(xwintype);
     if (xwinstates) free(xwinstates);
     if (wintitle && wintitle != wintitle_default) free(wintitle);
+
+    xwin_assign_icon_bmp(gl->wcb, gl->w, GLAVA_RESOURCE_PATH "/glava.bmp");
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_DEPTH_CLAMP);
