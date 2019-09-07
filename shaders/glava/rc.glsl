@@ -51,7 +51,7 @@
 /* Window geometry (x, y, width, height) */
 #request setgeometry 0 0 800 600
 
-/* Window background color (RGB format).
+/* Window background color (RGBA format).
    Does not work with `setopacity "xroot"` */
 #request setbg 00000000
 

@@ -74,7 +74,7 @@ void xwin_assign_icon_bmp(struct gl_wcb* wcb, void* impl, const char* path) {
     
     /* Obtain image data pointer from offset */
     const char* data = (const char*) (((const uint8_t*) header) + header->offset);
-
+    
     /* Assign icon using the older WMHints. Most window managers don't actually use this. */
     XWMHints hints = {};
     hints.flags = IconPixmapHint;
