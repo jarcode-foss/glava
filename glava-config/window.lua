@@ -31,7 +31,7 @@ return function()
   -- The old chooser, however, is objectively better so let's try
   -- to use it if it exists.
   local use_old_chooser = true
-  if Gtk.ColorSelectionDialog == nil then
+  if Gtk.get_major_version() >= 4 then
     use_old_chooser = false
   end
   
@@ -257,11 +257,11 @@ return function()
       local widget = Gtk.SpinButton {
         hexpand = true,
         adjustment = Gtk.Adjustment {
-          lower = attrs.lower or 0,
-          upper = attrs.upper or 100,
-          page_increment = attrs.increment or 1,
-          page_size = attrs.increment or 1,
-          step_increment = attrs.increment or 1
+          lower          = attrs.lower or 0,
+          upper          = attrs.upper or 100,
+          page_size      = 1,
+          step_increment = attrs.increment and (attrs.increment / 10) or 0.1,
+          page_increment = attrs.increment or 1
         },
         width_chars = attrs.width or 6,
         numeric     = true,
@@ -277,11 +277,11 @@ return function()
       local widget = Gtk.SpinButton {
         hexpand = true,
         adjustment = Gtk.Adjustment {
-          lower = attrs.lower or 0,
-          upper = attrs.upper or 100,
-          page_increment = attrs.increment or 1,
-          page_size = attrs.increment or 1,
-          step_increment = attrs.increment or 1
+          lower          = attrs.lower or 0,
+          upper          = attrs.upper or 100,
+          page_size      = 1,
+          step_increment = attrs.increment and math.min(math.floor((attrs.increment / 10)), 1) or 1,
+          page_increment = attrs.increment or 1
         },
         width_chars = attrs.width or 6,
         numeric     = true,
@@ -316,8 +316,7 @@ return function()
         cr:arc(unpack(aargc))
         cr:fill()
       end
-      -- Gtk 3/4 compat
-      if area.set_draw_func then
+      if Gtk.get_major_version() >= 4 then
         area:set_draw_func(draw)
       else
         area.on_draw = draw
