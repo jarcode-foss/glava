@@ -42,7 +42,7 @@ Note that versions since `2.0` use Meson for the build system, although the `Mak
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava with the default feature set:
 ```bash
-sudo apt-get install libpulse0 libpulse-dev libxext6 libxext-dev libxrender-dev libxcomposite-dev liblua5.3-dev liblua5.3 lua-lgi lua-filesystem libobs0 libobs-dev meson gcc 
+sudo apt-get install libpulse0 libpulse-dev libxext6 libxext-dev libxrender-dev libxcomposite-dev liblua5.3-dev liblua5.3 lua-lgi lua-filesystem libobs0 libobs-dev meson build-essential gcc 
 ```
 
 ## Installation

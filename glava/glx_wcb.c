@@ -186,6 +186,17 @@ static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM
 static GLXContext sharelist_ctx;
 static bool       sharelist_assigned = false;
 
+#ifdef __APPLE__
+static const char *dl_names[] = {
+    "../Frameworks/OpenGL.framework/OpenGL",
+    "/Library/Frameworks/OpenGL.framework/OpenGL",
+    "/System/Library/Frameworks/OpenGL.framework/OpenGL",
+    "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"
+};
+#else
+static const char *dl_names[] = {"libGL.so.1", "libGL.so"};
+#endif
+
 static bool offscreen(void) {
     return sharelist_assigned;
 }
@@ -209,20 +220,18 @@ static void init(void) {
     maximized   = false;
     transparent = false;
 
-    void* hgl  = dlopen("libGL.so.1", RTLD_LAZY);
-    void* hglx = dlopen("libGLX.so.0", RTLD_LAZY);
+    void* hgl = NULL;
+    for(size_t i = 0; i < (sizeof(dl_names) / sizeof(dl_names[0])) && hgl == NULL; ++i)
+        hgl = dlopen("libGL.so.1", RTLD_LAZY);
 
-    if (!hgl && !hglx) {
+    if (!hgl) {
         fprintf(stderr, "Failed to load GLX functions (libGL and libGLX do not exist!)\n");
         glava_abort();
     }
-
-    /* Depending on the graphics driver, the GLX functions that we need may either be in libGL or
-       libGLX. */
+    
     void* resolve_f(const char* symbol) {
         void* s = NULL;
-        if (hgl)        s = dlsym(hgl,  symbol);
-        if (!s && hglx) s = dlsym(hglx, symbol);
+        if (hgl) s = dlsym(hgl,  symbol);
         if (!s) {
             fprintf(stderr, "Failed to resolve GLX symbol: `%s`\n", symbol);
             glava_abort();

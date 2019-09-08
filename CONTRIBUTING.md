@@ -33,7 +33,7 @@ If you use GNU Emacs, the above style can be configured via the following elisp:
 
 ## Lua
 
-If you are contributing to `glava-config`, we use a style close to standard Lua with some emphasis on compat table definitions and readability
+If you are contributing to `glava-config`, we use a style close to standard Lua with some emphasis on compact table definitions and readability
 
 * If an opening brace has no tokens preceding it on the same line, take the first entry in the table and place it on the same line following the brace
 * If there are multiple closing braces, combine them onto the same line

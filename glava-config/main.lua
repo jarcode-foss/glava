@@ -54,7 +54,7 @@ function main.entry(prog, ...)
     end
     
     local mappings = require "glava-config.mappings"
-    -- Associate `map_name = tbl` from mapping list for future lookups
+    -- Associate `map_name = tbl` from mapping list for future lookups, etc.
     for k, v in pairs(mappings) do
       local i = 1
       local adv = false

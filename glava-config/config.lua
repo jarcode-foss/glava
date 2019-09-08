@@ -32,6 +32,13 @@ local function path_concat(...)
   return table.concat(ret, "/")
 end
 
+-- Wrap table such that it can be called to index and call its members,
+-- useful for switch-style syntax
+local function switch(tbl)
+  local mt = { __call = function(self, i) return rawget(self, i)() end }
+  return setmetatable(tbl, mt)
+end
+
 -- To parse data from GLSL configs we use some complex pattern matching.
 --
 -- Because Lua's patterns operate on a per-character basis and do not offer
@@ -41,6 +48,20 @@ end
 --
 -- This effectively means we have some fairly powerful parsing which allows us
 -- to handle things like quoted strings with escaped characters.
+local function unquote(match)
+  local ret = {}
+  local escaped = false
+  for c in match:gmatch(".") do
+    if c == "\"" then
+      if escaped then ret[#ret + 1] = c end
+    elseif c ~= "\\" then ret[#ret + 1] = c end
+    if c == "\\" then
+      if escaped then ret[#ret + 1] = c end
+      escaped = not escaped
+    else escaped = false end
+  end
+  return table.concat(ret, "")
+end
 local function none(...) return ... end
 local MATCH_ENTRY_PATTERN = "^%s*%#(%a+)%s+(%a+)"
 local MATCH_DATA_PREFIX   = "^%s*%#%a+%s+%a+"
@@ -49,29 +70,25 @@ local MATCH_TYPES = {
     pattern   = "(%d+.?%d*)",
     cast      = tonumber,
     serialize = tostring
-  },
-  ["int"] = {
+  }, ["int"] = {
     pattern   = "(%d+)",
     cast      = tonumber,
     serialize = function(x) tostring(math.floor(x)) end
-  },
-  ["string"] = {
+  }, ["color-expr"] = {
+    pattern   = "(.+)",
+    cast      = none,
+    serialize = none
+  }, ["expr"] = {
+    pattern   = "(.+)",
+    cast      = none,
+    serialize = none
+  }, ["ident"] = {
+    pattern   = "(%w+)",
+    cast      = none,
+    serialize = none
+  }, ["string"] = {
     pattern = "(.+)",
-    -- Strip away string quotation and escape syntax
-    cast = function(match)
-      local ret = {}
-      local escaped = false
-      for c in match:gmatch(".") do
-        if c == "\"" then
-          if escaped then ret[#ret + 1] = c end
-        elseif c ~= "\\" then ret[#ret + 1] = c end
-        if c == "\\" then
-          if escaped then ret[#ret + 1] = c end
-          escaped = not escaped
-        else escaped = false end
-      end
-      return table.concat(ret, "")
-    end,
+    cast = unquote,
     -- Read-ahead function to generate a fixed-width pattern
     -- to match the next (possibly quoted) string
     transform = function(match)
@@ -134,7 +151,8 @@ local MATCH_TYPES = {
 config.path_concat = path_concat
 config.path_split  = path_split
 
-local function create_p(parts, mode, silent)
+local function create_pf(arr, mode, silent)
+  local parts = {}
   local function errfmt(err)
     return string.format("Failed to create '%s' in '%s': %s",
                          path_concat(parts, "/"), path_concat(arr, "/"), err)
@@ -147,16 +165,17 @@ local function create_p(parts, mode, silent)
     local m = (i == #arr and mode or "directory")
     local attr, err = lfs.attributes(path, "mode")
     if attr == nil then
-      ({
-          file = function()
-            local ret, err = lfs.touch(path)
-            if ret ~= true then return false, errfmt(err) end
-          end,
-          directory = function()
-            local ret, err = lfs.mkdir(path)
-            if ret ~= true then return false, errfmt(err) end
-          end,
-      })[m]()
+      local ret, err = switch {
+        file = function()
+          local ret, err = lfs.touch(path)
+          if not ret then return false, errfmt(err) end
+        end,
+        directory = function()
+          local ret, err = lfs.mkdir(path)
+          if not ret then return false, errfmt(err) end
+        end,
+      }(m)
+      if ret == false then return ret, err end
     elseif attr ~= m then
       if not (silent and #parts == #arr) then
         return false, string.format("'%s' is not a %s", path, m)

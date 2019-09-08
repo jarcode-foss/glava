@@ -222,6 +222,7 @@ return function()
   end
   
   -- Generators for producing widgets (and their layouts) that bind to configuration values
+  -- note: `get_data` returns _formatted_ data, such that it can be written directly in GLSL
   local widget_generators
   widget_generators = {
     -- A switch to represent a true/false value
@@ -286,7 +287,7 @@ return function()
         s.internal:get_style_context():add_provider(cssp, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         s.internal:get_style_context():add_class("fixed-width-font-entry")
       end
-      if not attrs.entries then
+      if not attrs.entries and not attrs._ignore_restrict then
         -- Handle idenifier formatting for entries without a preset list
         function s.internal:on_changed()
           local i = s.internal.text
@@ -297,6 +298,13 @@ return function()
         end
       end
       return s
+    end,
+    -- A full GLSL expression
+    ["expr"] = function(attrs)
+      -- Expressions can be implemented by using the identity field and disabling
+      -- input format restrictions.
+      attrs._ignore_restrict = true
+      return widget_generators.ident(attrs)
     end,
     -- Adjustable and bound floating-point value
     ["float"] = function(attrs)
@@ -487,8 +495,7 @@ return function()
               upper  = 1000,
               lower  = -1000,
               header = "Scale:"
-            }
-          },
+          } },
           -- match against GLSL mix expression, ie.
           -- `mix(#3366b2, #a0a0b2, clamp(d / GRADIENT, 0, 1))`
           match = "mix%s*%(" ..
