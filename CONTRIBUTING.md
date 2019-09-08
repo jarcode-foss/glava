@@ -31,6 +31,15 @@ If you use GNU Emacs, the above style can be configured via the following elisp:
 (c-set-offset 'case-label '+)
 ```
 
+## Lua
+
+If you are contributing to `glava-config`, we use a style close to standard Lua with some emphasis on compat table definitions and readability
+
+* If an opening brace has no tokens preceding it on the same line, take the first entry in the table and place it on the same line following the brace
+* If there are multiple closing braces, combine them onto the same line
+* Always have exactly one space between braces and other tokens, but zero for brackets and parenthesis
+* Use two-space indentation with no tabs
+
 ## Shaders
 
 If you author and maintain your own shader module for GLava, you are free to use your preferred code style. Otherwise, shaders follow the same style as GLava's C sources.
@@ -39,7 +48,7 @@ The only exception to this is a hard rule for builtin prefixes. Variables should
 
 ## Pull Requests
 
-You are free to make pull requests for any change, even if you are not sure if the proposed changes are appropriate. @wacossusca34 and/or @coderobe will be able to suggest changes or commentary on the PR if there is a reason it is not acceptable.
+You are free to make pull requests for any change, even if you are not sure if the proposed changes are appropriate. @jarcode-foss and/or @coderobe will be able to suggest changes or commentary on the PR if there is a reason it is not acceptable.
 
 ## Conduct
 

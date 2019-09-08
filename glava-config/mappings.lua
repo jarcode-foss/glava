@@ -1,39 +1,31 @@
 return {
   ["rc.glsl"] = {
     name = "Global Options",
-    {
-      "request:mod",
+    { "request:mod",
       field_type = "string",
-      field_attrs = {
-        entries = glava.module_list
-      },
+      field_attrs = { entries = glava.module_list },
       description = "Visualizer module"
     },
-    {
-      "request:fakeident",
+    { "request:fakeident",
       field_type = "ident",
       description = "Some identifier"
     },
-    {
-      "request:fakefloat",
+    { "request:fakefloat",
       field_type = "float",
       description = "Some Float"
     },
-    {
-      "request:fakecolorexpr",
+    { "request:fakecolorexpr",
       field_type = "color-expr",
       field_attrs = { alpha = true },
       description = "Color Expression"
     },
-    {
-      "request:setbg",
+    { "request:setbg",
       field_type = "color",
       field_attrs = { alpha = true },
       description = "Window background color"
     },
     "advanced",
-    {
-      "request:setversion",
+    { "request:setversion",
       field_type = { "int", "int" },
       field_attrs = {
         frame_label = "Version",

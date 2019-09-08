@@ -90,6 +90,17 @@ return function()
     return unpack(ret)
   end
   
+  -- Apply `binds[k] = v` while returning unpacked values
+  local binds = {}
+  local function bind(tbl)
+    local ret = {}
+    for k, v in pairs(tbl) do
+      binds[k] = v
+      ret[#ret + 1] = v
+    end
+    return unpack(ret)
+  end
+  
   local function ComboBoxFixed(tbl)
     local inst = Gtk.ComboBoxText { id = tbl.id }
     for _, v in pairs(tbl) do
@@ -161,8 +172,7 @@ return function()
       list[#list + 1] = {
         Gtk.Separator {
           vexpand = false
-        },
-        left_attach = 0, top_attach = idx + 1, width = 3
+        }, left_attach = 0, top_attach = idx + 1, width = 3
       }
       idx = idx + 2
     end
@@ -183,22 +193,20 @@ return function()
     return Gtk.ScrolledWindow {
       expand = true,
       Gtk.Box {
-        margin_top  = 12,
-        margin_left  = 16,
-        margin_right = 16,
+        margin_top   = 12,
+        margin_start = 16,
+        margin_end   = 16,
         hexpand      = true,
         vexpand      = true,
         halign       = "FILL",
         orientation  = "VERTICAL",
         spacing      = 6,
         Gtk.Grid(list),
-        #adv > 0 and
-          SpoilerView {
-            label = "Show Advanced",
-            Gtk.Grid(adv)
-          } or Gtk.Box {}
-      }
-    }
+        #adv > 0 and SpoilerView
+        { label = "Show Advanced",
+          Gtk.Grid(adv)
+        } or Gtk.Box {}
+    } }
   end
   local function wrap_label(widget, label)
     if label then
@@ -212,17 +220,24 @@ return function()
     end
     return widget
   end
+  
+  -- Generators for producing widgets (and their layouts) that bind to configuration values
   local widget_generators
   widget_generators = {
+    -- A switch to represent a true/false value
     ["boolean"] = function(attrs)
       local widget = Gtk.Switch { hexpand = false }
       return {
         widget = Gtk.Box { Gtk.Box { hexpand = true }, wrap_label(widget, attrs.label) },
         set_data = function(x)
           widget.active = x
-        end
+          return true
+        end,
+        get_data = function() return widget.active end,
+        connect = function(f) widget.on_state_set = f end
       }
     end,
+    -- Entry for a generic string, may have predefined selections
     ["string"] = function(attrs)
       local widget = apply {
         attrs.entries ~= nil
@@ -240,19 +255,37 @@ return function()
             for k, v in ipairs(attrs.entries) do
               if v == x then
                 widget:set_active(v - 1)
-                return
+                return true
               end
             end
-            local fmt = "WARNING: Invalid string entry for Gtk.ComboBox mapping: \"%s\""
-            print(string.format(fmt, x))
+            return false
           end
+          return true
+        end,
+        get_data = function()
+          local text = (not attrs.entries) and widget:get_text() or widget:get_active_text()
+          if attrs.translate then
+            text = attrs.translate[text]
+          end
+          return (not attrs._ignore_format) and string.format("\"%s\"", text) or text
+        end,
+        connect = function(f)
+          -- Note: the underlying widget can be `GtkComboBoxText` or `GtkEntry`;
+          -- they simply just use the same signal for user input
+          widget.on_changed = f
         end
       }
     end,
+    -- Entry for a valid C/GLSL identity, may have predefined selections
     ["ident"] = function(attrs)
+      attrs._ignore_format = true
       local s = widget_generators.string(attrs)
-      s.internal:get_style_context():add_provider(cssp, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-      s.internal:get_style_context():add_class("fixed-width-font-entry")
+      -- Set fixed-width font if the users enter/select identifiers by their name,
+      -- rather than a description to indicate it's a GLSL identity
+      if not attrs.translate then
+        s.internal:get_style_context():add_provider(cssp, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        s.internal:get_style_context():add_class("fixed-width-font-entry")
+      end
       if not attrs.entries then
         -- Handle idenifier formatting for entries without a preset list
         function s.internal:on_changed()
@@ -265,6 +298,7 @@ return function()
       end
       return s
     end,
+    -- Adjustable and bound floating-point value
     ["float"] = function(attrs)
       local widget = Gtk.SpinButton {
         hexpand = true,
@@ -282,9 +316,15 @@ return function()
       }
       return {
         widget = wrap_label(widget, attrs.label),
-        set_data = function(x) widget:set_value(x) end
+        set_data = function(x)
+          widget:set_value(x)
+          return true
+        end,
+        get_data = function() widget:get_text() end,
+        connect = function(f) widget.on_value_changed = f end
       }
     end,
+    -- Adjustable and bound integral value
     ["int"] = function(attrs)
       local widget = Gtk.SpinButton {
         hexpand = true,
@@ -302,7 +342,12 @@ return function()
       }
       return {
         widget = wrap_label(apply { vexpand = false, widget }, attrs.label),
-        set_data = function(x) widget:set_value(x) end
+        set_data = function(x)
+          widget:set_value(x)
+          return true
+        end,
+        get_data = function() widget:get_text() end,
+        connect = function(f) widget.on_value_changed = f end
       }
     end,
     -- The color type is the hardest to implement; as Gtk deprecated
@@ -338,8 +383,7 @@ return function()
           margin_top    = 1,
           margin_bottom = 1,
           area
-        }
-      }
+      } }
       local entry = Gtk.Entry {
         hexpand     = true, 
         width_chars = 9,
@@ -356,12 +400,12 @@ return function()
       widget:get_style_context():add_class("linked")
       widget = wrap_label(widget, attrs.label)
       function btn:on_clicked()
-        local dialog = (use_old_chooser and Gtk.ColorSelectionDialog or Gtk.ColorChooserDialog) {
-          title               = "Select Color",
+        local dialog = (use_old_chooser and Gtk.ColorSelectionDialog or Gtk.ColorChooserDialog)
+        { title               = "Select Color",
           transient_for       = window,
           modal               = true,
           destroy_with_parent = true
-                                                                                                }
+        }
         if use_old_chooser then
           dialog.cancel_button:set_visible(false)
           dialog.ok_button.label = "Close"
@@ -402,10 +446,19 @@ return function()
           c = utils.parse_color_rgba(s)
           area:queue_draw()
           entry:set_text(s)
+          return true
+        end,
+        get_data = function(x)
+          return attrs.alpha and utils.format_color_rgba(c) or utils.format_color_rgb(c)
+        end,
+        connect = function(f)
+          -- todo signal magic stuff
         end
       }
     end,
+    -- A field capable of producing a GLSL color expression.
     ["color-expr"] = function(attrs, header)
+      -- Define color control variables for use in color expressions
       local controls = {
         { "Baseline", "d" },
         { "X axis", "gl_FragCoord.x" },
@@ -414,43 +467,62 @@ return function()
       local control_list = {}
       for i, v in ipairs(controls) do
         control_list[i] = v[1]
+        controls[v[1]] = v[2]
       end
+      
+      -- Define color expression types. Field data is assigned according
+      -- to the associated pattern, and entries are ordered in terms of
+      -- match priority
       local cetypes = {
         { "Gradient",
           fields = {
             { "color" },
             { "color" },
-            { "string", entries = control_list, header = "Axis:" },
-            { "float", header = "Scale:" }
+            { "ident",
+              entries   = control_list,
+              translate = controls,
+              header    = "Axis:"
+            },
+            { "float",
+              upper  = 1000,
+              lower  = -1000,
+              header = "Scale:"
+            }
           },
-          get_data = function(self, c0, c1, i0, i1)
-            
-          end,
           -- match against GLSL mix expression, ie.
           -- `mix(#3366b2, #a0a0b2, clamp(d / GRADIENT, 0, 1))`
           match = "mix%s*%(" ..
             "%s*(#[%dA-Fa-f]*)%s*," ..
             "%s*(#[%dA-Fa-f]*)%s*," ..
-            "%s*clamp%s*%(%s*(%w+)%s*/%s*(%w+)%s*,%s*0%s*,%s*1%s*%)%s*%)"
+            "%s*clamp%s*%(%s*(%w+)%s*/%s*(%w+)%s*,%s*0%s*,%s*1%s*%)%s*%)",
+          output = "mix(%s, %s, clamp(%s / %s, 0, 1))"
         },
         { "Solid",
           fields = { { "color" } },
-          get_data = function(self, c)
-            
-          end,
           match = "#[%dA-Fa-f]*",
+          output = "%s",
           default = true
-        }
-      }
+      } }
+      
+      local function collect_field_data(self)
+        local fields = {}
+        for i = 1, #self.fields do
+          fields[i] = self.gen[i]:get_data()
+        end
+        return fields
+      end
       
       local stack  = Gtk.Stack { vhomogeneous = false }
       local hstack = Gtk.Stack { vhomogeneous = false }
       
       local cekeys  = {}
       local default = nil
-      local didx    = -1
       for i, v in ipairs(cetypes) do
-        cekeys[i]     = v[1]
+        if not v.default then
+          cekeys[#cekeys + 1] = v[1]
+        else
+          table.insert(cekeys, 1, v[1])
+        end
         cetypes[v[1]] = v
         local wfields = {}
         local hfields = {
@@ -458,49 +530,51 @@ return function()
             halign = "END",
             valign = "START",
             label  = header
-          }
-        }
-        for k, v in ipairs(v.fields) do
+        } }
+        local gen = {}
+        for k, e in ipairs(v.fields) do
           v.alpha = attrs.alpha
-          local g = widget_generators[v[1]](v)
+          local g = widget_generators[e[1]](e)
+          gen[#gen + 1] = g
           wfields[k] = g.widget
           hfields[#hfields + 1] = Gtk.Label {
             halign = "END",
-            label  = v.header
+            label  = e.header
           }
         end
+        v.gen = gen
         v.widget = Gtk.Box(
           apply {
             homogeneous = true,
             orientation = "VERTICAL",
             spacing     = 1,
             wfields
-          }
-        )
+        } )
         v.hwidget = Gtk.Box(
           apply {
             homogeneous = true,
             orientation = "VERTICAL",
             spacing     = 1,
             hfields
-          }
-        )
+        } )
         hstack:add_named(v.hwidget, v[1]) 
         stack:add_named(v.widget, v[1])
         if v.default then
-          didx = i - 1
           default = v[1]
         end
-        
-        v.set_data = function(self, x)
-          
+        v.set_data = function(x)
+          for i, m in ipairs { string.match(x, v.match) } do
+            gen[i].set_data(m)
+          end
+        end
+        v.get_data = function()
+          return string.format(v.output, unpack(collect_field_data()))
         end
       end
       local cbox = apply {
         hexpand = true,
         ComboBoxFixed(cekeys)
       }
-      cbox:set_active(didx)
       stack:set_visible_child(cetypes[default].widget)
       hstack:set_visible_child(cetypes[default].hwidget)
       cetypes[default].widget:show()
@@ -517,11 +591,24 @@ return function()
       }
       return {
         widget        = widget,
-        header_widget = hstack
+        header_widget = hstack,
+        set_data = function(x)
+          for i, v in ipairs(cetypes) do
+            if string.match(x, v.match) ~= nil then
+              v.set_data(x)
+              return true
+            end
+          end
+          return false
+        end,
+        get_data = function()
+          return cetypes[cbox:get_active_text()].get_data()
+        end
       }
     end
   }
   
+  -- Extra widget for special service/autostart functionality
   local ServiceView = function(self)
     local switch = Gtk.Switch {
       id         = "autostart_enabled",
@@ -563,7 +650,9 @@ return function()
     }
   end
   
-  local ProfileView = function(name)
+  -- Produce a widget containing a scroll area full of widgets bound to
+  -- requests/defines in the specified profile.
+  local function ProfileView(name)
     local self = { name = name }
     local args = {}
     for k, v in pairs(mappings) do
@@ -592,13 +681,12 @@ return function()
               Gtk.Frame {
                 label = fattrs.frame_label,
                 apply {
-                  margin_left   = 4,
-                  margin_right  = 4,
+                  margin_start  = 4,
+                  margin_end    = 4,
                   margin_top    = 4,
                   margin_bottom = 4,
                   Gtk.Box(fields)
-                }
-              } or fields[1],
+              } } or fields[1],
             header or (e.header and Gtk.Label { valign = "START", label = e.header } or Gtk.Box {})
           }
           if not e.advanced then
@@ -616,8 +704,7 @@ return function()
       name ~= "Default" and ServiceView(self) or
         Gtk.Label {
           label = "Autostart options are not available for the default user profile."
-        }
-    }
+    } }
     args.expand = true
     notebook = Gtk.Notebook(args)
     notebook:show_all()
@@ -651,76 +738,57 @@ return function()
           shadow_type = "ETCHED_IN",
           vexpand = true,
           width_request = 200,
-          Gtk.TreeView {
-            id = "view",
-            model = item_store,
-            activate_on_single_click = true,
-            Gtk.TreeViewColumn {
-              title  = "Profile",
-              expand = true,
-              {
-                Gtk.CellRendererText {
-                  id = "profile_renderer"
-                },
-                {
-                  text     = ItemColumn.PROFILE,
-                  editable = ItemColumn.VISIBLE,
-                  weight   = ItemColumn.WEIGHT
-                }
-              }
-            },
-            Gtk.TreeViewColumn {
-              title     = "Enabled",
-              alignment = 0.5,
-              {
-                Gtk.CellRendererToggle {
-                  id = "toggle_renderer",
-                  xalign = 0.5
-                },
-                {
-                  active      = ItemColumn.ENABLED,
-                  activatable = ItemColumn.ACTIVABLE,
-                  visible     = ItemColumn.VISIBLE
-                }
-              }
-            }
-          }
-        },
+          bind {
+            view = Gtk.TreeView {
+              model = item_store,
+              activate_on_single_click = true,
+              Gtk.TreeViewColumn {
+                title  = "Profile",
+                expand = true,
+                { bind { profile_renderer = Gtk.CellRendererText {} },
+                  { text     = ItemColumn.PROFILE,
+                    editable = ItemColumn.VISIBLE,
+                    weight   = ItemColumn.WEIGHT
+              } } },
+              Gtk.TreeViewColumn {
+                title     = "Enabled",
+                alignment = 0.5,
+                -- Note `xalign` usage here comes from GtkCellRenderer, which unlike the
+                -- legacy alignment widget is not deprecated
+                { bind { toggle_renderer = Gtk.CellRendererToggle { xalign = 0.5 } },
+                  { active      = ItemColumn.ENABLED,
+                    activatable = ItemColumn.ACTIVABLE,
+                    visible     = ItemColumn.VISIBLE
+        } } } } } },
         (function()
             local box = Gtk.Box {
               homogeneous = true,
-              Gtk.Button {
-                id    = "reload",
-                label = "Reload",
-                image = Gtk.Image { stock = Gtk.STOCK_REFRESH }
-              },
-              Gtk.Button {
-                id    = "add",
-                label = "New",
-                image = Gtk.Image { stock = Gtk.STOCK_NEW },
-              },
-              Gtk.Button {
-                id        = "remove",
-                label     = "Delete",
-                sensitive = false,
-                image     = Gtk.Image { stock = Gtk.STOCK_DELETE },
-              }
-            }
+              bind {
+                reload = Gtk.Button {
+                  label = "Reload",
+              } },
+              bind {
+                add = Gtk.Button {
+                  label = "New",
+              } },
+              bind {
+                remove = Gtk.Button {
+                  label     = "Delete",
+                  sensitive = false,
+            } } }
             box:get_style_context():add_class("linked")
             return box
         end)(),
       },
-      Gtk.Stack {
-        id = "stack_view",
-        expand = true,
-        transition_type = Gtk.StackTransitionType.CROSSFADE
-      }
-    }
-  }
+      bind {
+        stack_view = Gtk.Stack {
+          expand = true,
+          transition_type = Gtk.StackTransitionType.CROSSFADE
+  } } } }
   
-  local selection = window.child.view:get_selection()
+  local selection = binds.view:get_selection()
   selection.mode = 'SINGLE'
-  window.child.stack_view:add_named(view_registry[default_entry[ItemColumn.PROFILE]].widget,
+  binds.stack_view:add_named(view_registry[default_entry[ItemColumn.PROFILE]].widget,
                                     default_entry[ItemColumn.PROFILE])
   
   function unique_profile(profile_name_proto)
@@ -741,22 +809,22 @@ return function()
     return profile_name
   end
   
-  function window.child.view:on_row_activated(path, column)
+  function binds.view:on_row_activated(path, column)
     local name = item_store[path][ItemColumn.PROFILE]
-    window.child.stack_view:set_visible_child_name(name)
-    window.child.remove.sensitive = (name ~= "Default")
+    binds.stack_view:set_visible_child_name(name)
+    binds.remove.sensitive = (name ~= "Default")
   end
   
-  function window.child.profile_renderer:on_edited(path_string, new_profile)
+  function binds.profile_renderer:on_edited(path_string, new_profile)
     local path = Gtk.TreePath.new_from_string(path_string)
     local old = item_store[path][ItemColumn.PROFILE]
-    local store = window.child.stack_view:get_child_by_name(old)
+    local store = binds.stack_view:get_child_by_name(old)
     new_profile = string.match(new_profile, "^%s*(.-)%s*$")
     if old == new_profile or new_profile == "Default" then return end
     new_profile = unique_profile(new_profile)
     print("Renamining profile \"" .. old .. "\" -> \"" .. new_profile .. "\"")
-    window.child.stack_view:remove(store)
-    window.child.stack_view:add_named(store, new_profile)
+    binds.stack_view:remove(store)
+    binds.stack_view:add_named(store, new_profile)
     local vstore = view_registry[old]
     view_registry[old] = nil
     view_registry[new_profile] = vstore
@@ -764,17 +832,20 @@ return function()
     item_store[path][ItemColumn.PROFILE] = new_profile
   end
   
-  function window.child.toggle_renderer:on_toggled(path_string)
+  function binds.toggle_renderer:on_toggled(path_string)
     local path = Gtk.TreePath.new_from_string(path_string)
-    if view_registry[item_store[path][ItemColumn.PROFILE]].widget.child.autostart_enabled.active
+    if view_registry[item_store[path][ItemColumn.PROFILE]]
+      .widget:get_children()[1].autostart_enabled.active
     ~= not item_store[path][ItemColumn.ENABLED] then
-      view_registry[item_store[path][ItemColumn.PROFILE]].widget.child.autostart_enabled:activate()
+      view_registry[item_store[path][ItemColumn.PROFILE]]
+        .widget:get_children()[1].autostart_enabled:activate()
     end
     item_store[path][ItemColumn.ENABLED] =
-      view_registry[item_store[path][ItemColumn.PROFILE]].widget.child.autostart_enabled.active
+      view_registry[item_store[path][ItemColumn.PROFILE]]
+      .widget:get_children()[1].autostart_enabled.active
   end
   
-  function window.child.add:on_clicked()
+  function binds.add:on_clicked()
     local profile_name = unique_profile("New Profile")
     local entry = {
       [ItemColumn.PROFILE]   = profile_name,
@@ -785,31 +856,30 @@ return function()
     local view = ProfileView(profile_name)
     item_store:append(entry)
     view_registry[profile_name] = view
-    window.child.stack_view:add_named(view.widget, profile_name);
+    binds.stack_view:add_named(view.widget, profile_name);
   end
   
-  function window.child.remove:on_clicked()
+  function binds.remove:on_clicked()
     local dialog = Gtk.Dialog {
       title               = "Confirmation",
       transient_for       = window,
       modal               = true,
       destroy_with_parent = true
     }
-    local byes    = dialog:add_button(Gtk.STOCK_YES,    Gtk.ResponseType.YES)
-    local bcancel = dialog:add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
+    local byes    = dialog:add_button("Yes",    Gtk.ResponseType.YES)
+    local bcancel = dialog:add_button("Cancel", Gtk.ResponseType.CANCEL)
     dialog:get_action_area().halign = Gtk.Align.CENTER
     local box = Gtk.Box {
       orientation  = 'HORIZONTAL',
       spacing      = 8,
       border_width = 8,
       Gtk.Image {
-        stock     = Gtk.STOCK_DIALOG_WARNING,
+        icon_name = "dialog-warning",
         icon_size = Gtk.IconSize.DIALOG,
       },
       Gtk.Label {
         label = "Are you sure you want to delete the selected profile?"
-      }
-    }
+    } }
     dialog:get_content_area():add(box)
     box:show_all()
     local ret = dialog:run()
@@ -820,8 +890,8 @@ return function()
     if model and iter then
       for iter, entry in item_store:pairs() do
         if selection:iter_is_selected(iter) then
-          window.child.stack_view:remove(
-            window.child.stack_view:get_child_by_name(
+          binds.stack_view:remove(
+            binds.stack_view:get_child_by_name(
               entry[ItemColumn.PROFILE]))
           view_registry[entry[ItemColumn.PROFILE]]:delete()
           view_registry[entry[ItemColumn.PROFILE]] = nil
