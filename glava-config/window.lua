@@ -134,14 +134,14 @@ return function()
   
   local ConfigView = function(tbl)
     local grid = {
-      row_spacing        = 5,
+      row_spacing        = 2,
       column_spacing     = 12,
       column_homogeneous = false,
-      row_homogeneous    = true
+      row_homogeneous    = false
     }
     local list = {}
     local idx  = 0
-    local function cbuild(list, entry, idx)
+    local function cbuild(list, entry)
       list[#list + 1] = {
         Gtk.Label { label = entry[1], halign = "START", valign = "START" },
         left_attach = 0, top_attach = idx
@@ -151,20 +151,29 @@ return function()
         left_attach = 1, top_attach = idx
       }
       list[#list + 1] = {
-        apply { halign = "FILL", hexpand = false, entry[2] },
+        apply { halign = "END", entry[3] or Gtk.Box {} },
         left_attach = 2, top_attach = idx
       }
+      list[#list + 1] = {
+        apply { halign = "FILL", hexpand = false, entry[2] },
+        left_attach = 3, top_attach = idx
+      }
+      list[#list + 1] = {
+        Gtk.Separator {
+          vexpand = false
+        },
+        left_attach = 0, top_attach = idx + 1, width = 3
+      }
+      idx = idx + 2
     end
     for _, entry in ipairs(tbl) do
-      cbuild(list, entry, idx)
-      idx = idx + 1
+      cbuild(list, entry)
     end
     local adv = {}
     if tbl.advanced then
       idx = 0
       for _, entry in ipairs(tbl.advanced) do
-        cbuild(adv, entry, idx)
-        idx = idx + 1
+        cbuild(adv, entry)
       end
     end
     for k, v in pairs(grid) do
@@ -215,9 +224,12 @@ return function()
       }
     end,
     ["string"] = function(attrs)
-      local widget = attrs.entries ~= nil
-        and apply { hexpand = true, ComboBoxFixed(attrs.entries) }
-        or Gtk.Entry { width_chars = 16 }
+      local widget = apply {
+        attrs.entries ~= nil
+          and apply { ComboBoxFixed(attrs.entries) }
+          or Gtk.Entry { width_chars = 12 },
+        hexpand = true
+      }
       return {
         widget   = wrap_label(widget, attrs.label),
         internal = widget,
@@ -260,7 +272,7 @@ return function()
           lower          = attrs.lower or 0,
           upper          = attrs.upper or 100,
           page_size      = 1,
-          step_increment = attrs.increment and (attrs.increment / 10) or 0.1,
+          step_increment = attrs.increment or 1,
           page_increment = attrs.increment or 1
         },
         width_chars = attrs.width or 6,
@@ -280,7 +292,7 @@ return function()
           lower          = attrs.lower or 0,
           upper          = attrs.upper or 100,
           page_size      = 1,
-          step_increment = attrs.increment and math.min(math.floor((attrs.increment / 10)), 1) or 1,
+          step_increment = attrs.increment or 1,
           page_increment = attrs.increment or 1
         },
         width_chars = attrs.width or 6,
@@ -392,14 +404,129 @@ return function()
           entry:set_text(s)
         end
       }
+    end,
+    ["color-expr"] = function(attrs, header)
+      local controls = {
+        { "Baseline", "d" },
+        { "X axis", "gl_FragCoord.x" },
+        { "Y axis", "gl_FragCoord.y" }
+      }
+      local control_list = {}
+      for i, v in ipairs(controls) do
+        control_list[i] = v[1]
+      end
+      local cetypes = {
+        { "Gradient",
+          fields = {
+            { "color" },
+            { "color" },
+            { "string", entries = control_list, header = "Axis:" },
+            { "float", header = "Scale:" }
+          },
+          get_data = function(self, c0, c1, i0, i1)
+            
+          end,
+          -- match against GLSL mix expression, ie.
+          -- `mix(#3366b2, #a0a0b2, clamp(d / GRADIENT, 0, 1))`
+          match = "mix%s*%(" ..
+            "%s*(#[%dA-Fa-f]*)%s*," ..
+            "%s*(#[%dA-Fa-f]*)%s*," ..
+            "%s*clamp%s*%(%s*(%w+)%s*/%s*(%w+)%s*,%s*0%s*,%s*1%s*%)%s*%)"
+        },
+        { "Solid",
+          fields = { { "color" } },
+          get_data = function(self, c)
+            
+          end,
+          match = "#[%dA-Fa-f]*",
+          default = true
+        }
+      }
+      
+      local stack  = Gtk.Stack { vhomogeneous = false }
+      local hstack = Gtk.Stack { vhomogeneous = false }
+      
+      local cekeys  = {}
+      local default = nil
+      local didx    = -1
+      for i, v in ipairs(cetypes) do
+        cekeys[i]     = v[1]
+        cetypes[v[1]] = v
+        local wfields = {}
+        local hfields = {
+          Gtk.Label {
+            halign = "END",
+            valign = "START",
+            label  = header
+          }
+        }
+        for k, v in ipairs(v.fields) do
+          v.alpha = attrs.alpha
+          local g = widget_generators[v[1]](v)
+          wfields[k] = g.widget
+          hfields[#hfields + 1] = Gtk.Label {
+            halign = "END",
+            label  = v.header
+          }
+        end
+        v.widget = Gtk.Box(
+          apply {
+            homogeneous = true,
+            orientation = "VERTICAL",
+            spacing     = 1,
+            wfields
+          }
+        )
+        v.hwidget = Gtk.Box(
+          apply {
+            homogeneous = true,
+            orientation = "VERTICAL",
+            spacing     = 1,
+            hfields
+          }
+        )
+        hstack:add_named(v.hwidget, v[1]) 
+        stack:add_named(v.widget, v[1])
+        if v.default then
+          didx = i - 1
+          default = v[1]
+        end
+        
+        v.set_data = function(self, x)
+          
+        end
+      end
+      local cbox = apply {
+        hexpand = true,
+        ComboBoxFixed(cekeys)
+      }
+      cbox:set_active(didx)
+      stack:set_visible_child(cetypes[default].widget)
+      hstack:set_visible_child(cetypes[default].hwidget)
+      cetypes[default].widget:show()
+      cetypes[default].hwidget:show()
+      function cbox:on_changed()
+        local t = cbox:get_active_text()
+        stack:set_visible_child_name(t)
+        hstack:set_visible_child_name(t)
+      end
+      local widget = Gtk.Box {
+        orientation = "VERTICAL",
+        spacing     = 1,
+        wrap_label(cbox, attrs.label), stack
+      }
+      return {
+        widget        = widget,
+        header_widget = hstack
+      }
     end
   }
   
   local ServiceView = function(self)
     local switch = Gtk.Switch {
-      id        = "autostart_enabled",
-      sensitive = false,
-      hexpand   = false
+      id         = "autostart_enabled",
+      sensitive  = false,
+      hexpand    = false
     }
     local method = ComboBoxFixed {
       "None",
@@ -443,14 +570,20 @@ return function()
       local layout = {}
       for _, e in ipairs(v) do
         if type(e) == "table" then
+          local header = nil
           local fields = {}
           local ftypes = type(e.field_type) == "table" and e.field_type or { e.field_type }
           local fattrs = type(e.field_type) == "table" and e.field_attrs or { e.field_attrs }
           if not fattrs then fattrs = {} end
           for i, f in ipairs(ftypes) do
-            local entry = widget_generators[f](fattrs[i] or {})
+            local entry = widget_generators[f](fattrs[i] or {}, e.header)
+            if not header then
+              header = entry.header_widget
+            end
             fields[#fields + 1] = entry.widget
           end
+          -- disable header display widget if there are multiple fields
+          if #fields > 1 then header = nil end
           fields.orientation = "VERTICAL"
           fields.spacing = 2
           local fwidget = {
@@ -465,7 +598,8 @@ return function()
                   margin_bottom = 4,
                   Gtk.Box(fields)
                 }
-              } or Gtk.Box(fields)
+              } or fields[1],
+            header or (e.header and Gtk.Label { valign = "START", label = e.header } or Gtk.Box {})
           }
           if not e.advanced then
             layout[#layout + 1] = fwidget
@@ -496,11 +630,11 @@ return function()
     end
     return self;
   end
-
+  
   local view_registry = {}
   view_registry[default_entry[ItemColumn.PROFILE]] = ProfileView(default_entry[ItemColumn.PROFILE])
   item_store:append(default_entry)
-
+  
   window = Gtk.Window {
     title = "GLava Config",
     default_width = 320,
@@ -552,36 +686,29 @@ return function()
             }
           }
         },
-        Gtk.Box {
-          orientation = "HORIZONTAL",
-          spacing = 4,
-          apply {
-            hexpand     = false,
-            homogeneous = true,
-            (function()
-                local box = Gtk.Box {
-                  Gtk.Button {
-                    id    = "reload",
-                    label = "Reload",
-                    image = Gtk.Image { stock = Gtk.STOCK_REFRESH }
-                  },
-                  Gtk.Button {
-                    id    = "add",
-                    label = "New",
-                    image = Gtk.Image { stock = Gtk.STOCK_NEW },
-                  },
-                  Gtk.Button {
-                    id        = "remove",
-                    label     = "Delete",
-                    sensitive = false,
-                    image     = Gtk.Image { stock = Gtk.STOCK_DELETE },
-                  }
-                }
-                box:get_style_context():add_class("linked")
-                return box
-            end)()
-          }
-        },
+        (function()
+            local box = Gtk.Box {
+              homogeneous = true,
+              Gtk.Button {
+                id    = "reload",
+                label = "Reload",
+                image = Gtk.Image { stock = Gtk.STOCK_REFRESH }
+              },
+              Gtk.Button {
+                id    = "add",
+                label = "New",
+                image = Gtk.Image { stock = Gtk.STOCK_NEW },
+              },
+              Gtk.Button {
+                id        = "remove",
+                label     = "Delete",
+                sensitive = false,
+                image     = Gtk.Image { stock = Gtk.STOCK_DELETE },
+              }
+            }
+            box:get_style_context():add_class("linked")
+            return box
+        end)(),
       },
       Gtk.Stack {
         id = "stack_view",
@@ -590,12 +717,12 @@ return function()
       }
     }
   }
-
+  
   local selection = window.child.view:get_selection()
   selection.mode = 'SINGLE'
   window.child.stack_view:add_named(view_registry[default_entry[ItemColumn.PROFILE]].widget,
                                     default_entry[ItemColumn.PROFILE])
-
+  
   function unique_profile(profile_name_proto)
     local profile_idx  = 0
     local profile_name = profile_name_proto
@@ -619,7 +746,7 @@ return function()
     window.child.stack_view:set_visible_child_name(name)
     window.child.remove.sensitive = (name ~= "Default")
   end
-
+  
   function window.child.profile_renderer:on_edited(path_string, new_profile)
     local path = Gtk.TreePath.new_from_string(path_string)
     local old = item_store[path][ItemColumn.PROFILE]

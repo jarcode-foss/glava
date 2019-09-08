@@ -6,7 +6,7 @@
 **Compiling:**
 
 ```bash
-$ git clone https://github.com/wacossusca34/glava
+$ git clone https://github.com/jarcode-foss/glava
 $ cd glava
 $ meson build --prefix /usr
 $ ninja -C build
@@ -52,7 +52,7 @@ Some distributions have a package for `glava`. If your distribution is not liste
 - NixOS [package](https://github.com/NixOS/nixpkgs/blob/release-18.09/pkgs/applications/misc/glava/default.nix)
 - openSUSE [package](https://build.opensuse.org/package/show/X11:Utilities/glava)
 
-## [Configuration](https://github.com/wacossusca34/glava/wiki)
+## [Configuration](https://github.com/jarcode-foss/glava/wiki)
 
 GLava will start by looking for an entry point in the user configuration folder (`~/.config/glava/rc.glsl`), and will fall back to loading from the shader installation folder (`/etc/xdg/glava`). The entry point will specify a module to load and should set global configuration variables. Configuration for specific modules can be done in their respective `.glsl` files, which the module itself will include.
 
@@ -60,7 +60,7 @@ You should start by running `glava --copy-config`. This will copy over default c
 
 To embed GLava in your desktop (for EWMH compliant window managers), run it with the `--desktop` flag and then position it accordingly with `#request setgeometry x y width height` in your `rc.glsl`.
 
-For more information, see the [main configuration page](https://github.com/wacossusca34/glava/wiki).
+For more information, see the [main configuration page](https://github.com/jarcode-foss/glava/wiki).
 
 ## Desktop window compatibility
 
@@ -69,7 +69,7 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | WM | ! | Details
 | :---: | --- | --- |
 | Mutter (GNOME, Budgie) | ![-](https://placehold.it/15/118932/000000?text=+) | `"native"` (default) opacity should be used
-| KWin (KDE) | ![-](https://placehold.it/15/118932/000000?text=+) | "Show Desktop" [temporarily hides GLava](https://github.com/wacossusca34/glava/issues/4#issuecomment-419729184)
+| KWin (KDE) | ![-](https://placehold.it/15/118932/000000?text=+) | "Show Desktop" [temporarily hides GLava](https://github.com/jarcode-foss/glava/issues/4#issuecomment-419729184)
 | Openbox (LXDE or standalone) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Xfwm (XFCE) | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
