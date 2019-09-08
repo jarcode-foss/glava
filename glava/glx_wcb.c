@@ -186,6 +186,7 @@ static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM
 static GLXContext sharelist_ctx;
 static bool       sharelist_assigned = false;
 
+/* XQuartz */
 #ifdef __APPLE__
 static const char *dl_names[] = {
     "../Frameworks/OpenGL.framework/OpenGL",

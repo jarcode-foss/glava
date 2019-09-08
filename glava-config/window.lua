@@ -289,12 +289,20 @@ return function()
       end
       if not attrs.entries and not attrs._ignore_restrict then
         -- Handle idenifier formatting for entries without a preset list
+        local handlers = {}
+        local function run_handlers()
+          for _, f in ipairs(handlers) do f() end
+        end
         function s.internal:on_changed()
           local i = s.internal.text
           if i:match("[^%w]") ~= nil or i:sub(1, 1):match("[^%a]") ~= nil then
             s.internal.text = i:gsub("[^%w]", ""):gsub("^[^%a]+", "")
+          else
+            run_handlers()
           end
-          -- todo: handle changed (signal override?)
+        end
+        s.connect = function(f)
+          handlers[#handlers + 1] = f
         end
       end
       return s
@@ -328,7 +336,7 @@ return function()
           widget:set_value(x)
           return true
         end,
-        get_data = function() widget:get_text() end,
+        get_data = function() return widget:get_text() end,
         connect = function(f) widget.on_value_changed = f end
       }
     end,
@@ -354,7 +362,7 @@ return function()
           widget:set_value(x)
           return true
         end,
-        get_data = function() widget:get_text() end,
+        get_data = function() return widget:get_text() end,
         connect = function(f) widget.on_value_changed = f end
       }
     end,
@@ -363,6 +371,11 @@ return function()
     -- The benefits of doing this mean we get to use the "nice" Gtk3
     -- chooser, and the button rendering itself is much better.
     ["color"] = function(attrs)
+      local dialog_open = false
+      local handlers = {}
+      local function run_handlers()
+          for _, f in ipairs(handlers) do f() end
+      end
       local c = Gdk.RGBA {
         red = 1.0, green = 1.0, blue = 1.0, alpha = 1.0
       }
@@ -408,6 +421,7 @@ return function()
       widget:get_style_context():add_class("linked")
       widget = wrap_label(widget, attrs.label)
       function btn:on_clicked()
+        local c_change_staged = false
         local dialog = (use_old_chooser and Gtk.ColorSelectionDialog or Gtk.ColorChooserDialog)
         { title               = "Select Color",
           transient_for       = window,
@@ -422,6 +436,7 @@ return function()
             dialog.color_selection.has_opacity_control = true
           end
           function dialog.color_selection:on_color_changed()
+            c_change_staged = true
             c = dialog.color_selection.current_rgba
             entry:set_text(attrs.alpha and utils.format_color_rgba(c) or utils.format_color_rgb(c))
             area:queue_draw()
@@ -432,20 +447,26 @@ return function()
             dialog.use_alpha = true
           end
         end
-        
+
+        dialog_open = true
         local ret = dialog:run()
+        dialog_open = false
         dialog:set_visible(false)
         
         if not use_old_chooser and ret == Gtk.ResponseType.OK then
           c = dialog.rgba
           entry:set_text(attrs.alpha and utils.format_color_rgba(c) or utils.format_color_rgb(c))
           area:queue_draw()
+          run_handlers()
+        elseif use_old_chooser and c_change_staged then
+          run_handlers()
         end
       end
       function entry:on_changed()
         local s = utils.sanitize_color(entry.text)
         c = utils.parse_color_rgba(s)
         area:queue_draw()
+        if not dialog_open then run_handlers() end
       end
       return {
         widget = widget,
@@ -460,7 +481,7 @@ return function()
           return attrs.alpha and utils.format_color_rgba(c) or utils.format_color_rgb(c)
         end,
         connect = function(f)
-          -- todo signal magic stuff
+          handlers[#handlers + 1] = f
         end
       }
     end,
@@ -510,14 +531,6 @@ return function()
           output = "%s",
           default = true
       } }
-      
-      local function collect_field_data(self)
-        local fields = {}
-        for i = 1, #self.fields do
-          fields[i] = self.gen[i]:get_data()
-        end
-        return fields
-      end
       
       local stack  = Gtk.Stack { vhomogeneous = false }
       local hstack = Gtk.Stack { vhomogeneous = false }
@@ -575,7 +588,16 @@ return function()
           end
         end
         v.get_data = function()
-          return string.format(v.output, unpack(collect_field_data()))
+          local fields = {}
+          for i = 1, #v.fields do
+            fields[i] = gen[i]:get_data()
+          end
+          return string.format(v.output, unpack(fields))
+        end
+        v.connect = function(f)
+          for _, g in ipairs(gen) do
+            g.connect(f)
+          end
         end
       end
       local cbox = apply {
@@ -610,6 +632,11 @@ return function()
         end,
         get_data = function()
           return cetypes[cbox:get_active_text()].get_data()
+        end,
+        connect = function(f)
+          for i, v in ipairs(cetypes) do
+            v.connect(f)
+          end
         end
       }
     end
@@ -677,6 +704,10 @@ return function()
               header = entry.header_widget
             end
             fields[#fields + 1] = entry.widget
+            -- todo: finish linking config
+            entry.connect(function()
+                print(string.format("assign %s->%s->%s[%d] = %s", k, e[1], f, i, tostring(entry.get_data())))
+            end)
           end
           -- disable header display widget if there are multiple fields
           if #fields > 1 then header = nil end

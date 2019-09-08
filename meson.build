@@ -5,7 +5,6 @@ project(
   default_options:['buildtype=release', 'strip=true', 'optimization=2'])
 
 cc = meson.get_compiler('c')
-add_project_arguments('-Wstringop-overflow=0', language: 'c')
 
 if get_option('glad')
   if get_option('buildtype').startswith('debug')

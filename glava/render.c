@@ -1042,7 +1042,7 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
                         if (module != NULL) free((char*) module);
                         size_t len = strlen((char*) args[0]);
                         char* str = malloc(sizeof(char) * (len + 1));
-                        strncpy(str, (char*) args[0], len + 1);
+                        strcpy(str, (char*) args[0]);
                         module = str;
                     }
                 })
