@@ -26,7 +26,7 @@ Note that versions since `2.0` use Meson for the build system, although the `Mak
 
 **Configuration tool requirements:**
 
-- Lua 5.3, and the following lua libraries:
+- Lua (5.3 by default, change with `-Dlua_version=...`), and the following lua libraries:
   - Lua GObject Introspection (LGI)
   - LuaFilesystem (LFS)
 - GTK+ 3
