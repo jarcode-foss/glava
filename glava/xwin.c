@@ -217,6 +217,8 @@ const char* xwin_detect_wm(struct gl_wcb* wcb) {
     
 }
 
+static int stub_handler(Display* d, XErrorEvent* e) { return 0; }
+
 bool xwin_should_render(struct gl_wcb* wcb, void* impl) {
     bool ret = true, should_close = false;
     Display* d = wcb->get_x11_display();
@@ -232,10 +234,8 @@ bool xwin_should_render(struct gl_wcb* wcb, void* impl) {
     int actual_format, t;
     unsigned long nitems, bytes_after;
     unsigned char* data = NULL;
-
-    int handler(Display* d, XErrorEvent* e) { return 0; }
     
-    XSetErrorHandler(handler); /* dummy error handler */
+    XSetErrorHandler(stub_handler); /* dummy error handler */
           
     if (Success != XGetWindowProperty(d, DefaultRootWindow(d), prop, 0, 1, false, AnyPropertyType,
                                       &actual_type, &actual_format, &nitems, &bytes_after, &data)) {

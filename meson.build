@@ -24,6 +24,11 @@ glava_dependencies = [
   cc.find_library('Xext')
 ]
 
+if cc.get_id() == 'clang'
+  add_project_arguments('-fblocks',        language: 'c')
+  glava_dependencies += cc.find_library('BlocksRuntime')
+endif
+
 shader_dir = get_option('shader_install_dir')
 glava_version = meson.project_version()
 if glava_version == ''

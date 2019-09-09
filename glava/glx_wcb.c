@@ -186,18 +186,6 @@ static Atom ATOM__MOTIF_WM_HINTS, ATOM_WM_DELETE_WINDOW, ATOM_WM_PROTOCOLS, ATOM
 static GLXContext sharelist_ctx;
 static bool       sharelist_assigned = false;
 
-/* XQuartz */
-#ifdef __APPLE__
-static const char *dl_names[] = {
-    "../Frameworks/OpenGL.framework/OpenGL",
-    "/Library/Frameworks/OpenGL.framework/OpenGL",
-    "/System/Library/Frameworks/OpenGL.framework/OpenGL",
-    "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"
-};
-#else
-static const char *dl_names[] = {"libGL.so.1", "libGL.so"};
-#endif
-
 static bool offscreen(void) {
     return sharelist_assigned;
 }
@@ -208,8 +196,30 @@ __attribute__((visibility("default"))) void glava_assign_external_ctx(void* ctx)
     sharelist_ctx      = (GLXContext) ctx;
     sharelist_assigned = true;
 }
+    
+static void* resolve_f(const char* symbol, void* gl) {
+    void* s = NULL;
+    if (gl) s = dlsym(gl,  symbol);
+    if (!s) {
+        fprintf(stderr, "Failed to resolve GLX symbol: `%s`\n", symbol);
+        glava_abort();
+    }
+    return s;
+}
 
 static void init(void) {
+    /* XQuartz */
+    #ifdef __APPLE__
+    static const char *dl_names[] = {
+        "../Frameworks/OpenGL.framework/OpenGL",
+        "/Library/Frameworks/OpenGL.framework/OpenGL",
+        "/System/Library/Frameworks/OpenGL.framework/OpenGL",
+        "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"
+    };
+    #else
+    static const char *dl_names[] = {"libGL.so.1", "libGL.so"};
+    #endif
+
     display = XOpenDisplay(NULL);
     if (!display) {
         fprintf(stderr, "XOpenDisplay(): could not establish connection to X11 server\n");
@@ -223,24 +233,14 @@ static void init(void) {
 
     void* hgl = NULL;
     for(size_t i = 0; i < (sizeof(dl_names) / sizeof(dl_names[0])) && hgl == NULL; ++i)
-        hgl = dlopen("libGL.so.1", RTLD_LAZY);
+        hgl = dlopen(dl_names[1], RTLD_LAZY);
 
     if (!hgl) {
         fprintf(stderr, "Failed to load GLX functions (libGL and libGLX do not exist!)\n");
         glava_abort();
     }
-    
-    void* resolve_f(const char* symbol) {
-        void* s = NULL;
-        if (hgl) s = dlsym(hgl,  symbol);
-        if (!s) {
-            fprintf(stderr, "Failed to resolve GLX symbol: `%s`\n", symbol);
-            glava_abort();
-        }
-        return s;
-    }
 
-    #define resolve(name) do { name = (typeof(name)) resolve_f(#name); } while (0)
+    #define resolve(name) do { name = (typeof(name)) resolve_f(#name, hgl); } while (0)
     #define intern(name, only_if_exists)                                \
         do { ATOM_##name = XInternAtom(display, #name, only_if_exists); } while (0)
 
@@ -370,7 +370,7 @@ static void* create_and_bind(const char* name, const char* class,
     struct glxwin* w = malloc(sizeof(struct glxwin));
     *w = (struct glxwin) {
         .override_state = '\0',
-        .time           = 0.0D,
+        .time           = 0.0,
         .should_close   = false,
         .should_render  = true,
         .bg_changed     = false,
@@ -634,7 +634,7 @@ static double get_timert(void) {
     if (clock_gettime(CLOCK_REALTIME, &tv)) {
         fprintf(stderr, "clock_gettime(CLOCK_REALTIME, ...): %s\n", strerror(errno));
     }
-    return (double) tv.tv_sec + ((double) tv.tv_nsec / 1000000000.0D);
+    return (double) tv.tv_sec + ((double) tv.tv_nsec / 1000000000.0);
 }
 
 static void destroy(struct glxwin* w) {

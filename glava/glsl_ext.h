@@ -19,7 +19,13 @@ struct request_handler {
       .fmt = "ffb" // takes two floats, then a boolean
      */
     const char* fmt;
+    #if defined(__clang__)
+    void (^handler)(const char* name, void** args);
+    #elif defined(__GNUC__) || defined(__GNUG__)
     void (*handler)(const char* name, void** args);
+    #else
+    #error "no nested function/block syntax available"
+    #endif
 };
 
 struct glsl_ext {

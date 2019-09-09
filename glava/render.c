@@ -801,6 +801,25 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
     return NULL;
 }
 
+#if defined(__clang__)
+#define MUTABLE __block
+#define INLINE(t, x) MUTABLE __auto_type x = ^t
+#else
+#define MUTABLE
+#define INLINE(t, x) t x
+#endif
+    
+#if defined(__clang__)
+void (^block_storage)(const char*, void**);
+#define RHANDLER(name, args, ...)                                       \
+    ({ block_storage = ^(const char* name, void** args) __VA_ARGS__; block_storage; })
+#elif defined(__GNUC__) || defined(__GNUG__)
+#define RHANDLER(name, args, ...)                                       \
+    ({ void _handler(const char* name, void** args) __VA_ARGS__ _handler; })
+#else
+#error "no nested function/block syntax available"
+#endif
+
 struct glava_renderer* rd_new(const char**    paths,        const char* entry,
                               const char**    requests,     const char* force_backend,
                               struct rd_bind* bindings,     int         stdin_type,
@@ -809,7 +828,7 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
     
     xwin_wait_for_wm();
     
-    glava_renderer* r = malloc(sizeof(struct glava_renderer));
+    MUTABLE glava_renderer* r = malloc(sizeof(struct glava_renderer));
     *r = (struct glava_renderer) {
         .alive                = true,
         .mirror_input         = false,
@@ -827,13 +846,13 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
 
     pthread_mutex_lock(&r->lock);
     
-    struct gl_data* gl = r->gl;
+    MUTABLE struct gl_data* gl = r->gl;
     *gl = (struct gl_data) {
         .w                 = NULL,
         .wcb               = NULL,
         .stages            = NULL,
         .rate              = 0,
-        .tcounter          = 0.0D,
+        .tcounter          = 0.0,
         .fcounter          = 0,
         .ucounter          = 0,
         .kcounter          = 0,
@@ -945,20 +964,18 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
     
     gl->wcb->init();
 
-    int shader_version        = 330,
+    MUTABLE int
+        shader_version        = 330,
         context_version_major = 3,
         context_version_minor = 3;
-    const char* module = NULL;
+    MUTABLE const char* module = NULL;
     const char* wintitle_default = "GLava";
-    char* xwintype = NULL, * wintitle = (char*) wintitle_default;
-    char** xwinstates = malloc(1);
-    size_t xwinstates_sz = 0;
+    MUTABLE char* xwintype = NULL, * wintitle = (char*) wintitle_default;
+    MUTABLE char** xwinstates = malloc(1);
+    MUTABLE size_t xwinstates_sz = 0;
     bool loading_module = true, loading_smooth_pass = false, loading_presets = false;;
-    struct gl_sfbo* current = NULL;
-    size_t t_count = 0;
-    
-    #define RHANDLER(name, args, ...)                                   \
-        ({ void _handler(const char* name, void** args) __VA_ARGS__ _handler; })
+    MUTABLE struct gl_sfbo* current = NULL;
+    MUTABLE size_t t_count = 0;
     
     #define WINDOW_HINT(request)                                        \
         { .name = "set" #request, .fmt = "b",                           \
@@ -967,7 +984,6 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
     struct request_handler handlers[] = {
         { .name = "setopacity", .fmt = "s",
           .handler = RHANDLER(name, args, {
-
                   bool native_opacity = !strcmp("native", (char*) args[0]);
                     
                   gl->premultiply_alpha = native_opacity;
@@ -1576,7 +1592,7 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
 void rd_time(struct glava_renderer* r) {
     struct gl_data* gl = r->gl;
     
-    gl->wcb->set_time(gl->w, 0.0D); /* reset time for measuring this frame */
+    gl->wcb->set_time(gl->w, 0.0); /* reset time for measuring this frame */
 }
 
 bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool modified) {
@@ -1847,7 +1863,8 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
     
     for (t = 0; t < gl->stages_sz; ++t) {
 
-        bool load_flags[64] = { [ 0 ... 63 ] = false }; /* Load flags for each texture position */
+        MUTABLE bool  load_flags_s[64] = { [ 0 ... 63 ] = false };
+        MUTABLE bool* load_flags       = load_flags_s; /* Load flags for each texture position */
         
         /* Current shader program */
         struct gl_sfbo* current = &gl->stages[t];
@@ -1940,13 +1957,13 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
         /* Iterate through each uniform binding, transforming and passing the 
            data into the shader. */
         
-        size_t b, c = 0;
+        MUTABLE size_t b, c = 0;
         for (b = 0; b < current->binds_sz; ++b) {
             struct gl_bind* bind = &current->binds[b];
 
             /* Handle transformations and bindings for 1D samplers */
-            void handle_1d_tex(GLuint tex, float* buf, float* ubuf, size_t sz, int offset, bool audio) {
-                
+            INLINE(void, handle_1d_tex)(GLuint tex, float* buf, float* ubuf,
+                                        size_t sz, int offset, bool audio) {
                 if (load_flags[offset])
                     goto bind_uniform;
                 load_flags[offset] = true;
@@ -2041,12 +2058,11 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
                 glBindTexture(GL_TEXTURE_1D, tex);
             bind_uniform:
                 glUniform1i(bind->uniform, offset);
-            }
+            }; /* <-- this pesky semicolon is only required in clang because of how blocks work */
 
             /* Handle each binding source; only bother to handle transformations
                for 1D samplers, since that's the only transformation type that
                (currently) exists. */
-            
             switch (bind->src_type) {
                 case SRC_PREV:
                     /* bind texture and pass it to the shader uniform if we need to pass
@@ -2095,12 +2111,12 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
 
     /* Handling sleeping (to meet target framerate) */
     if (gl->rate > 0) {
-        double target = 1.0D / (double) gl->rate; /* 1 / freq = time per frame */
+        double target = 1.0 / (double) gl->rate; /* 1 / freq = time per frame */
         if (duration < target) {
             double sleep = target - duration;
             struct timespec tv = {
                 .tv_sec = (time_t) floor(sleep),
-                .tv_nsec = (long) (double) ((sleep - floor(sleep)) * 1000000000.0D)
+                .tv_nsec = (long) (double) ((sleep - floor(sleep)) * 1000000000.0)
             };
             nanosleep(&tv, NULL);
             duration = target; /* update duration to reflect our sleep time */
@@ -2118,7 +2134,7 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
         gl->kcounter = 0;     /*   reset keyframe counter (for interpolation)     */
     } else ++gl->kcounter;    /* increment keyframe counter otherwise             */
     gl->tcounter += duration; /* timer counter, measuring when a >1s has occurred */
-    if (gl->tcounter >= 1.0D) {
+    if (gl->tcounter >= 1.0) {
         gl->fr = gl->fcounter / gl->tcounter; /* frame rate (FPS)     */
         gl->ur = gl->ucounter / gl->tcounter; /* update rate (UPS)    */
         if (gl->print_fps) {                  /* print FPS            */
