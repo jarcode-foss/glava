@@ -22,6 +22,7 @@ Note that versions since `2.0` use Meson for the build system, although the `Mak
 - X11 (Xext, Xcomposite, & Xrender)
 - PulseAudio
 - Linux or BSD
+- libBlocksRuntime if compiling with Clang
 
 **Configuration tool requirements:**
 
@@ -33,8 +34,7 @@ Note that versions since `2.0` use Meson for the build system, although the `Mak
 **Additional compile time requirements:**
 
 - Meson
-- GCC (this program uses GNU C features)
-- OBS (disable with `-Ddisable-obs=true`, disabled by default in `Makefile`)
+- OBS (disable with `-Ddisable-obs=true`)
 
 **Optional requirements:**
 
