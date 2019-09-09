@@ -25,7 +25,7 @@ glava_dependencies = [
 ]
 
 if cc.get_id() == 'clang'
-  add_project_arguments('-fblocks',        language: 'c')
+  add_project_arguments('-fblocks', language: 'c')
   glava_dependencies += cc.find_library('BlocksRuntime')
 endif
 
@@ -109,18 +109,28 @@ if not get_option('disable_config')
   ).stdout().strip().split('\n')
     glava_config_lua_targets += s + '.' + luac_output_ext
   endforeach
+
+  luac_name = 'luac' + get_option('lua_version')
+  luac_impl = get_option('lua_implementation')
+  if get_option('lua_implementation') == 'luajit'
+    luac_name = 'luajit'
+    luac_impl += '-'
+  endif
   
   luac_target = custom_target(
     'glava-config-luac',
     input: generator(
-      find_program('luac'),
+      find_program(luac_name),
       output:    '@BASENAME@.' + luac_output_ext,
       arguments: ['-o', '@OUTPUT@', '@INPUT@']).process(glava_config_lua_sources),
     output:           glava_config_lua_targets,
     command:          [find_program('cp'), '-t', '@OUTDIR@', '@INPUT@'],
     build_by_default: true,
     install:          true,
-    install_dir:      get_option('lua_install_dir') + '/glava-config')
+    install_dir:      get_option('lua_install_dir')    + '/' +
+                      get_option('lua_implementation') + '/' +
+                      get_option('lua_version')        + '/' +
+                      'glava-config')
 
   executable(
     'glava-config',
