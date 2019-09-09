@@ -101,6 +101,13 @@ return function()
     return unpack(ret)
   end
   
+  local function link(tbl)
+    for _, v in ipairs(tbl) do
+      v:get_style_context():add_class("linked")
+    end
+    return unpack(tbl)
+  end
+  
   local function ComboBoxFixed(tbl)
     local inst = Gtk.ComboBoxText { id = tbl.id }
     for _, v in pairs(tbl) do
@@ -222,7 +229,7 @@ return function()
   end
   
   -- Generators for producing widgets (and their layouts) that bind to configuration values
-  -- note: `get_data` returns _formatted_ data, such that it can be written directly in GLSL
+  -- note: `get_data` returns stringified data
   local widget_generators
   widget_generators = {
     -- A switch to represent a true/false value
@@ -268,7 +275,7 @@ return function()
           if attrs.translate then
             text = attrs.translate[text]
           end
-          return (not attrs._ignore_format) and string.format("\"%s\"", text) or text
+          return text
         end,
         connect = function(f)
           -- Note: the underlying widget can be `GtkComboBoxText` or `GtkEntry`;
@@ -279,7 +286,6 @@ return function()
     end,
     -- Entry for a valid C/GLSL identity, may have predefined selections
     ["ident"] = function(attrs)
-      attrs._ignore_format = true
       local s = widget_generators.string(attrs)
       -- Set fixed-width font if the users enter/select identifiers by their name,
       -- rather than a description to indicate it's a GLSL identity
@@ -333,7 +339,7 @@ return function()
       return {
         widget = wrap_label(widget, attrs.label),
         set_data = function(x)
-          widget:set_value(x)
+          widget:set_text(x)
           return true
         end,
         get_data = function() return widget:get_text() end,
@@ -359,7 +365,7 @@ return function()
       return {
         widget = wrap_label(apply { vexpand = false, widget }, attrs.label),
         set_data = function(x)
-          widget:set_value(x)
+          widget:set_text(x)
           return true
         end,
         get_data = function() return widget:get_text() end,
@@ -418,7 +424,7 @@ return function()
         spacing     = 0,
         entry, btn
       }
-      widget:get_style_context():add_class("linked")
+      link { widget }
       widget = wrap_label(widget, attrs.label)
       function btn:on_clicked()
         local c_change_staged = false
@@ -645,7 +651,6 @@ return function()
   -- Extra widget for special service/autostart functionality
   local ServiceView = function(self)
     local switch = Gtk.Switch {
-      id         = "autostart_enabled",
       sensitive  = false,
       hexpand    = false
     }
@@ -681,7 +686,7 @@ return function()
     return ConfigView {
       { "Enabled", Gtk.Box { Gtk.Box { hexpand = true }, switch } },
       { "Autostart Method", method }
-    }
+    }, switch
   end
   
   -- Produce a widget containing a scroll area full of widgets bound to
@@ -737,16 +742,27 @@ return function()
       end
       args[#args + 1] = { tab_label = v.name, ConfigView(layout) }
     end
+    local service, chk = ServiceView(self)
     args[#args + 1] = {
       tab_label = "Autostart",
-      name ~= "Default" and ServiceView(self) or
-        Gtk.Label {
-          label = "Autostart options are not available for the default user profile."
-    } }
+      name ~= "Default" and service or
+        Gtk.Box {
+          valign      = "CENTER",
+          orientation = "VERTICAL",
+          spacing     = 8,
+          Gtk.Label {
+            label = "Autostart options are not available for the default user profile."
+          },
+          Gtk.Button {
+            hexpand = false,
+            halign  = "CENTER",
+            label   = "Show Profiles"
+    } } }
     args.expand = true
     notebook = Gtk.Notebook(args)
     notebook:show_all()
     self.widget = notebook
+    self.autostart_enabled = chk
     function self:rename(new)
       self.name = new
     end
@@ -767,9 +783,10 @@ return function()
     border_width = 5,
     Gtk.Box {
       orientation = "HORIZONTAL",
-      spacing = 8,
+      spacing = 6,
       homogeneous = false,
       Gtk.Box {
+        hexpand = false,
         orientation = "VERTICAL",
         spacing = 5,
         Gtk.ScrolledWindow {
@@ -798,31 +815,53 @@ return function()
                     activatable = ItemColumn.ACTIVABLE,
                     visible     = ItemColumn.VISIBLE
         } } } } } },
-        (function()
-            local box = Gtk.Box {
-              homogeneous = true,
-              bind {
-                reload = Gtk.Button {
-                  label = "Reload",
+        link {
+          Gtk.Box {
+            hexpand = true,
+            bind {
+              reload = Gtk.Button {
+                Gtk.Image {
+                  icon_name = "view-refresh-symbolic"
               } },
-              bind {
-                add = Gtk.Button {
-                  label = "New",
-              } },
-              bind {
-                remove = Gtk.Button {
-                  label     = "Delete",
-                  sensitive = false,
-            } } }
-            box:get_style_context():add_class("linked")
-            return box
-        end)(),
-      },
-      bind {
-        stack_view = Gtk.Stack {
-          expand = true,
-          transition_type = Gtk.StackTransitionType.CROSSFADE
-  } } } }
+            },
+            bind {
+              add = Gtk.Button {
+                halign  = "FILL",
+                hexpand = true,
+                label   = "Create Profile",
+            } },
+            bind {
+              remove = Gtk.Button {
+                halign    = "END",
+                sensitive = false,
+                Gtk.Image {
+                  icon_name = "user-trash-symbolic"
+      } } } } } },
+      Gtk.Box {
+        orientation = "VERTICAL",
+        spacing     = 6,
+        link {
+          Gtk.Box {
+            Gtk.ToggleButton {
+              Gtk.Image {
+                icon_name = "view-paged-symbolic"
+              },
+              on_clicked = function()
+                --
+              end
+            },
+            bind {
+              display_path = Gtk.Entry {
+              -- todo: bind to config 
+              text = "~/.config/glava/rc.glsl",
+              editable = false,
+              hexpand = true
+        } } } },
+        bind {
+          stack_view = Gtk.Stack {
+            expand = true,
+            transition_type = Gtk.StackTransitionType.CROSSFADE
+  } } } } }
   
   local selection = binds.view:get_selection()
   selection.mode = 'SINGLE'
@@ -872,15 +911,12 @@ return function()
   
   function binds.toggle_renderer:on_toggled(path_string)
     local path = Gtk.TreePath.new_from_string(path_string)
-    if view_registry[item_store[path][ItemColumn.PROFILE]]
-      .widget:get_children()[1].autostart_enabled.active
+    if view_registry[item_store[path][ItemColumn.PROFILE]].autostart_enabled.active
     ~= not item_store[path][ItemColumn.ENABLED] then
-      view_registry[item_store[path][ItemColumn.PROFILE]]
-        .widget:get_children()[1].autostart_enabled:activate()
+      view_registry[item_store[path][ItemColumn.PROFILE]].autostart_enabled:activate()
     end
     item_store[path][ItemColumn.ENABLED] =
-      view_registry[item_store[path][ItemColumn.PROFILE]]
-      .widget:get_children()[1].autostart_enabled.active
+      view_registry[item_store[path][ItemColumn.PROFILE]].autostart_enabled.active
   end
   
   function binds.add:on_clicked()
@@ -889,7 +925,8 @@ return function()
       [ItemColumn.PROFILE]   = profile_name,
       [ItemColumn.ENABLED]   = false,
       [ItemColumn.ACTIVABLE] = false,
-      [ItemColumn.VISIBLE]   = true
+      [ItemColumn.VISIBLE]   = true,
+      [ItemColumn.WEIGHT]    = 400
     }
     local view = ProfileView(profile_name)
     item_store:append(entry)
@@ -912,7 +949,7 @@ return function()
       spacing      = 8,
       border_width = 8,
       Gtk.Image {
-        icon_name = "dialog-warning",
+        icon_name = "dialog-warning-symbolic",
         icon_size = Gtk.IconSize.DIALOG,
       },
       Gtk.Label {

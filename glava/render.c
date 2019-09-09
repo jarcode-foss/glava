@@ -939,9 +939,9 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
         }
         glava_abort();
     }
-
+    
     if (verbose) printf("Using backend: '%s'\n", backend);
-
+    
     for (size_t t = 0; t < wcbs_idx; ++t) {
         if (wcbs[t]->name && !strcmp(wcbs[t]->name, backend)) {
             gl->wcb = wcbs[t];
@@ -1061,7 +1061,8 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
         },
         { .name = "nativeonly", .fmt = "b",
           .handler = RHANDLER(name, args, {
-                  fprintf(stderr, "WARNING: `nativeonly` is deprecated, use `#if PREMULTIPLY_ALPHA == 1`!\n");
+                  fprintf(stderr, "WARNING: `nativeonly` is deprecated,"
+                          " use `#if PREMULTIPLY_ALPHA == 1`!\n");
                   if (current)
                       current->nativeonly = *(bool*) args[0];
                   else {

@@ -2,7 +2,8 @@ local lfs      = require "lfs"
 local mappings = require "glava-config.mappings"
 
 local config = {
-  Profile = { mt = {} }
+  Profile = { mt = {} },
+  PROFILES_DIR = "profiles"
 }
 
 config.Profile.__index = config.Profile
@@ -19,13 +20,17 @@ local function path_split(str, sep)
 end
 
 -- Concatenates paths such that duplicate path separators are removed.
--- Can be used on non-split arguments
+-- Can be used on non-split arguments, and resolves `..` syntax
 local function path_concat(...)
   local ret = {}
   for _, v in ipairs({...}) do
     for _, e in ipairs(path_split(v, "/")) do
       if e ~= "" or #ret == 0 then
-        ret[#ret + 1] = e
+        if e == ".." and #ret >= 1 then
+          ret[#ret] = nil
+        else
+          ret[#ret + 1] = e
+        end
       end
     end
   end
@@ -66,27 +71,12 @@ local function none(...) return ... end
 local MATCH_ENTRY_PATTERN = "^%s*%#(%a+)%s+(%a+)"
 local MATCH_DATA_PREFIX   = "^%s*%#%a+%s+%a+"
 local MATCH_TYPES = {
-  ["float"] = {
-    pattern   = "(%d+.?%d*)",
-    cast      = tonumber,
-    serialize = tostring
-  }, ["int"] = {
-    pattern   = "(%d+)",
-    cast      = tonumber,
-    serialize = function(x) tostring(math.floor(x)) end
-  }, ["color-expr"] = {
-    pattern   = "(.+)",
-    cast      = none,
-    serialize = none
-  }, ["expr"] = {
-    pattern   = "(.+)",
-    cast      = none,
-    serialize = none
-  }, ["ident"] = {
-    pattern   = "(%w+)",
-    cast      = none,
-    serialize = none
-  }, ["string"] = {
+  ["float"]      = { pattern  = "(%d+.?%d*)" },
+  ["int"]        = { pattern  = "(%d+)"      },
+  ["color-expr"] = { pattern  = "(.+)"       },
+  ["expr"]       = { pattern  = "(.+)"       },
+  ["ident"]      = { pattern  = "(%a%w*)"    },
+  ["string"] = {
     pattern = "(.+)",
     cast = unquote,
     -- Read-ahead function to generate a fixed-width pattern
@@ -195,18 +185,22 @@ local function unwrap(ret, err)
 end
 
 function config.Profile:__call(args)
-  local self = { name = args.name }
+  local self = { name = args.name or ".." }
   self:rebuild()
   return setmetatable(self, config.Profile)
 end
 
 function config.Profile:rename(new)
-  
+  error("not implemented")
+end
+
+function config.Profile:get_path()
+  return path_concat(glava.config_path, config.PROFILES_DIR, self.name)
 end
 
 function config.Profile:rebuild()
   self.store = {}
-  self.path = path_concat(glava.config_path, "profiles", self.name)
+  self.path = path_concat(glava.config_path, config.PROFILES_DIR, self.name)
   unwrap(create_p(self.path, "directory", true))
   local unbuilt = {}
   for k, _ in pairs(mappings) do
@@ -252,7 +246,7 @@ function config.Profile:rebuild_file(file, path, phony)
           _, i, match = string.find(at, "%s*" .. MATCH_TYPES[v].transform(match))
         end
         if default == nil or fstore[key][t] == nil then
-          fstore[key][t] = MATCH_TYPES[v].cast(match)
+          fstore[key][t] = MATCH_TYPES[v].cast and MATCH_TYPES[v].cast(match) or match
         end
         at = string.sub(at, 1, i)
       else break end
@@ -297,7 +291,7 @@ function config.Profile:sync_file(fname)
     local parts = { string.format("#%s", string.gsub(k, ":", " ")) }
     local field = fmap[k].field_type
     for i, e in ipairs(type(field) == "table" and field or { field }) do
-      parts[#parts + 1] = MATCH_TYPES[e].serialize(v[i])
+      parts[#parts + 1] = MATCH_TYPES[e].serialize and MATCH_TYPES[e].serialize(v[i]) or v[i]
     end
     local serialized = table.concat(parts, " ")
     if v.line then buf[line] = serialized
