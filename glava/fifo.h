@@ -1,5 +1,10 @@
 
+#ifndef FIFO_H
+#define FIFO_H
+
 #include <pthread.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
 struct audio_data {
     volatile float* audio_out_r;
@@ -34,6 +39,8 @@ static inline void register_audio_impl(struct audio_impl* impl) { audio_impls[au
         AUDIO_FUNC(init),                                       \
         AUDIO_FUNC(entry),                                      \
     };                                                          \
-    void __attribute__((constructor)) _##N##_construct(void) { \
+    void __attribute__((constructor)) _##N##_construct(void) {  \
         register_audio_impl(&N##_var);                          \
     }
+
+#endif

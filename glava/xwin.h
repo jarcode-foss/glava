@@ -4,6 +4,9 @@
 #ifndef XWIN_H
 #define XWIN_H
 
+#include <stdbool.h>
+#include "render.h"
+
 typedef unsigned long int Window;
 
 void xwin_assign_icon_bmp(struct gl_wcb* wcb, void* impl, const char* path);

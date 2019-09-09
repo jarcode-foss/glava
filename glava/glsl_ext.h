@@ -1,6 +1,8 @@
+#ifndef GLSL_EXT_H
+#define GLSL_EXT_H
 
-#define RHANDLER(name, args, ...)                            \
-    ({ void _handler(const char* name, void** args) __VA_ARGS__ _handler; })
+#include <stdlib.h>
+#include <stdbool.h>
 
 struct request_handler {
     const char* name;
@@ -44,3 +46,5 @@ struct glsl_ext {
 void ext_process(struct glsl_ext* ext, const char* f);
 void ext_free   (struct glsl_ext* ext);
 bool ext_parse_color(const char* hex, size_t elem_sz, float** results);
+
+#endif

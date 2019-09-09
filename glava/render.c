@@ -391,7 +391,7 @@ static GLuint shaderlink_f(GLuint* arr) {
 }
 
 /* load shaders */
-#define shaderbuild(gl, shader_path, c, d, r, v, s, ...)                 \
+#define shaderbuild(gl, shader_path, c, d, r, v, s, ...)                \
     shaderbuild_f(gl, shader_path, c, d, r, v, s, (const char*[]) {__VA_ARGS__, 0})
 static GLuint shaderbuild_f(struct gl_data* gl,
                             const char* shader_path,
@@ -802,10 +802,10 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
 }
 
 struct glava_renderer* rd_new(const char**    paths,        const char* entry,
-                        const char**    requests,     const char* force_backend,
-                        struct rd_bind* bindings,     int         stdin_type,
-                        bool            auto_desktop, bool        verbose,
-                        bool            test_mode) {
+                              const char**    requests,     const char* force_backend,
+                              struct rd_bind* bindings,     int         stdin_type,
+                              bool            auto_desktop, bool        verbose,
+                              bool            test_mode) {
     
     xwin_wait_for_wm();
     
@@ -956,272 +956,262 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
     bool loading_module = true, loading_smooth_pass = false, loading_presets = false;;
     struct gl_sfbo* current = NULL;
     size_t t_count = 0;
-
+    
+    #define RHANDLER(name, args, ...)                                   \
+        ({ void _handler(const char* name, void** args) __VA_ARGS__ _handler; })
+    
     #define WINDOW_HINT(request)                                        \
         { .name = "set" #request, .fmt = "b",                           \
                 .handler = RHANDLER(name, args, { gl->wcb->set_##request(*(bool*) args[0]); }) }
     
     struct request_handler handlers[] = {
-        {
-            .name = "setopacity", .fmt = "s",
-            .handler = RHANDLER(name, args, {
+        { .name = "setopacity", .fmt = "s",
+          .handler = RHANDLER(name, args, {
 
-                    bool native_opacity = !strcmp("native", (char*) args[0]);
+                  bool native_opacity = !strcmp("native", (char*) args[0]);
                     
-                    gl->premultiply_alpha = native_opacity;
+                  gl->premultiply_alpha = native_opacity;
 
-                    gl->wcb->set_transparent(native_opacity);
+                  gl->wcb->set_transparent(native_opacity);
 
-                    if (!strcmp("xroot", (char*) args[0]))
-                        gl->copy_desktop = true;
-                    else
-                        gl->copy_desktop = false;
+                  if (!strcmp("xroot", (char*) args[0]))
+                      gl->copy_desktop = true;
+                  else
+                      gl->copy_desktop = false;
 
-                    if (!gl->copy_desktop && !native_opacity && strcmp("none", (char*) args[0])) {
-                        fprintf(stderr, "Invalid opacity option: '%s'\n", (char*) args[0]);
-                        glava_abort();
-                    }
-                })
+                  if (!gl->copy_desktop && !native_opacity && strcmp("none", (char*) args[0])) {
+                      fprintf(stderr, "Invalid opacity option: '%s'\n", (char*) args[0]);
+                      glava_abort();
+                  }
+              })
         },
-        {
-            .name = "setmirror", .fmt = "b",
-            .handler = RHANDLER(name, args, {
-                    r->mirror_input  = *(bool*) args[0];
-                    gl->mirror_input = *(bool*) args[0];
-                })
+        { .name = "setmirror", .fmt = "b",
+          .handler = RHANDLER(name, args, {
+                  r->mirror_input  = *(bool*) args[0];
+                  gl->mirror_input = *(bool*) args[0];
+              })
         },
-        {
-            .name = "setfullscreencheck", .fmt = "b",
-            .handler = RHANDLER(name, args, { gl->check_fullscreen = *(bool*) args[0]; })
+        { .name = "setfullscreencheck", .fmt = "b",
+          .handler = RHANDLER(name, args, { gl->check_fullscreen = *(bool*) args[0]; })
         },
-        {
-            .name = "setbg", .fmt = "s",
-            .handler = RHANDLER(name, args, {
-                    float* results[] = {
-                        &gl->clear_color.r,
-                        &gl->clear_color.g,
-                        &gl->clear_color.b,
-                        &gl->clear_color.a
-                    };
-                    if (!ext_parse_color((char*) args[0], 2, results)) {
-                        fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
-                        glava_abort();
-                    }
-                })
+        { .name = "setbg", .fmt = "s",
+          .handler = RHANDLER(name, args, {
+                  float* results[] = {
+                      &gl->clear_color.r,
+                      &gl->clear_color.g,
+                      &gl->clear_color.b,
+                      &gl->clear_color.a
+                  };
+                  if (!ext_parse_color((char*) args[0], 2, results)) {
+                      fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
+                      glava_abort();
+                  }
+              })
         },
         #ifdef GLAVA_DEBUG
-        {
-            .name = "settesteval", .fmt = "s",
-            .handler = RHANDLER(name, args, {
-                    float* results[] = {
-                        &gl->test_eval_color.r,
-                        &gl->test_eval_color.g,
-                        &gl->test_eval_color.b,
-                        &gl->test_eval_color.a
-                    };
-                    if (!ext_parse_color((char*) args[0], 2, results)) {
-                        fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
-                        glava_abort();
-                    }
-                })
+        { .name = "settesteval", .fmt = "s",
+          .handler = RHANDLER(name, args, {
+                  float* results[] = {
+                      &gl->test_eval_color.r,
+                      &gl->test_eval_color.g,
+                      &gl->test_eval_color.b,
+                      &gl->test_eval_color.a
+                  };
+                  if (!ext_parse_color((char*) args[0], 2, results)) {
+                      fprintf(stderr, "Invalid value for `setbg` request: '%s'\n", (char*) args[0]);
+                      glava_abort();
+                  }
+              })
         },
         #endif
-        {
-            .name = "setbgf", .fmt = "ffff",
-            .handler = RHANDLER(name, args, {
-                    gl->clear_color.r = *(float*) args[0];
-                    gl->clear_color.g = *(float*) args[1];
-                    gl->clear_color.b = *(float*) args[2];
-                    gl->clear_color.a = *(float*) args[3];
-                })
+        { .name = "setbgf", .fmt = "ffff",
+          .handler = RHANDLER(name, args, {
+                  gl->clear_color.r = *(float*) args[0];
+                  gl->clear_color.g = *(float*) args[1];
+                  gl->clear_color.b = *(float*) args[2];
+                  gl->clear_color.a = *(float*) args[3];
+              })
         },
-        {
-            .name = "mod", .fmt = "s",
-            .handler = RHANDLER(name, args, {
-                    if (loading_module) {
-                        if (module != NULL) free((char*) module);
-                        size_t len = strlen((char*) args[0]);
-                        char* str = malloc(sizeof(char) * (len + 1));
-                        strcpy(str, (char*) args[0]);
-                        module = str;
-                    }
-                })
+        { .name = "mod", .fmt = "s",
+          .handler = RHANDLER(name, args, {
+                  if (loading_module) {
+                      if (module != NULL) free((char*) module);
+                      size_t len = strlen((char*) args[0]);
+                      char* str = malloc(sizeof(char) * (len + 1));
+                      strcpy(str, (char*) args[0]);
+                      module = str;
+                  }
+              })
         },
-        {
-            .name = "nativeonly", .fmt = "b",
-            .handler = RHANDLER(name, args, {
-                    fprintf(stderr, "WARNING: `nativeonly` is deprecated, use `#if PREMULTIPLY_ALPHA == 1`!\n");
-                    if (current)
-                        current->nativeonly = *(bool*) args[0];
-                    else {
-                        fprintf(stderr, "`nativeonly` request needs module context\n");
-                        glava_abort();
-                    }
-                })
+        { .name = "nativeonly", .fmt = "b",
+          .handler = RHANDLER(name, args, {
+                  fprintf(stderr, "WARNING: `nativeonly` is deprecated, use `#if PREMULTIPLY_ALPHA == 1`!\n");
+                  if (current)
+                      current->nativeonly = *(bool*) args[0];
+                  else {
+                      fprintf(stderr, "`nativeonly` request needs module context\n");
+                      glava_abort();
+                  }
+              })
         },
         WINDOW_HINT(floating),
         WINDOW_HINT(decorated),
         WINDOW_HINT(focused),
         WINDOW_HINT(maximized),
-        {
-            .name = "setversion", .fmt = "ii",
-            .handler = RHANDLER(name, args, {
-                    context_version_major = *(int*) args[0];
-                    context_version_minor = *(int*) args[1];
-                })
+        { .name = "setversion", .fmt = "ii",
+          .handler = RHANDLER(name, args, {
+                  context_version_major = *(int*) args[0];
+                  context_version_minor = *(int*) args[1];
+              })
         },
-        {
-            .name = "setgeometry", .fmt = "iiii",
-            .handler = RHANDLER(name, args, {
-                    gl->geometry[0] = *(int*) args[0];
-                    gl->geometry[1] = *(int*) args[1];
-                    gl->geometry[2] = *(int*) args[2];
-                    gl->geometry[3] = *(int*) args[3];
-                })
+        { .name = "setgeometry", .fmt = "iiii",
+          .handler = RHANDLER(name, args, {
+                  gl->geometry[0] = *(int*) args[0];
+                  gl->geometry[1] = *(int*) args[1];
+                  gl->geometry[2] = *(int*) args[2];
+                  gl->geometry[3] = *(int*) args[3];
+              })
         },
-        {
-            .name = "addxwinstate", .fmt = "s",
-            .handler = RHANDLER(name, args, {
-                    if (!auto_desktop || loading_presets) {
-                        ++xwinstates_sz;
-                        xwinstates = realloc(xwinstates, sizeof(*xwinstates) * xwinstates_sz);
-                        xwinstates[xwinstates_sz - 1] = strdup((char*) args[0]);
-                    }
-                })
+        { .name = "addxwinstate", .fmt = "s",
+          .handler = RHANDLER(name, args, {
+                  if (!auto_desktop || loading_presets) {
+                      ++xwinstates_sz;
+                      xwinstates = realloc(xwinstates, sizeof(*xwinstates) * xwinstates_sz);
+                      xwinstates[xwinstates_sz - 1] = strdup((char*) args[0]);
+                  }
+              })
         },
-        {   .name = "setsource", .fmt = "s",
-            .handler = RHANDLER(name, args, {
-                    if (r->audio_source_request) free(r->audio_source_request);
-                    r->audio_source_request = strdup((char*) args[0]); })                    },
-        {   .name = "setclickthrough", .fmt = "b",
-            .handler = RHANDLER(name, args, { gl->clickthrough = *(bool*) args[0]; })        },
-        {   .name = "setforcegeometry", .fmt = "b",
-            .handler = RHANDLER(name, args, { gl->force_geometry = *(bool*) args[0]; })      },
-        {   .name = "setforceraised", .fmt = "b",
-            .handler = RHANDLER(name, args, { gl->force_raised = *(bool*) args[0]; })        },
-        {   .name = "setxwintype", .fmt = "s",
-            .handler = RHANDLER(name, args, {
-                    if (xwintype) free(xwintype);
-                    xwintype = strdup((char*) args[0]); })                                   },
-        {   .name = "setshaderversion", .fmt = "i",
-            .handler = RHANDLER(name, args, { shader_version = *(int*) args[0]; })           },
-        {   .name = "setswap", .fmt = "i",
-            .handler = RHANDLER(name, args, { gl->wcb->set_swap(*(int*) args[0]); })         },
-        {   .name = "setframerate", .fmt = "i",
-            .handler = RHANDLER(name, args, { gl->rate = *(int*) args[0]; })                 },
-        {   .name = "setprintframes", .fmt = "b",
-            .handler = RHANDLER(name, args, { gl->print_fps = *(bool*) args[0]; })           },
-        {   .name = "settitle", .fmt = "s",
-            .handler = RHANDLER(name, args, {
-                    if (wintitle && wintitle != wintitle_default) free((char*) wintitle);
-                    wintitle = strdup((char*) args[0]); })                                   },
-        {   .name = "setbufsize", .fmt = "i",
-            .handler = RHANDLER(name, args, { r->bufsize_request = *(int*) args[0]; })       },
-        {   .name = "setbufscale", .fmt = "i",
-            .handler = RHANDLER(name, args, { gl->bufscale = *(int*) args[0]; })             },
-        {   .name = "setsamplerate", .fmt = "i",
-            .handler = RHANDLER(name, args, { r->rate_request = *(int*) args[0]; })          },
-        {   .name = "setsamplesize", .fmt = "i",
-            .handler = RHANDLER(name, args, { r->samplesize_request = *(int*) args[0]; })    },
-        {   .name = "setavgframes", .fmt = "i",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->avg_frames = *(int*) args[0]; })           },
-        {   .name = "setavgwindow", .fmt = "b",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->avg_window = *(bool*) args[0]; })          },
-        {   .name = "setgravitystep", .fmt = "f",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->gravity_step = *(float*) args[0]; })       },
-        {   .name = "setsmoothpass", .fmt = "b",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->smooth_pass = *(bool*) args[0]; })         },
-        {   .name = "setsmoothfactor", .fmt = "f",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->smooth_factor = *(float*) args[0]; })      },
-        {   .name = "setsmooth", .fmt = "f",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->smooth_distance = *(float*) args[0]; })    },
-        {   .name = "setsmoothratio", .fmt = "f",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->smooth_ratio = *(float*) args[0]; })       },
-        {   .name = "setinterpolate", .fmt = "b",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->interpolate = *(bool*) args[0]; })         },
-        {   .name = "setfftscale", .fmt = "f",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->fft_scale = *(float*) args[0];})           },
-        {   .name = "setfftcutoff", .fmt = "f",
-            .handler = RHANDLER(name, args, {
-                    if (!loading_smooth_pass) gl->fft_cutoff = *(float*) args[0];})          },
-        {   .name = "timecycle", .fmt = "f",
-            .handler = RHANDLER(name, args, { gl->timecycle = *(float*) args[0]; })          },
-        {
-            .name = "transform", .fmt = "ss",
-            .handler = RHANDLER(name, args, {
-                    size_t t;
-                    struct gl_bind* bind = NULL;
-                    for (t = 0; t < current->binds_sz; ++t) {
-                        if (!strcmp(current->binds[t].name, (const char*) args[0])) {
-                            bind = &current->binds[t];
-                            break;
-                        }
-                    }
-                    if (!bind) {
-                        fprintf(stderr, "Cannot add transformation to uniform '%s':"
-                                " uniform does not exist! (%d present in this unit)\n",
-                                (const char*) args[0], (int) current->binds_sz);
-                        glava_abort();
-                    }
-                    struct gl_transform* tran = NULL;
-                    for (t = 0; t < sizeof(transform_functions) / sizeof(struct gl_transform); ++t) {
-                        if (!strcmp(transform_functions[t].name, (const char*) args[1])) {
-                            tran = &transform_functions[t];
-                            break;
-                        }
-                    }
-                    if (!tran) {
-                        fprintf(stderr, "Cannot add transformation '%s' to uniform '%s':"
-                                " transform function does not exist!\n",
-                                (const char*) args[1], (const char*) args[0]);
-                        glava_abort();
-                    }
-                    if (tran->type != bind->type) {
-                        fprintf(stderr, "Cannot apply '%s' to uniform '%s': mismatching types\n",
-                                (const char*) args[1], (const char*) args[0]);
-                        glava_abort();
-                    }
-                    ++bind->t_sz;
-                    bind->transformations =
-                        realloc(bind->transformations, bind->t_sz * sizeof(void (*)(void*)));
-                    bind->transformations[bind->t_sz - 1] = tran->apply;
-                    ++t_count;
-                })
+        { .name = "setsource", .fmt = "s",
+          .handler = RHANDLER(name, args, {
+                  if (r->audio_source_request) free(r->audio_source_request);
+                  r->audio_source_request = strdup((char*) args[0]); })                    },
+        { .name = "setclickthrough", .fmt = "b",
+          .handler = RHANDLER(name, args, { gl->clickthrough = *(bool*) args[0]; })        },
+        { .name = "setforcegeometry", .fmt = "b",
+          .handler = RHANDLER(name, args, { gl->force_geometry = *(bool*) args[0]; })      },
+        { .name = "setforceraised", .fmt = "b",
+          .handler = RHANDLER(name, args, { gl->force_raised = *(bool*) args[0]; })        },
+        { .name = "setxwintype", .fmt = "s",
+          .handler = RHANDLER(name, args, {
+                  if (xwintype) free(xwintype);
+                  xwintype = strdup((char*) args[0]); })                                   },
+        { .name = "setshaderversion", .fmt = "i",
+          .handler = RHANDLER(name, args, { shader_version = *(int*) args[0]; })           },
+        { .name = "setswap", .fmt = "i",
+          .handler = RHANDLER(name, args, { gl->wcb->set_swap(*(int*) args[0]); })         },
+        { .name = "setframerate", .fmt = "i",
+          .handler = RHANDLER(name, args, { gl->rate = *(int*) args[0]; })                 },
+        { .name = "setprintframes", .fmt = "b",
+          .handler = RHANDLER(name, args, { gl->print_fps = *(bool*) args[0]; })           },
+        { .name = "settitle", .fmt = "s",
+          .handler = RHANDLER(name, args, {
+                  if (wintitle && wintitle != wintitle_default) free((char*) wintitle);
+                  wintitle = strdup((char*) args[0]); })                                   },
+        { .name = "setbufsize", .fmt = "i",
+          .handler = RHANDLER(name, args, { r->bufsize_request = *(int*) args[0]; })       },
+        { .name = "setbufscale", .fmt = "i",
+          .handler = RHANDLER(name, args, { gl->bufscale = *(int*) args[0]; })             },
+        { .name = "setsamplerate", .fmt = "i",
+          .handler = RHANDLER(name, args, { r->rate_request = *(int*) args[0]; })          },
+        { .name = "setsamplesize", .fmt = "i",
+          .handler = RHANDLER(name, args, { r->samplesize_request = *(int*) args[0]; })    },
+        { .name = "setavgframes", .fmt = "i",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->avg_frames = *(int*) args[0]; })           },
+        { .name = "setavgwindow", .fmt = "b",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->avg_window = *(bool*) args[0]; })          },
+        { .name = "setgravitystep", .fmt = "f",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->gravity_step = *(float*) args[0]; })       },
+        { .name = "setsmoothpass", .fmt = "b",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->smooth_pass = *(bool*) args[0]; })         },
+        { .name = "setsmoothfactor", .fmt = "f",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->smooth_factor = *(float*) args[0]; })      },
+        { .name = "setsmooth", .fmt = "f",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->smooth_distance = *(float*) args[0]; })    },
+        { .name = "setsmoothratio", .fmt = "f",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->smooth_ratio = *(float*) args[0]; })       },
+        { .name = "setinterpolate", .fmt = "b",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->interpolate = *(bool*) args[0]; })         },
+        { .name = "setfftscale", .fmt = "f",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->fft_scale = *(float*) args[0];})           },
+        { .name = "setfftcutoff", .fmt = "f",
+          .handler = RHANDLER(name, args, {
+                  if (!loading_smooth_pass) gl->fft_cutoff = *(float*) args[0];})          },
+        { .name = "timecycle", .fmt = "f",
+          .handler = RHANDLER(name, args, { gl->timecycle = *(float*) args[0]; })          },
+        { .name = "transform", .fmt = "ss",
+          .handler = RHANDLER(name, args, {
+                  size_t t;
+                  struct gl_bind* bind = NULL;
+                  for (t = 0; t < current->binds_sz; ++t) {
+                      if (!strcmp(current->binds[t].name, (const char*) args[0])) {
+                          bind = &current->binds[t];
+                          break;
+                      }
+                  }
+                  if (!bind) {
+                      fprintf(stderr, "Cannot add transformation to uniform '%s':"
+                              " uniform does not exist! (%d present in this unit)\n",
+                              (const char*) args[0], (int) current->binds_sz);
+                      glava_abort();
+                  }
+                  struct gl_transform* tran = NULL;
+                  for (t = 0; t < sizeof(transform_functions) / sizeof(struct gl_transform); ++t) {
+                      if (!strcmp(transform_functions[t].name, (const char*) args[1])) {
+                          tran = &transform_functions[t];
+                          break;
+                      }
+                  }
+                  if (!tran) {
+                      fprintf(stderr, "Cannot add transformation '%s' to uniform '%s':"
+                              " transform function does not exist!\n",
+                              (const char*) args[1], (const char*) args[0]);
+                      glava_abort();
+                  }
+                  if (tran->type != bind->type) {
+                      fprintf(stderr, "Cannot apply '%s' to uniform '%s': mismatching types\n",
+                              (const char*) args[1], (const char*) args[0]);
+                      glava_abort();
+                  }
+                  ++bind->t_sz;
+                  bind->transformations =
+                      realloc(bind->transformations, bind->t_sz * sizeof(void (*)(void*)));
+                  bind->transformations[bind->t_sz - 1] = tran->apply;
+                  ++t_count;
+              })
         },
-        {
-            .name = "uniform", .fmt = "ss",
-            .handler = RHANDLER(name, args, {
-                    if (!current) {
-                        fprintf(stderr, "Cannot bind uniform '%s' outside of a context"
-                                " (load a module first!)\n", (const char*) args[0]);
-                        glava_abort();
-                    }
-                    struct gl_bind_src* src = lookup_bind_src((const char*) args[0]);
-                    if (!src) {
-                        fprintf(stderr, "Cannot bind uniform '%s': bind type does not exist!\n",
-                                (const char*) args[0]);
-                        glava_abort();
-                    }
-                    ++current->binds_sz;
-                    current->binds = realloc(current->binds, current->binds_sz * sizeof(struct gl_bind));
-                    current->binds[current->binds_sz - 1] = (struct gl_bind) {
-                        .name            = strdup((const char*) args[1]), 
-                        .type            = src->type,
-                        .src_type        = src->src_type,
-                        .transformations = malloc(1),
-                        .t_sz            = 0,
-                        .sm              = {}
-                    };
-                })
+        { .name = "uniform", .fmt = "ss",
+          .handler = RHANDLER(name, args, {
+                  if (!current) {
+                      fprintf(stderr, "Cannot bind uniform '%s' outside of a context"
+                              " (load a module first!)\n", (const char*) args[0]);
+                      glava_abort();
+                  }
+                  struct gl_bind_src* src = lookup_bind_src((const char*) args[0]);
+                  if (!src) {
+                      fprintf(stderr, "Cannot bind uniform '%s': bind type does not exist!\n",
+                              (const char*) args[0]);
+                      glava_abort();
+                  }
+                  ++current->binds_sz;
+                  current->binds = realloc(current->binds, current->binds_sz * sizeof(struct gl_bind));
+                  current->binds[current->binds_sz - 1] = (struct gl_bind) {
+                      .name            = strdup((const char*) args[1]), 
+                      .type            = src->type,
+                      .src_type        = src->src_type,
+                      .transformations = malloc(1),
+                      .t_sz            = 0,
+                      .sm              = {}
+                  };
+              })
         },
         { .name = NULL }
     };
@@ -1887,9 +1877,9 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
                 "}"                                                                                  "\n";
             if (!gl->bg_setup) {
                 gl->bg_prog = shaderlink(shaderload(NULL, GL_VERTEX_SHADER, VERTEX_SHADER_SRC,
-                                                NULL, NULL, NULL, 330, true, NULL, gl),
-                                     shaderload(NULL, GL_FRAGMENT_SHADER, frag_shader,
-                                                NULL, NULL, NULL, 330, true, NULL, gl));
+                                                    NULL, NULL, NULL, 330, true, NULL, gl),
+                                         shaderload(NULL, GL_FRAGMENT_SHADER, frag_shader,
+                                                    NULL, NULL, NULL, 330, true, NULL, gl));
                 gl->bg_utex   = glGetUniformLocation(gl->bg_prog, "tex");
                 gl->bg_screen = glGetUniformLocation(gl->bg_prog, "screen");
                 glBindFragDataLocation(gl->bg_prog, 1, "fragment");
