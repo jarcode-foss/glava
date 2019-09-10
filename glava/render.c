@@ -1298,8 +1298,9 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
                                 "at '%s': %s\n", se_buf, strerror(errno));
                         glava_abort();
                     } else {
-                        printf("No presets for current desktop environment (\"%s\"), "
-                               "using default presets for embedding\n", env);
+                        if (verbose)
+                            printf("No presets for current desktop environment (\"%s\"), "
+                                   "using default presets for embedding\n", env);
                         snprintf(se_buf, bsz, "%s/env_default.glsl", data);
                         fd = open(se_buf, O_RDONLY);
                         if (fd == -1) {
