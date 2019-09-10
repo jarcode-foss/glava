@@ -44,6 +44,7 @@ Note that versions since `2.0` use Meson for the build system, although the `Mak
 ```bash
 sudo apt-get install libgl1-mesa-dev libpulse0 libpulse-dev libxext6 libxext-dev libxrender-dev libxcomposite-dev liblua5.3-dev liblua5.3 lua-lgi lua-filesystem libobs0 libobs-dev meson build-essential gcc 
 ```
+Don't forget to run `sudo ldconfig` after installing.
 
 ## Installation
 Some distributions have a package for `glava`. If your distribution is not listed please use the compilation instructions above.
@@ -75,10 +76,12 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | Fluxbox | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | IceWM | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | Bspwm | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
+| SpectrWM |
 | Herbstluftwm | ![-](https://placehold.it/15/118932/000000?text=+) | `hc rule windowtype~'_NET_WM_WINDOW_TYPE_DESKTOP' manage=off` can be used to unmanage desktop windows
 | Unity | ![-](https://placehold.it/15/118932/000000?text=+) | No issues
 | AwesomeWM | ![-](https://placehold.it/15/118932/000000?text=+) | Defaults to unmanaged
 | i3 (and i3-gaps) | ![-](https://placehold.it/15/118932/000000?text=+) | Defaults to unmanaged
+| spectrwm | ![-](https://placehold.it/15/118932/000000?text=+) | Defaults to unmanaged
 | EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
 | Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
 | Xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
