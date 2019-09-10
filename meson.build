@@ -96,10 +96,6 @@ if not get_option('disable_config')
   luac_input_ext  = 'lua'
   luac_output_ext = 'lua'
   
-  luac_args = ['-o', '@OUTPUT@', '@INPUT@']
-  if not get_option('buildtype').startswith('debug')
-    luac_args += '-s'
-  endif
   glava_config_lua_sources = run_command(
     'find', 'glava-config', '-type', 'f', '-name', '*.' + luac_input_ext, '-print'
   ).stdout().strip().split('\n')
@@ -109,12 +105,27 @@ if not get_option('disable_config')
   ).stdout().strip().split('\n')
     glava_config_lua_targets += s + '.' + luac_output_ext
   endforeach
-
+  
   luac_name = 'luac' + get_option('lua_version')
-  luac_impl = get_option('lua_implementation')
+  luac_args = ['-o', '@OUTPUT@', '@INPUT@']
+  lua_dir   = get_option('lua_implementation')
+  lua_ver   = get_option('lua_version')
+  lua_impl  = get_option('lua_implementation')
+  lua_inc   = get_option('lua_implementation') + get_option('lua_version')
   if get_option('lua_implementation') == 'luajit'
+    # LuaJIT compiler produces better bytecode; use that
     luac_name = 'luajit'
-    luac_impl += '-'
+    lua_impl += '-'
+    luac_args = ['-b', '@INPUT@', '@OUTPUT@']
+    if get_option('buildtype').startswith('debug')
+      luac_args += '-g'
+    endif
+    # LuaJIT uses /usr/share/lua/5.1; ignore version
+    lua_dir = 'lua'
+    lua_ver = '5.1'
+    lua_inc = 'luajit-2.0'
+  elif not get_option('buildtype').startswith('debug')
+    luac_args = ['-s'] + luac_args
   endif
   
   luac_target = custom_target(
@@ -122,25 +133,24 @@ if not get_option('disable_config')
     input: generator(
       find_program(luac_name),
       output:    '@BASENAME@.' + luac_output_ext,
-      arguments: ['-o', '@OUTPUT@', '@INPUT@']).process(glava_config_lua_sources),
+      arguments: luac_args).process(glava_config_lua_sources),
     output:           glava_config_lua_targets,
     command:          [find_program('cp'), '-t', '@OUTDIR@', '@INPUT@'],
     build_by_default: true,
     install:          true,
-    install_dir:      get_option('lua_install_dir')    + '/' +
-                      get_option('lua_implementation') + '/' +
-                      get_option('lua_version')        + '/' +
-                      'glava-config')
-
+    install_dir:      get_option('lua_install_dir') + '/' + lua_dir + '/'
+                      + lua_ver + '/' + 'glava-config')
+  
   executable(
     'glava-config',
     install: true,
     sources: 'glava-config/entry.c',
+    c_args:  '-I/usr/include/' + lua_inc,
     dependencies: [
 	  cc.find_library('X11'),
-      cc.find_library('lua')
+      cc.find_library(lua_impl + lua_ver)
     ])
-
+  
   # Local glava-config environment symlink for standalone execution
   if get_option('standalone')
     env_target = custom_target(

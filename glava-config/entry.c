@@ -10,6 +10,10 @@
 #define GLAVA_LUA_ENTRY "glava-config.main"
 #define GLAVA_LUA_ENTRY_FUNC "entry"
 
+#ifndef LUA_OK
+#define LUA_OK 0
+#endif
+
 /* Should be already defined by Meson */
 #ifndef GLAVA_RESOURCE_PATH
 #define GLAVA_RESOURCE_PATH "../resources"
