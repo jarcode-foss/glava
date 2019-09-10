@@ -810,7 +810,7 @@ static struct gl_bind_src* lookup_bind_src(const char* str) {
 #endif
     
 #if defined(__clang__)
-void (^block_storage)(const char*, void**);
+static void (^block_storage)(const char*, void**);
 #define RHANDLER(name, args, ...)                                       \
     ({ block_storage = ^(const char* name, void** args) __VA_ARGS__; block_storage; })
 #elif defined(__GNUC__) || defined(__GNUG__)
@@ -973,7 +973,7 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
     MUTABLE char* xwintype = NULL, * wintitle = (char*) wintitle_default;
     MUTABLE char** xwinstates = malloc(1);
     MUTABLE size_t xwinstates_sz = 0;
-    bool loading_module = true, loading_smooth_pass = false, loading_presets = false;;
+    bool loading_module = true, loading_smooth_pass = false, loading_presets = false;
     MUTABLE struct gl_sfbo* current = NULL;
     MUTABLE size_t t_count = 0;
     
