@@ -28,18 +28,30 @@ struct request_handler {
     #endif
 };
 
+struct glsl_ext_efunc {
+    char* name;
+    #if defined(__clang__)
+    size_t (^call)(void);
+    #elif defined(__GNUC__) || defined(__GNUG__)
+    size_t (*call)(void);
+    #else
+    #error "no nested function/block syntax available"
+    #endif
+};
+
 struct glsl_ext {
-    char*        processed;   /* OUT: null terminated processed source                       */
-    size_t       p_len;       /* OUT: length of processed buffer, excluding null char        */
-    const char*  source;      /* IN: raw data passed via ext_process                         */
-    size_t       source_len;  /* IN: raw source len                                          */
-    const char*  cd;          /* IN: current directory                                       */
-    const char*  cfd;         /* IN: config directory, if NULL it is assumed to cd           */
-    const char*  dd;          /* IN: default directory                                       */
-    struct rd_bind* binds;    /* OPT IN: --pipe binds                                        */
-    void**       destruct;    /* internal */
-    size_t       destruct_sz; /* internal */
-    char**       ss_lookup;   /* source-string lookup table */
+    char*        processed;        /* OUT: null terminated processed source                */
+    size_t       p_len;            /* OUT: length of processed buffer, excluding null char */
+    const char*  source;           /* IN: raw data passed via ext_process                  */
+    size_t       source_len;       /* IN: raw source len                                   */
+    const char*  cd;               /* IN: current directory                                */
+    const char*  cfd;              /* IN: config directory, if NULL it is assumed to cd    */
+    const char*  dd;               /* IN: default directory                                */
+    struct rd_bind* binds;         /* OPT IN: --pipe binds                                 */
+    struct glsl_ext_efunc* efuncs; /* OPT IN: `#expand` binds                              */
+    void**       destruct;         /* internal                                             */
+    size_t       destruct_sz;      /* internal                                             */
+    char**       ss_lookup;        /* source-string lookup table                           */
     size_t*      ss_len;
     size_t       ss_len_s;
     bool         ss_own;

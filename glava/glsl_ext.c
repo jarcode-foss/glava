@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "glava.h"
 #include "render.h"
 #include "glsl_ext.h"
 
@@ -24,6 +25,7 @@
 #define COLOR 5
 #define DEFINE 6
 #define BIND 7
+#define EXPAND 8
 
 struct sbuf {
     char* buf;
@@ -61,7 +63,7 @@ static void se_append(struct sbuf* sbuf, size_t elen, const char* fmt, ...) {
     va_start(args, fmt);
     int written;
     if ((written = vsnprintf(sbuf->buf + sbuf->at, space, fmt, args)) < 0)
-        abort();
+        glava_abort();
     sbuf->at += written;
     va_end(args);
 }
@@ -69,13 +71,13 @@ static void se_append(struct sbuf* sbuf, size_t elen, const char* fmt, ...) {
 #define parse_error(line, f, fmt, ...)                                  \
     do {                                                                \
         fprintf(stderr, "[%s:%d] " fmt "\n", f, (int) line, __VA_ARGS__); \
-        abort();                                                        \
+        glava_abort();                                                  \
     } while (0)
 
 #define parse_error_s(line, f, s)                           \
     do {                                                    \
         fprintf(stderr, "[%s:%d] " s "\n", f, (int) line);  \
-        abort();                                            \
+        glava_abort();                                      \
     } while (0)
 
 struct schar {
@@ -146,10 +148,11 @@ static struct schar directive(struct glsl_ext* ext, char** args,
             if (args_sz == 0) {
                 parse_error_s(line, f, "No arguments provided to #define directive!");
             }
-            size_t bsz = (strlen(args[0]) * 3) + 64;
+            size_t bsz       = (strlen(args[0]) * 3) + 64;
             struct schar ret = { .buf = malloc(bsz) };
-            int r = snprintf(ret.buf, bsz, "#ifdef %1$s\n#undef %1$s\n#endif\n", args[0]);
-            if (r < 0) abort();
+            int r            = snprintf(ret.buf, bsz, "#ifdef %1$s\n#undef %1$s\n#endif\n", args[0]);
+            if (r < 0)
+                glava_abort();
             ret.sz = r;
             free_after(ext, ret.buf);
             return ret;
@@ -180,21 +183,19 @@ static struct schar directive(struct glsl_ext* ext, char** args,
             snprintf(path, sizeof(path) / sizeof(char), "%s/%s", ext->cd, target);
         
             int fd = open(path, O_RDONLY);
-            if (fd == -1) {
+            if (fd == -1)
                 parse_error(line, f, "failed to load GLSL shader source "
                             "specified by #include directive '%s': %s\n",
                             path, strerror(errno));
-            }
         
             struct stat st;
             fstat(fd, &st);
         
             char* map = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
-            if (!map) {
+            if (!map)
                 parse_error(line, f, "failed to map GLSL shader source "
                             "specified by #include directive '%s': %s\n",
                             path, strerror(errno));
-            }
 
             struct glsl_ext next = {
                 .source      = map,
@@ -205,7 +206,8 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                 .handlers    = ext->handlers,
                 .binds       = ext->binds,
                 .ss_lookup   = ext->ss_lookup,
-                .ss_len      = ext->ss_len
+                .ss_len      = ext->ss_len,
+                .efuncs      = ext->efuncs
             };
 
             /* recursively process */
@@ -238,11 +240,10 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                         char c;
                         size_t i;
                         for (i = 0; (c = handler->fmt[i]) != '\0'; ++i) {
-                            if (args_sz <= 1 + i) {
+                            if (args_sz <= 1 + i)
                                 parse_error(line, f,
                                             "failed to execute request '%s': expected format '%s'\n",
                                             request, handler->fmt);
-                            }
                             char* raw = args[1 + i];
                             switch (c) {
                                 case 'i': {
@@ -271,13 +272,12 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                                             case '1': { v = true; break; }
                                             case '0': { v = false; break; }
                                             default:
-                                                parse_error_s(line, f,
-                                                              "tried to parse invalid raw string into a boolean");
+                                                parse_error_s(line, f, "tried to parse invalid "
+                                                              "raw string into a boolean");
                                         }
-                                    } else {
-                                        parse_error_s(line, f,
-                                                      "tried to parse invalid raw string into a boolean");
-                                    }
+                                    } else
+                                        parse_error_s(line, f, "tried to parse invalid "
+                                                      "raw string into a boolean");
                                     processed_args[i] = malloc(sizeof(bool));
                                     *(bool*) processed_args[i] = v;
                                     break;
@@ -293,11 +293,51 @@ static struct schar directive(struct glsl_ext* ext, char** args,
                         free(processed_args);
                     }
                 }
-                if (!found) {
+                if (!found)
                     parse_error(line, f, "unknown request type '%s'", request);
-                }
             }
+            goto return_empty;
         }
+        case EXPAND: {
+            if (args_sz >= 2) {
+                char*  fmacro    = args[0];
+                size_t fmacro_sz = strlen(fmacro);
+                char*  arg       = args[1];
+                size_t expand_n  = 0;
+                bool match       = false;
+                if (ext->efuncs) {
+                    for (size_t t = 0; ext->efuncs[t].name != NULL; ++t) {
+                        if (!strcmp(arg, ext->efuncs[t].name)) {
+                            expand_n = ext->efuncs[t].call();
+                            match = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!match)
+                    parse_error(line, f, "#expand directive specified invalid input \"%s\"", arg);
+
+                /* (2 {paren} + 1 {semicolon} + 1 {newline} + 4 {input buf} + macro) * expand + 1 */
+                size_t bsz = ((8 + fmacro_sz) * expand_n) + 1;
+                struct schar ret = { .buf = malloc(bsz) };
+                int r = 0;
+                for (size_t t = 0; t < expand_n; ++t) {
+                    int sr = snprintf(ret.buf + r, bsz - r, "%s(%d);\n", args[0], (int) t);
+                    if (sr >= 0)
+                        r += sr;
+                    else
+                        parse_error(line, f, "internal formatting error (snprintf returned %d)", sr);
+                }
+                ret.sz = r;
+                free_after(ext, ret.buf);
+                return ret;
+            } else
+                parse_error(line, f, "#expand directive missing arguments, "
+                            "requires 2 identifiers (got %d)\n", (int) args_sz);
+            goto return_empty;
+        }
+        return_empty:
         default: return (struct schar) { .buf = NULL, .sz  = 0 };
     }
 }
@@ -339,7 +379,7 @@ void ext_process(struct glsl_ext* ext, const char* f) {
     size_t args_sz = 0;
 
     bool prev_slash = false, comment = false, comment_line = false, prev_asterix = false,
-        prev_escape = false, string = false;
+        prev_escape = false, string = false, skip_color_start = false;
     
     se_append(&sbuf, 32, "#line 1 %d\n", ss_cur);
     
@@ -406,11 +446,18 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         goto copy;
                     case '#': {
                         /* handle hex color syntax */
-                        if (!comment && !string) {
+                        if (!comment && !string && !skip_color_start) {
+                            if (ext->source[t + 1] == '#') {
+                                skip_color_start = true;
+                                goto normal_char;
+                            }
                             state = COLOR;
                             cbuf_idx = 0;
                             continue;
-                        } else goto normal_char;
+                        } else {
+                            skip_color_start = false;
+                            goto normal_char;
+                        }
                     }
                     case '@': {
                         /* handle bind syntax */
@@ -534,7 +581,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                                 /* To emit the default, we push back the cursor to where it starts
                                    and simply resume parsing from a normal context. */
                                 t = b_restart;
-                            } else parse_error(line, f, "Unexpected `--pipe` binding name '@%s' while parsing GLSL."
+                            } else parse_error(line, f,
+                                               "Unexpected `--pipe` binding name '@%s' while parsing GLSL."
                                                " Try assigning a default or binding the value.", parsed_name);
                         }
                         state = GLSL;
@@ -566,7 +614,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         DIRECTIVE_CASE(request, REQUEST);
                         DIRECTIVE_CASE(include, INCLUDE);
                         DIRECTIVE_CASE(define,  DEFINE);
-
+                        DIRECTIVE_CASE(expand,  EXPAND);
+                        
                         /* no match */
                         if (state == MACRO) skip_macro();
                         #undef DIRECTIVE_CMP
@@ -579,10 +628,15 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                             *args = NULL;
                         }
                     }
+                    case '0' ... '9':
+                        /* digits at the start of an identifier are not legal */
+                        if (macro_start_idx == t - 1)
+                            goto macro_parse_error;
                     case 'a' ... 'z':
                     case 'A' ... 'Z':
                         continue;
                     default:
+                    macro_parse_error:
                         /* invalid char, malformed! */
                         parse_error(line, f, "Unexpected character '%c' while parsing GLSL directive", at);
                 }
@@ -598,7 +652,8 @@ void ext_process(struct glsl_ext* ext, const char* f) {
                         } } while (0)
             case REQUEST:
             case INCLUDE:
-            case DEFINE: {
+            case DEFINE:
+            case EXPAND: {
                 switch (at) {
                     case ' ':
                     case '\t':

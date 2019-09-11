@@ -200,9 +200,6 @@ static const char* help_str =
     "The REQUEST argument is evaluated identically to the \'#request\' preprocessor directive\n"
     "in GLSL files.\n"
     "\n"
-    "The DEFINE argument is appended to the associated file before it is processed. It is\n"
-    "evaluated identically to the \'#define' preprocessor directive.\n"
-    "\n"
     "The FILE argument may be any file path. All specified file paths are relative to the\n"
     "active configuration root (usually ~/.config/glava if present).\n"
     "\n"
@@ -243,7 +240,8 @@ static struct option p_opts[] = {
     })
 
 /* Wait for glava_renderer target texture to be initialized and valid */
-__attribute__((visibility("default"))) void glava_wait(glava_handle* ref) {
+__attribute__((visibility("default")))
+void glava_wait(glava_handle* ref) {
     while(__atomic_load_n(ref, __ATOMIC_SEQ_CST) == NULL) {
         /* Edge case: handle has not been assigned */
         struct timespec tv = {
@@ -257,25 +255,29 @@ __attribute__((visibility("default"))) void glava_wait(glava_handle* ref) {
     pthread_mutex_unlock(&(*ref)->lock);
 }
 
-__attribute__((visibility("default"))) unsigned int glava_tex(glava_handle r) {
+__attribute__((visibility("default")))
+unsigned int glava_tex(glava_handle r) {
     return r->off_tex;
 }
 
 /* Atomic size request */
-__attribute__((visibility("default"))) void glava_sizereq(glava_handle r, int x, int y, int w, int h) {
+__attribute__((visibility("default")))
+void glava_sizereq(glava_handle r, int x, int y, int w, int h) {
     r->sizereq = (typeof(r->sizereq)) { .x = x, .y = y, .w = w, .h = h };
     __atomic_store_n(&r->sizereq_flag, GLAVA_REQ_RESIZE, __ATOMIC_SEQ_CST);
 }
 
 /* Atomic terminate request */
-__attribute__((visibility("default"))) void glava_terminate(glava_handle* ref) {
+__attribute__((visibility("default")))
+void glava_terminate(glava_handle* ref) {
     glava_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
     if (store)
         __atomic_store_n(&store->alive, false, __ATOMIC_SEQ_CST);
 }
 
 /* Atomic reload request */
-__attribute__((visibility("default"))) void glava_reload(glava_handle* ref) {
+__attribute__((visibility("default")))
+void glava_reload(glava_handle* ref) {
     glava_handle store = __atomic_exchange_n(ref, NULL, __ATOMIC_SEQ_CST);
     if (store) {
         __atomic_store_n(&reload,       true,  __ATOMIC_SEQ_CST);
@@ -285,7 +287,8 @@ __attribute__((visibility("default"))) void glava_reload(glava_handle* ref) {
 
 
 /* Main entry */
-__attribute__((visibility("default"))) void glava_entry(int argc, char** argv, glava_handle* ret) {
+__attribute__((visibility("default")))
+void glava_entry(int argc, char** argv, glava_handle* ret) {
 
     /* Evaluate these macros only once, since they allocate */
     const char

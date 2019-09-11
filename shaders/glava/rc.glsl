@@ -128,7 +128,7 @@
    
    This will delay data output by one update frame, so it can
    desync audio with visual effects on low UPS configs. */
-#request setinterpolate true
+#request setinterpolate false
 
 /* Frame limiter, set to the frames per second (FPS) desired or
    simply set to zero (or lower) to disable the frame limiter. */
@@ -201,6 +201,14 @@
    backend. Instead, an ideal rate should be be configured
    in the application generating the output. */
 #request setsamplerate 22050
+
+/* Enable GPU acceleration of the audio buffer's fourier transform.
+   This drastically reduces CPU usage, but should be avoided on
+   old integrated graphics hardware.
+   
+   Enabling this also enables acceleration for post-FFT processing
+   effects, such as gravity, averaging, windowing, and interpolation. */
+#request setaccelfft true
 
 /*                    ** DEPRECATED **
    Force window geometry (locking the window in place), useful

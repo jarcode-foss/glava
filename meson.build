@@ -14,6 +14,10 @@ if get_option('glad')
   endif
 endif
 
+if get_option('buildtype').startswith('debug')
+  add_project_arguments('-DGLAVA_DEBUG', language: 'c')
+endif
+
 glava_dependencies = [
   dependency('threads'),
   cc.find_library('pulse'),

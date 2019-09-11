@@ -1,26 +1,10 @@
- 
-#ifndef _SMOOTH_GLSL /* include gaurd */
+ #ifndef _SMOOTH_GLSL
 #define _SMOOTH_GLSL
 
-#ifndef TWOPI
-#define TWOPI 6.28318530718
-#endif
-
-#ifndef PI
-#define PI 3.14159265359
-#endif
+#include ":util/common.glsl"
 
 #include "@smooth_parameters.glsl"
 #include ":smooth_parameters.glsl"
-
-/* window value t that resides in range [0, sz)*/
-#define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * t / (sz - 1))))
-/* this does nothing, but we keep it as an option for config */
-#define linear(x) (x)
-/* take value x that scales linearly between [0, 1) and return its sinusoidal curve */
-#define sinusoidal(x) ((0.5 * sin((PI * (x)) - (PI / 2))) + 0.5)
-/* take value x that scales linearly between [0, 1) and return its circlar curve */
-#define circular(x) sqrt(1 - (((x) - 1) * ((x) - 1)))
 
 #define average 0
 #define maximum 1
