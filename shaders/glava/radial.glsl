@@ -30,11 +30,6 @@
 /* Offset (X) of the visualization */
 #define CENTER_OFFSET_X 0
 
-/* Gravity step, override from `smooth_parameters.glsl` */
-#request setgravitystep 5.0
-/* Smoothing factor, override from `smooth_parameters.glsl` */
-#request setsmoothfactor 0.02
-
 /* (DEPRECATED) outline color */
 #define BAR_OUTLINE OUTLINE
 /* (DEPRECATED) outline width (in pixels, set to 0 to disable outline drawing) */

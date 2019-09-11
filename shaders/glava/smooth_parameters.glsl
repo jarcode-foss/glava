@@ -53,7 +53,7 @@
 /* How many frames to queue and run through the average function.
    Increasing this value will create latency between the audio and the
    animation, but will make for much smoother results. */
-#request setavgframes 6
+#request setavgframes 5
 
 /* Whether to window frames ran through the average function (new & old
    frames are weighted less). This massively helps smoothing out

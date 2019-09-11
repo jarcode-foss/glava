@@ -657,7 +657,8 @@ static struct gl_bind_src bind_sources[] = {
     { .name = "time", .type = BIND_FLOAT, .src_type = SRC_SCREEN }
 };
 
-#define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * (double) t  / (double)sz)))
+#define window(t, sz) (0.53836 - (0.46164 * cos(TWOPI * (double) t  / (double) sz)))
+#define window_frame(t, sz) (0.6 - (0.4 * cos(TWOPI * (double) t / (double) sz)))
 #define ALLOC_ONCE(u, udata, sz)                \
     if (*udata == NULL) {                       \
         u = calloc(sz, sizeof(typeof(*u)));     \
@@ -762,7 +763,7 @@ void transform_average(struct gl_data* d, void** udata, void* data) {
         } while (0)
     
     if (use_window)
-        DO_AVG(window(f, d->avg_frames - 1));
+        DO_AVG(window_frame(f, d->avg_frames - 1));
     else
         DO_AVG(1);
 
@@ -1259,7 +1260,7 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
                       t_count += 2;
                   }
                   static const char* fmt = "WARNING: using \"%s\" transform explicitly "
-                      "is deprecated; implied from \"fft\" transform.\n";
+                      "is deprecated (no-op); implied from \"fft\" transform.\n";
                   if (!strcmp(transform_functions[t].name, "gravity")) {
                       static bool gravity_warn = false;
                       if (!gravity_warn) {
@@ -1268,6 +1269,13 @@ struct glava_renderer* rd_new(const char**    paths,        const char* entry,
                       }
                   }
                   if (!strcmp(transform_functions[t].name, "avg")) {
+                      static bool avg_warn = false;
+                      if (!avg_warn) {
+                          fprintf(stderr, fmt, transform_functions[t].name);
+                          avg_warn = true;
+                      }
+                  }
+                  if (!strcmp(transform_functions[t].name, "window")) {
                       static bool avg_warn = false;
                       if (!avg_warn) {
                           fprintf(stderr, fmt, transform_functions[t].name);
@@ -1723,7 +1731,6 @@ static void bind_1d_fbo(struct sm_fb* sm, size_t sz) {
     } else {
         /* Just bind our data if it was already allocated and setup */
         glBindFramebuffer(GL_FRAMEBUFFER, sm->fbo);
-        glBindTexture(GL_TEXTURE_1D, sm->tex);
     }
 }
 
@@ -2108,6 +2115,8 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
                 if (load_flags[offset])
                     goto bind_uniform;
                 load_flags[offset] = true;
+                    
+                bool set_opt = false; /* if bind->optimize_fft was set this frame */
                 
                 /* Only apply transformations if the buffers we were given are newly copied */
                 if (modified) {
@@ -2116,7 +2125,6 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
                         .buf = buf, .sz = sz
                     };
                     
-                    bool set_opt = false; /* if gl->optimize_fft was set this frame */
                     for (t = 0; t < bind->t_sz; ++t) {
                         void (*apply)(struct gl_data*, void**, void*) = bind->transformations[t];
                         if (apply != NULL) {
@@ -2282,7 +2290,7 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
                     drawoverlay(&gl->overlay);
                     glViewport(0, 0, ww, wh);
                     if (!gl->premultiply_alpha) glEnable(GL_BLEND);
-
+                    
                     /* Return state */
                     glUseProgram(current->shader);
                     if (current->indirect)

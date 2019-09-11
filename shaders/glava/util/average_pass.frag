@@ -19,19 +19,28 @@ in vec4 gl_FragCoord;
 #define SAMPLER(I) uniform sampler1D t##I;
 #expand SAMPLER _AVG_FRAMES
 
+#define WIN_FUNC window_frame
+
 void main() {
     float r = 0;
+    
+    /* Disable windowing for two frames (distorts results) */
+    #if _AVG_FRAMES == 2
     #define _AVG_WINDOW 0
+    #endif
+
+    /* Use 'shallow' windowing for 3 frames to ensure the first & last
+       frames have a reasonable amount of weight */
+    #if _AVG_FRAMES == 3
+    #define WIN_FUNC window_shallow
+    #endif
+    
     #if _AVG_WINDOW == 0
     #define F(I) r += texelFetch(t##I, int(gl_FragCoord.x), 0).r
     #else
     #define F(I) r += window(I, _AVG_FRAMES - 1) * texelFetch(t##I, int(gl_FragCoord.x), 0).r
     #endif
     #expand F _AVG_FRAMES
-    /* For some reason the CPU implementation of gravity/average produces the same output but
-       with half the amplitude. I can't figure it out right now, so I'm just halfing the results
-       here to ensure they are uniform.
     
-       TODO: fix this */
-    fragment.r = (r / _AVG_FRAMES) / 2;
+    fragment.r = r / _AVG_FRAMES;
 }

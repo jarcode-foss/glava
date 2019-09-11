@@ -16,9 +16,3 @@
    1 to enable, 0 to disable. Only works with `xroot` transparency,
    and improves performance if disabled. */
 #define C_SMOOTH 1
-
-/* Gravity step, overrude frin `smooth_parameters.glsl` */
-#request setgravitystep 6.0
-
-/* Smoothing factor, override from `smooth_parameters.glsl` */
-#request setsmoothfactor 0.01
