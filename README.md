@@ -145,7 +145,7 @@ The below copyright notice applies for the original versions of these files:
 
 `Copyright (c) 2015 Hans-Kristian Arntzen <maister@archlinux.us>`
 
-**The noted files above are all sublicensed under the terms of the GPLv3**. The MIT license is included for your convience and to satisfy the requirements of the original license, although it no longer applies to any code in this repository. You will find the original copyright notice and MIT license in the `LICENSE_ORIGINAL` file for cava, or `glfft/LICENSE_ORIGINAL` for GLFFT.
+**The noted files above are all sublicensed under the terms of the GPLv3**. The MIT license is included for your convenience and to satisfy the requirements of the original license, although it no longer applies to any code in this repository. You will find the original copyright notice and MIT license in the `LICENSE_ORIGINAL` file for cava, or `glfft/LICENSE_ORIGINAL` for GLFFT.
 
 The below copyright applies for the modifications to the files listed above, and the remaining sources in the repository:
 
