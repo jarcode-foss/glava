@@ -23,9 +23,3 @@
 #define JOIN_CHANNELS 0
 /* 1 to invert (vertically), 0 otherwise */
 #define INVERT 0
-
-/* Gravity step, overrude from `smooth_parameters.glsl` */
-#request setgravitystep 2.4
-
-/* Smoothing factor, override from `smooth_parameters.glsl` */
-#request setsmoothfactor 0.015

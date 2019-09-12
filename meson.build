@@ -1,6 +1,6 @@
 project(
   'glava',
-  'c',
+  ['c', 'cpp'],
   version: run_command('git', 'describe', '--tags').stdout().strip(),
   default_options:['buildtype=release', 'strip=true', 'optimization=2'])
 
@@ -40,28 +40,28 @@ if glava_version == ''
 endif
 
 if host_machine.system() == 'linux' or host_machine.system() == 'bsd'
-  add_project_arguments('-DGLAVA_UNIX', language: 'c')
+  add_project_arguments('-DGLAVA_UNIX', language: ['cpp', 'c'])
 endif
 
 # Note: the OSX install directives only exist for future platform support
 if host_machine.system() == 'darwin'
-  add_project_arguments('-DGLAVA_OSX', language: 'c')
+  add_project_arguments('-DGLAVA_OSX', language: ['cpp', 'c'])
   error('OSX targets are not supported, see issue #86.')
   # shader_dir = '/Library/glava/'
 endif
 
 if get_option('enable_glfw')
-  add_project_arguments('-DGLAVA_GLFW', language: 'c')
+  add_project_arguments('-DGLAVA_GLFW', language: ['cpp', 'c'])
   glava_dependencies += cc.find_library('glfw')
 endif
 
 if not get_option('disable_glx')
-  add_project_arguments('-DGLAVA_GLX', language: 'c')
+  add_project_arguments('-DGLAVA_GLX', language: ['cpp', 'c'])
   glava_dependencies += cc.find_library('Xrender')
 endif
 
 if get_option('standalone')
-  add_project_arguments('-DGLAVA_STANDALONE', language: 'c')
+  add_project_arguments('-DGLAVA_STANDALONE', language: ['cpp', 'c'])
 endif
 
 resource_dir = get_option('resource_install_dir')
@@ -73,9 +73,16 @@ add_project_arguments(
   '-DGLAVA_VERSION="' + glava_version + '"',
   '-DSHADER_INSTALL_PATH="' + shader_dir + '/glava"',
   '-DGLAVA_RESOURCE_PATH="' + resource_dir + '/resources"',
-  '-I/usr/include/obs',
-  '-fvisibility=hidden',
-  language: 'c')
+  # todo: add back
+  # '-fvisibility=hidden',
+  language: ['cpp', 'c'])
+
+glfft = static_library(
+  'glfft',
+  sources: run_command('find', 'glfft', '-type', 'f', '-name', '*.cpp', '-print')
+           .stdout().strip().split('\n'),
+  c_args: ['-std=c++11'],
+  dependencies: [ cc.find_library('dl') ])
 
 libglava = shared_library(
   'glava',
@@ -88,7 +95,7 @@ executable(
   'glava',
   sources:   'glava-cli/cli.c',
   link_with: libglava,
-  c_args:    '-I' + meson.source_root() + '/glava',
+  c_args:    ['-I' + meson.source_root() + '/glava', '-std=c++11'],
   install:   true)
 
 if not get_option('disable_config')
@@ -180,6 +187,7 @@ if not get_option('disable_obs')
     install_dir: get_option('obs_plugin_install_dir'),
     sources:     'glava-obs/entry.c',
     link_with:   libglava,
+    c_args:      '-I/usr/include/obs',
     dependencies: [
 	  dependency('threads'),
 	  cc.find_library('GL'),
