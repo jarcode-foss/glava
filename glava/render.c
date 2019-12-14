@@ -2214,7 +2214,7 @@ bool rd_update(struct glava_renderer* r, float* lb, float* rb, size_t bsz, bool 
                            transformations in-place using a single texture buffer.
                            Without this, we would need to double-buffer our textures
                            and perform pointless copies. */
-                        glTextureBarrierNV();
+                        if (glTextureBarrierNV) glTextureBarrierNV();
                         
                         /* Apply gravity */
                         glUseProgram(gl->gr_prog);
