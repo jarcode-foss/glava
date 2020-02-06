@@ -34,7 +34,7 @@ Note that versions since `2.0` use Meson for the build system, although the `Mak
 **Additional compile time requirements:**
 
 - Meson
-- OBS (disable with `-Ddisable-obs=true`)
+- OBS (disable with `-Ddisable_obs=true`)
 
 **Optional requirements:**
 
