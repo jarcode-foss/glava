@@ -76,8 +76,8 @@ static volatile bool reload = false;
 
 __attribute__((noreturn, visibility("default"))) void glava_return_builtin(void) { exit(EXIT_SUCCESS); }
 __attribute__((noreturn, visibility("default"))) void glava_abort_builtin (void) { exit(EXIT_FAILURE); }
-__attribute__((noreturn, visibility("default"))) void (*glava_return)     (void) = glava_return_builtin;
-__attribute__((noreturn, visibility("default"))) void (*glava_abort)      (void) = glava_abort_builtin;
+__attribute__((noreturn, visibility("default"))) static void (*glava_return)     (void) = glava_return_builtin;
+__attribute__((noreturn, visibility("default"))) static void (*glava_abort)      (void) = glava_abort_builtin;
 
 /* Copy installed shaders/configuration from the installed location
    (usually /etc/xdg). Modules (folders) will be linked instead of
