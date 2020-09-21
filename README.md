@@ -84,7 +84,7 @@ GLava aims to be compatible with _most_ EWMH compliant window managers. Below is
 | spectrwm | ![-](https://placehold.it/15/118932/000000?text=+) | Defaults to unmanaged
 | EXWM | ![-](https://placehold.it/15/f03c15/000000?text=+) | EXWM does not have a desktop, and forces window decorations
 | Enlightenment | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
-| Xmonad | ![-](https://placehold.it/15/1589F0/000000?text=+) | Needs testing
+| Xmonad | ![-](https://placehold.it/15/118932/000000?text=+) | No issues after enabling ewmh hints via `XMonad.Hooks.EwmhDesktops.ewmh`
 | Any non EWMH-compliant WM | ![-](https://placehold.it/15/f03c15/000000?text=+) | Window types and hints will not work if the window manager does not support the EWMH standards.
 
 Note that some WMs listed without issues have specific overrides when using the `--desktop` flag. See `shaders/env_*.glsl` files for details.
