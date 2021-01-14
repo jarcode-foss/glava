@@ -14,8 +14,8 @@ struct glava_renderer;
 /* External API */
 
 typedef struct glava_renderer* volatile glava_handle;
-__attribute__((noreturn, visibility("default"))) void (*glava_abort)            (void);
-__attribute__((noreturn, visibility("default"))) void (*glava_return)           (void);
+__attribute__((noreturn, visibility("default"))) extern void (*glava_abort)            (void);
+__attribute__((noreturn, visibility("default"))) extern void (*glava_return)           (void);
 __attribute__((visibility("default")))           void glava_assign_external_ctx (void* ctx);
 __attribute__((visibility("default")))           void glava_entry               (int argc, char** argv, glava_handle* ret);
 __attribute__((visibility("default")))           void glava_terminate           (glava_handle* ref);
