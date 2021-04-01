@@ -6,11 +6,11 @@
 static glava_handle handle;
 
 static void handle_term  (int _) {
-    printf("Interrupt recieved, closing...\n");
+    printf("Interrupt received, closing...\n");
     glava_terminate(&handle);
 }
 static void handle_reload(int _) {
-    printf("User signal recieved, reloading...\n");
+    printf("User signal received, reloading...\n");
     glava_reload(&handle);
 }
 
