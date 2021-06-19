@@ -25,6 +25,7 @@
 #include <functional>
 #include <cstddef>
 #include <cstdlib>
+#include <stdexcept>
 #include <string>
 #include <cstring>
 #include <memory>
