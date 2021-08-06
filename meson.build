@@ -2,7 +2,7 @@ project(
   'glava',
   ['c', 'cpp'],
   version: run_command('git', 'describe', '--tags').stdout().strip(),
-  default_options:['buildtype=release', 'strip=true', 'optimization=2'])
+  default_options:['buildtype=release', 'strip=true', 'optimization=2', 'cpp_std=c++11'])
 
 cc = meson.get_compiler('c')
 
@@ -73,30 +73,30 @@ add_project_arguments(
   '-DGLAVA_VERSION="' + glava_version + '"',
   '-DSHADER_INSTALL_PATH="' + shader_dir + '/glava"',
   '-DGLAVA_RESOURCE_PATH="' + resource_dir + '/resources"',
-  # todo: add back
-  # '-fvisibility=hidden',
   language: ['cpp', 'c'])
 
 glfft = static_library(
   'glfft',
   sources: run_command('find', 'glfft', '-type', 'f', '-name', '*.cpp', '-print')
            .stdout().strip().split('\n'),
-  c_args: ['-std=c++11'],
-  dependencies: [ cc.find_library('dl', required: false) ])
+  dependencies: [ cc.find_library('dl', required: false) ],
+  gnu_symbol_visibility: 'hidden')
 
 libglava = shared_library(
   'glava',
   sources: run_command('find', 'glava', '-type', 'f', '-name', '*.c', '-print')
            .stdout().strip().split('\n'),
   dependencies: glava_dependencies,
-  install:      true)
+  install:      true,
+  gnu_symbol_visibility: 'hidden')
 
 executable(
   'glava',
   sources:   'glava-cli/cli.c',
   link_with: libglava,
-  c_args:    ['-I' + meson.source_root() + '/glava', '-std=c++11'],
-  install:   true)
+  include_directories: include_directories('glava'),
+  install:   true,
+  gnu_symbol_visibility: 'hidden')
 
 if get_option('config-tool')
   
@@ -160,7 +160,8 @@ if get_option('config-tool')
     dependencies: [
 	  cc.find_library('X11'),
       cc.find_library(lua_impl + lua_ver)
-    ])
+    ],
+    gnu_symbol_visibility: 'hidden')
   
   # Local glava-config environment symlink for standalone execution
   if get_option('standalone')
@@ -193,7 +194,8 @@ if get_option('obs')
       cc.find_library('X11'),
       dependency('libobs'),
       cc.find_library('dl', required: false)
-    ])
+    ],
+    gnu_symbol_visibility: 'hidden')
 endif
 
 install_subdir('shaders/glava', install_dir: shader_dir)
