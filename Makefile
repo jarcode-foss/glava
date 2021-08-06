@@ -6,7 +6,7 @@ export CFLAGS
 
 BUILD_DIR = build
 
-MESON_CONF = $(BUILD_DIR) -Ddisable_obs=true -Ddisable_config=true --prefix /usr
+MESON_CONF = $(BUILD_DIR) -Dobs=false -Dconfig-tool=false --prefix /usr
 
 # Support assigning standalone/debug builds as the old Makefile did, otherwise complain
 
