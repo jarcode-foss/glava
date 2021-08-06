@@ -34,11 +34,11 @@ Note that versions since `2.0` use Meson for the build system, although the `Mak
 **Additional compile time requirements:**
 
 - Meson
-- OBS (disable with `-Ddisable_obs=true`)
+- OBS (disable with `-Dobs=false`)
 
 **Optional requirements:**
 
-- GLFW 3.1+ (optional, enable with `-Denable_glfw=true`)
+- GLFW 3.1+ (optional, enable with `-Dglfw=true`)
 
 **Ubuntu/Debian users:** the following command ensures you have all the needed packages and headers to compile GLava with the default feature set:
 ```bash

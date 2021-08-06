@@ -1,14 +1,14 @@
-option('enable_glfw', type: 'boolean', value: false,
+option('glfw', type: 'boolean', value: false,
        description: 'Enable legacy GLFW backend')
-option('disable_glx', type: 'boolean', value: false,
-       description: 'Disable GLX backend')
+option('glx', type: 'boolean', value: true,
+       description: 'Enable GLX backend')
 option('standalone', type: 'boolean', value: false,
        description: 'Configure build to run without installation')
 option('glad', type: 'boolean', value: false,
        description: 'Download and build GLAD headers (non-reproducable)')
-option('disable_obs', type: 'boolean', value: false,
-       description: 'Disable OBS Studio plugin support')
-option('disable_config', type: 'boolean', value: true,
+option('obs', type: 'boolean', value: true,
+       description: 'Enable OBS Studio plugin support')
+option('config-tool', type: 'boolean', value: false,
        description: 'Skip building GLava GTK+ configuration tool')
 option('shader_install_dir', type: 'string', value: '/etc/xdg',
        description: 'GLSL config/module system install directory')

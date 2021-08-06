@@ -50,12 +50,12 @@ if host_machine.system() == 'darwin'
   # shader_dir = '/Library/glava/'
 endif
 
-if get_option('enable_glfw')
+if get_option('glfw')
   add_project_arguments('-DGLAVA_GLFW', language: ['cpp', 'c'])
   glava_dependencies += cc.find_library('glfw')
 endif
 
-if not get_option('disable_glx')
+if get_option('glx')
   add_project_arguments('-DGLAVA_GLX', language: ['cpp', 'c'])
   glava_dependencies += cc.find_library('Xrender')
 endif
@@ -98,7 +98,7 @@ executable(
   c_args:    ['-I' + meson.source_root() + '/glava', '-std=c++11'],
   install:   true)
 
-if not get_option('disable_config')
+if get_option('config-tool')
   
   # Generator and target for lua objects used by `glava-config`.
   # This has been written such that ninja can detect when sources
@@ -180,7 +180,7 @@ if not get_option('disable_config')
   endif
 endif
 
-if not get_option('disable_obs')
+if get_option('obs')
   shared_library(
     'glava-obs',
 	install:     true,
