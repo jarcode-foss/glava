@@ -20,10 +20,10 @@ endif
 
 glava_dependencies = [
   dependency('threads'),
-  cc.find_library('pulse'),
-  cc.find_library('pulse-simple'),
-  cc.find_library('dl'),
-  cc.find_library('m'),
+  dependency('libpulse'),
+  dependency('libpulse-simple'),
+  cc.find_library('dl', required: false),
+  cc.find_library('m', required: false),
   cc.find_library('X11'),
   cc.find_library('Xext')
 ]
@@ -52,7 +52,7 @@ endif
 
 if get_option('glfw')
   add_project_arguments('-DGLAVA_GLFW', language: ['cpp', 'c'])
-  glava_dependencies += cc.find_library('glfw')
+  glava_dependencies += dependency('glfw3')
 endif
 
 if get_option('glx')
@@ -82,7 +82,7 @@ glfft = static_library(
   sources: run_command('find', 'glfft', '-type', 'f', '-name', '*.cpp', '-print')
            .stdout().strip().split('\n'),
   c_args: ['-std=c++11'],
-  dependencies: [ cc.find_library('dl') ])
+  dependencies: [ cc.find_library('dl', required: false) ])
 
 libglava = shared_library(
   'glava',
@@ -187,14 +187,13 @@ if get_option('obs')
     install_dir: get_option('obs_plugin_install_dir'),
     sources:     'glava-obs/entry.c',
     link_with:   libglava,
-    c_args:      '-I/usr/include/obs',
     dependencies: [
-	  dependency('threads'),
-	  cc.find_library('GL'),
-	  cc.find_library('X11'),
-      cc.find_library('obs'),
-	  cc.find_library('dl')
-	])
+      dependency('threads'),
+      dependency('GL'),
+      cc.find_library('X11'),
+      dependency('libobs'),
+      cc.find_library('dl', required: false)
+    ])
 endif
 
 install_subdir('shaders/glava', install_dir: shader_dir)
