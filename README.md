@@ -52,6 +52,7 @@ Some distributions have a package for `glava`. If your distribution is not liste
 - Arch Linux [`glava` package](https://www.archlinux.org/packages/community/x86_64/glava/), or [`glava-git` AUR package](https://aur.archlinux.org/packages/glava-git/)
 - NixOS [package](https://github.com/NixOS/nixpkgs/blob/release-18.09/pkgs/applications/misc/glava/default.nix)
 - openSUSE [package](https://build.opensuse.org/package/show/X11:Utilities/glava)
+- Fedora [package](https://packages.fedoraproject.org/pkgs/glava/glava/)
 
 ## [Configuration](https://github.com/jarcode-foss/glava/wiki)
 
