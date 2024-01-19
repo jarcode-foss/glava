@@ -30,6 +30,7 @@ extern "C" {
     #include <stdlib.h>
     #include <string.h>
     #include <error.h>
+    #include <cstdio>
 }
 
 #ifndef GLFFT_GLSL_LANG_STRING
@@ -65,137 +66,137 @@ namespace GLFFT
 
     class GLTexture : public Texture
     {
-        public:
-            friend class GLContext;
-            friend class GLCommandBuffer;
-            ~GLTexture();
+    public:
+        friend class GLContext;
+        friend class GLCommandBuffer;
+        ~GLTexture();
 
-            GLTexture(GLuint obj) : name(obj), owned(false) {}
-            GLuint get() const { return name; }
+        GLTexture(GLuint obj) : name(obj), owned(false) {}
+        GLuint get() const { return name; }
 
-        private:
-            GLTexture(const void *initial_data,
-                    unsigned width, unsigned height,
-                    Format format);
-            GLuint name;
-            bool owned = true;
+    private:
+        GLTexture(const void *initial_data,
+            unsigned width, unsigned height,
+            Format format);
+        GLuint name;
+        bool owned = true;
     };
 
     // Not really used by test and bench code, but can be useful for API users.
     class GLSampler : public Sampler
     {
-        public:
-            friend class GLContext;
-            friend class GLCommandBuffer;
-            ~GLSampler();
+    public:
+        friend class GLContext;
+        friend class GLCommandBuffer;
+        ~GLSampler();
 
-            GLSampler(GLuint obj) : name(obj) {}
-            GLuint get() const { return name; }
+        GLSampler(GLuint obj) : name(obj) {}
+        GLuint get() const { return name; }
 
-        private:
-            GLuint name;
+    private:
+        GLuint name;
     };
 
     class GLBuffer : public Buffer
     {
-        public:
-            friend class GLContext;
-            friend class GLCommandBuffer;
-            ~GLBuffer();
+    public:
+        friend class GLContext;
+        friend class GLCommandBuffer;
+        ~GLBuffer();
 
-            GLBuffer(GLuint obj) : name(obj), owned(false) {}
-            GLuint get() const { return name; }
+        GLBuffer(GLuint obj) : name(obj), owned(false) {}
+        GLuint get() const { return name; }
 
-        private:
-            GLuint name;
-            GLBuffer(const void *initial_data, size_t size, AccessMode access);
-            bool owned = true;
+    private:
+        GLuint name;
+        GLBuffer(const void *initial_data, size_t size, AccessMode access);
+        bool owned = true;
     };
 
     class GLProgram : public Program
     {
-        public:
-            friend class GLContext;
-            friend class GLCommandBuffer;
-            ~GLProgram();
+    public:
+        friend class GLContext;
+        friend class GLCommandBuffer;
+        ~GLProgram();
 
-            GLuint get() const { return name; }
+        GLuint get() const { return name; }
 
-        private:
-            GLProgram(GLuint name);
-            GLuint name;
+    private:
+        GLProgram(GLuint name);
+        GLuint name;
     };
 
     class GLCommandBuffer : public CommandBuffer
     {
-        public:
-            ~GLCommandBuffer() = default;
+    public:
+        ~GLCommandBuffer() = default;
 
-            void set_constant_data_buffers(const GLuint *ubos, unsigned count)
-            {
-                this->ubos = ubos;
-                ubo_index = 0;
-                ubo_count = count;
-            }
+        void set_constant_data_buffers(const GLuint *ubos, unsigned count)
+        {
+            this->ubos = ubos;
+            ubo_index = 0;
+            ubo_count = count;
+        }
 
-            void bind_program(Program *program) override;
-            void bind_storage_texture(unsigned binding, Texture *texture, Format format) override;
-            void bind_texture(unsigned binding, Texture *texture) override;
-            void bind_sampler(unsigned binding, Sampler *sampler) override;
-            void bind_storage_buffer(unsigned binding, Buffer *texture) override;
-            void bind_storage_buffer_range(unsigned binding, size_t offset, size_t length, Buffer *texture) override;
-            void dispatch(unsigned x, unsigned y, unsigned z) override;
+        void bind_program(Program *program) override;
+        void bind_storage_texture(unsigned binding, Texture *texture, Format format) override;
+        void bind_texture(unsigned binding, Texture *texture) override;
+        void bind_sampler(unsigned binding, Sampler *sampler) override;
+        void bind_storage_buffer(unsigned binding, Buffer *texture) override;
+        void bind_storage_buffer_range(unsigned binding, size_t offset, size_t length, Buffer *texture) override;
+        void dispatch(unsigned x, unsigned y, unsigned z) override;
 
-            void barrier(Buffer *buffer) override;
-            void barrier(Texture *buffer) override;
-            void barrier() override;
+        void barrier(Buffer *buffer) override;
+        void barrier(Texture *buffer) override;
+        void barrier() override;
 
-            void push_constant_data(unsigned binding, const void *data, size_t size) override;
+        void push_constant_data(unsigned binding, const void *data, size_t size) override;
 
-        private:
-            const GLuint *ubos = nullptr;
-            unsigned ubo_count = 0;
-            unsigned ubo_index = 0;
+    private:
+        const GLuint *ubos = nullptr;
+        unsigned ubo_count = 0;
+        unsigned ubo_index = 0;
     };
 
     class GLContext : public Context
     {
-        public:
-            ~GLContext();
+    public:
+        ~GLContext();
 
-            std::unique_ptr<Texture> create_texture(const void *initial_data,
-                    unsigned width, unsigned height,
-                    Format format) override;
+        std::unique_ptr<Texture> create_texture(const void *initial_data,
+            unsigned width, unsigned height,
+            Format format) override;
 
-            std::unique_ptr<Buffer> create_buffer(const void *initial_data, size_t size, AccessMode access) override;
-            std::unique_ptr<Program> compile_compute_shader(const char *source) override;
+        std::unique_ptr<Buffer> create_buffer(const void *initial_data, size_t size, AccessMode access) override;
+        std::unique_ptr<Program> compile_compute_shader(const char *source) override;
 
-            CommandBuffer* request_command_buffer() override;
-            void submit_command_buffer(CommandBuffer *cmd) override;
-            void wait_idle() override;
+        CommandBuffer* request_command_buffer() override;
+        void submit_command_buffer(CommandBuffer *cmd) override;
+        void wait_idle() override;
 
-            const char* get_renderer_string() override;
-            void log(const char *fmt, ...) override;
-            double get_time() override;
+        const char* get_renderer_string() override;
+        void log(const char *fmt, ...) override;
+        double get_time() override;
 
-            unsigned get_max_work_group_threads() override;
+        unsigned get_max_work_group_threads() override;
 
-            const void* map(Buffer *buffer, size_t offset, size_t size) override;
-            void unmap(Buffer *buffer) override;
+        const void* map(Buffer *buffer, size_t offset, size_t size) override;
+        void unmap(Buffer *buffer) override;
 
             // Not supported in GLES, so override when creating platform-specific context.
-            bool supports_texture_readback() override { return false; }
-            void read_texture(void*, Texture*, Format) override {}
+        bool supports_texture_readback() override { return false; }
+        void read_texture(void*, Texture*, Format) override {}
 
-        protected:
-            void teardown();
+    protected:
+        void teardown();
 
-        private:
-            static GLCommandBuffer static_command_buffer;
+    private:
+        static GLCommandBuffer static_command_buffer;
 
-            enum { MaxBuffersRing = 256 };
-            GLuint ubos[MaxBuffersRing];
-            bool initialized_ubos = false;
+        enum { MaxBuffersRing = 256 };
+        GLuint ubos[MaxBuffersRing];
+        bool initialized_ubos = false;
     };
 
     static inline GLenum convert(AccessMode mode)
