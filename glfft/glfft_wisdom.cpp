@@ -20,6 +20,7 @@
 #include "glfft_interface.hpp"
 #include "glfft.hpp"
 #include <utility>
+#include <stdexcept>
 
 /* GLAVA NOTICE: automatic wisdom serialization support may be added at a late date */
 #ifdef GLFFT_SERIALIZATION
@@ -82,9 +83,9 @@ FFTStaticWisdom FFTWisdom::get_static_wisdom_from_renderer(Context *context)
 }
 
 pair<double, FFTOptions::Performance> FFTWisdom::learn_optimal_options(
-        Context *context, unsigned Nx, unsigned Ny, unsigned radix,
-        Mode mode, Target input_target, Target output_target,
-        const FFTOptions::Type &type)
+    Context *context, unsigned Nx, unsigned Ny, unsigned radix,
+    Mode mode, Target input_target, Target output_target,
+    const FFTOptions::Type &type)
 {
     WisdomPass pass = {
         {
@@ -110,8 +111,8 @@ pair<double, FFTOptions::Performance> FFTWisdom::learn_optimal_options(
 }
 
 void FFTWisdom::learn_optimal_options_exhaustive(Context *context,
-        unsigned Nx, unsigned Ny,
-        Type type, Target input_target, Target output_target, const FFTOptions::Type &fft_type)
+    unsigned Nx, unsigned Ny,
+    Type type, Target input_target, Target output_target, const FFTOptions::Type &fft_type)
 {
     bool learn_resolve = type == ComplexToReal || type == RealToComplex;
     Mode vertical_mode = type == ComplexToComplexDual ? VerticalDual : Vertical;
@@ -207,14 +208,14 @@ void FFTWisdom::learn_optimal_options_exhaustive(Context *context,
 }
 
 double FFTWisdom::bench(Context *context, Resource *output, Resource *input,
-        const WisdomPass &pass, const FFTOptions &options, const shared_ptr<ProgramCache> &cache) const
+    const WisdomPass &pass, const FFTOptions &options, const shared_ptr<ProgramCache> &cache) const
 {
     FFT fft(context, pass.pass.Nx, pass.pass.Ny, pass.pass.radix, pass.pass.input_target != SSBO ? 1 : pass.pass.radix,
-            pass.pass.mode, pass.pass.input_target, pass.pass.output_target,
-            cache, options);
+        pass.pass.mode, pass.pass.input_target, pass.pass.output_target,
+        cache, options);
 
     return fft.bench(context,
-            output, input, params.warmup, params.iterations, params.dispatches, params.timeout);
+        output, input, params.warmup, params.iterations, params.dispatches, params.timeout);
 }
 
 static inline unsigned mode_to_size(Mode mode)
@@ -225,10 +226,10 @@ static inline unsigned mode_to_size(Mode mode)
         case HorizontalDual:
         case ResolveRealToComplex:
         case ResolveComplexToReal:
-            return 4;
+        return 4;
 
         default:
-            return 2;
+        return 2;
     }
 }
 
@@ -256,21 +257,21 @@ std::pair<double, FFTOptions::Performance> FFTWisdom::study(Context *context, co
         {
             case VerticalDual:
             case HorizontalDual:
-                format = FormatR32G32B32A32Float;
-                break;
+            format = FormatR32G32B32A32Float;
+            break;
 
             case Vertical:
             case Horizontal:
-                format = FormatR32G32Float;
-                break;
+            format = FormatR32G32Float;
+            break;
 
             case ResolveComplexToReal:
-                format = FormatR32G32Float;
-                Nx *= 2;
-                break;
+            format = FormatR32G32Float;
+            Nx *= 2;
+            break;
 
             default:
-                throw logic_error("Invalid input mode.\n");
+            throw logic_error("Invalid input mode.\n");
         }
 
         input = context->create_texture(tmp.data(), Nx, Ny, format);
@@ -290,21 +291,21 @@ std::pair<double, FFTOptions::Performance> FFTWisdom::study(Context *context, co
         {
             case VerticalDual:
             case HorizontalDual:
-                format = FormatR32G32B32A32Float;
-                break;
+            format = FormatR32G32B32A32Float;
+            break;
 
             case Vertical:
             case Horizontal:
-                format = FormatR32G32Float;
-                break;
+            format = FormatR32G32Float;
+            break;
 
             case ResolveRealToComplex:
-                format = FormatR32G32Float;
-                Nx *= 2;
-                break;
+            format = FormatR32G32Float;
+            Nx *= 2;
+            break;
 
             default:
-                throw logic_error("Invalid output mode.\n");
+            throw logic_error("Invalid output mode.\n");
         }
 
         output = context->create_texture(nullptr, Nx, Ny, format);
@@ -333,8 +334,8 @@ std::pair<double, FFTOptions::Performance> FFTWisdom::study(Context *context, co
         }
 
         bool fair_shared_banked = (pass.pass.radix < 16) ||
-                                  (static_wisdom.shared_banked == FFTStaticWisdom::DontCare) ||
-                                  (shared_banked == static_wisdom.shared_banked);
+        (static_wisdom.shared_banked == FFTStaticWisdom::DontCare) ||
+        (shared_banked == static_wisdom.shared_banked);
 
         if (!fair_shared_banked)
         {
@@ -368,13 +369,13 @@ std::pair<double, FFTOptions::Performance> FFTWisdom::study(Context *context, co
                     unsigned workgroup_size  = workgroup_size_x * workgroup_size_y;
 
                     unsigned min_workgroup_size = pass.pass.radix >= 16 ? static_wisdom.min_workgroup_size_shared :
-                                                                          static_wisdom.min_workgroup_size;
+                    static_wisdom.min_workgroup_size;
 
                     unsigned min_vector_size = test_dual ? max(4u, static_wisdom.min_vector_size) : static_wisdom.min_vector_size;
                     unsigned max_vector_size = test_dual ? max(4u, static_wisdom.max_vector_size) : static_wisdom.max_vector_size;
 
                     bool fair_workgroup_size = workgroup_size <= static_wisdom.max_workgroup_size &&
-                                               workgroup_size >= min_workgroup_size;
+                    workgroup_size >= min_workgroup_size;
                     if (pass.pass.Ny == 1 && workgroup_size_y > 1)
                     {
                         fair_workgroup_size = false;
@@ -387,7 +388,7 @@ std::pair<double, FFTOptions::Performance> FFTWisdom::study(Context *context, co
 
                     // If we have dual mode, accept vector sizes larger than max.
                     bool fair_vector_size = test_resolve || (vector_size <= max_vector_size &&
-                                                             vector_size >= min_vector_size);
+                     vector_size >= min_vector_size);
 
                     if (!fair_vector_size)
                     {
@@ -446,7 +447,7 @@ std::pair<double, FFTOptions::Performance> FFTWisdom::study(Context *context, co
 }
 
 const pair<const WisdomPass, FFTOptions::Performance>* FFTWisdom::find_optimal_options(unsigned Nx, unsigned Ny, unsigned radix,
-        Mode mode, Target input_target, Target output_target, const FFTOptions::Type &type) const
+    Mode mode, Target input_target, Target output_target, const FFTOptions::Type &type) const
 {
     WisdomPass pass = {
         {
@@ -461,7 +462,7 @@ const pair<const WisdomPass, FFTOptions::Performance>* FFTWisdom::find_optimal_o
 }
 
 const FFTOptions::Performance& FFTWisdom::find_optimal_options_or_default(unsigned Nx, unsigned Ny, unsigned radix,
-        Mode mode, Target input_target, Target output_target, const FFTOptions &base_options) const
+    Mode mode, Target input_target, Target output_target, const FFTOptions &base_options) const
 {
     WisdomPass pass = {
         {
